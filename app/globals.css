@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Tailwind v4: dark mode berbasis class ".dark" pada <html>, bukan
+   prefers-color-scheme OS — supaya toggle tema dari Zustand (Client UI
+   State, Modul 7) benar-benar mengendalikan tampilan. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/**
+ * Mode cetak (dipakai tombol "Cetak / Simpan PDF" di halaman laporan,
+ * lihat components/ui/export-buttons.tsx). Sidebar/header disembunyikan
+ * (kelas print:hidden Tailwind di komponen terkait), dan seluruh halaman
+ * dipaksa warna terang terlepas dari dark mode yang sedang aktif di layar
+ * — dokumen cetak/PDF tidak seharusnya berlatar gelap.
+ */
+@media print {
+  html.dark {
+    color-scheme: light;
+  }
+  html.dark body {
+    background: #ffffff;
+    color: #0f172a;
+  }
+}

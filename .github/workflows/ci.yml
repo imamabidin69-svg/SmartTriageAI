@@ -1,0 +1,49 @@
+name: CI
+
+# Bab M: DevOps Front-End & CI/CD Pipelines. Deployment sesungguhnya ke
+# Vercel ditangani integrasi native GitHub milik Vercel (auto-deploy saat
+# push ke main), BUKAN oleh workflow ini - workflow ini murni Quality Gate
+# yang wajib lolos sebelum kode dianggap layak: format/lint (Biome), type
+# check (tsc strict), build produksi, dan scan analisis statis SonarCloud.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality-gate:
+    name: Lint, Type-check, Build & SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # riwayat penuh - dibutuhkan SonarCloud untuk analisis blame/duplikasi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Biome check (lint + format)
+        run: npx biome check ./app ./components ./lib ./hooks
+
+      - name: TypeScript check (strict)
+        run: npx tsc --noEmit
+
+      - name: Build produksi
+        run: npm run build
+        env:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
