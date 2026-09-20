@@ -19,7 +19,6 @@ export const cardVariants = cva("rounded-xl border bg-white dark:bg-slate-800 sh
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement>, VariantProps<typeof cardVariants> {}
 
-/** Card - Server Component (tanpa "use client"): kontainer presentasional generik. */
 export function Card({ className, emphasis, padding, ...props }: CardProps) {
   return <div className={`${cardVariants({ emphasis, padding })} ${className ?? ""}`} {...props} />;
 }

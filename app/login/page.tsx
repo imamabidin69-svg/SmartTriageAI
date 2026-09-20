@@ -11,14 +11,6 @@ interface LoginPageProps {
   searchParams: Promise<{ auth_error?: string }>;
 }
 
-/**
- * app/login/page.tsx - Server Component. Hanya bagian form yang interaktif
- * (LoginFormClient) yang dibatasi "use client"; struktur halaman, heading,
- * dan pesan bantuan tetap dirender di server (zero JS tambahan untuk itu).
- *
- * Halaman ini SENGAJA tidak punya varian dark: sama sekali — satu tampilan
- * tetap untuk semua orang (lihat ForcePublicAppearance untuk alasannya).
- */
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { auth_error } = await searchParams;
 

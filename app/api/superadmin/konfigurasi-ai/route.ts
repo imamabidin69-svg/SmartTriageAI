@@ -3,7 +3,6 @@ import { getAiConfig, setAiConfig } from "@/lib/data/ai-config-store";
 import { UpdateAiConfigPayloadSchema } from "@/lib/schemas/ai-config.schema";
 import { getSession } from "@/lib/session";
 
-/** GET /api/superadmin/konfigurasi-ai - konfigurasi model AI saat ini (lintas-faskes). */
 export async function GET() {
   const session = await getSession();
   if (!session) {
@@ -15,12 +14,6 @@ export async function GET() {
   return NextResponse.json(getAiConfig(), { status: 200 });
 }
 
-/**
- * PATCH /api/superadmin/konfigurasi-ai - ubah ambang batas & versi model.
- * Perubahan di sini LANGSUNG memengaruhi lib/classify.ts pada submit
- * triase berikutnya (bukan cuma tampilan) — lihat getAiConfig() yang
- * dipanggil classify() setiap kali dijalankan.
- */
 export async function PATCH(request: Request) {
   const session = await getSession();
   if (!session) {

@@ -10,12 +10,6 @@ const FILTERS: Array<{ value: RiskFilter; label: string }> = [
   { value: "rendah", label: "Rendah" },
 ];
 
-/**
- * AntreanFilterClient - Client UI State murni (Modul 7, Bab B). Pilihan
- * filter TIDAK memicu fetch ulang ke server; ia hanya menyaring data yang
- * sudah ada di cache TanStack Query (Server State) di sisi klien —
- * pemisahan tegas dua kategori state sesuai tema utama Modul 7.
- */
 export function AntreanFilterClient() {
   const selectedRiskFilter = useUIStore((s) => s.selectedRiskFilter);
   const setSelectedRiskFilter = useUIStore((s) => s.setSelectedRiskFilter);

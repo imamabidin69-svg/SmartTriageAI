@@ -1,15 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ButtonHTMLAttributes } from "react";
 
-/**
- * Button - komponen headless bergaya shadcn/ui. TIDAK diberi "use client":
- * komponen ini murni menerima props dan mengembalikan elemen <button>, tanpa
- * useState/useEffect/event handler internal — sehingga tetap aman dirender
- * sebagai bagian dari Server Component manapun (event handler seperti
- * onClick tetap bisa DITERUSKAN sebagai props dari Client Component
- * pemanggil; hanya EKSEKUSI event listener yang membutuhkan client runtime,
- * bukan deklarasi komponennya).
- */
 export const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium " +
     "transition-colors focus-visible:outline-none focus-visible:ring-2 " +

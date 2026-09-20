@@ -5,13 +5,6 @@ import { hashPassword } from "@/lib/password";
 import { ResolveResetRequestPayloadSchema } from "@/lib/schemas/password-reset.schema";
 import { getSession } from "@/lib/session";
 
-/**
- * PATCH /api/admin/password-resets/[id] - Admin Faskes menetapkan password
- * baru untuk staf yang mengajukan permintaan, lalu menandai permintaan
- * selesai. Dua langkah ini dijalankan sebagai satu aksi tunggal dari sisi
- * Admin (form "Reset Password" di StaffManagementClient) supaya alurnya
- * sesederhana mungkin bagi Admin yang menindaklanjuti manual.
- */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) {

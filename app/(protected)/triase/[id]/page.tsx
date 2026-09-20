@@ -12,13 +12,6 @@ interface TriaseDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-/**
- * generateMetadata() - Metadata API DINAMIS (Modul 6, Bab F). Judul tab
- * browser memuat nama pasien sungguhan, diambil lewat fetchTriageByIdServer()
- * (HTTP ke /api/triase/[id] milik sendiri — lihat lib/server-fetch.ts)
- * SEBELUM halaman dirender — baik untuk SEO/keterbacaan tab maupun
- * accessibility (screen reader mengumumkan judul halaman yang bermakna).
- */
 export async function generateMetadata({ params }: TriaseDetailPageProps): Promise<Metadata> {
   const { id } = await params;
   const record = await fetchTriageByIdServer(id).catch(() => null);
@@ -32,7 +25,7 @@ export async function generateMetadata({ params }: TriaseDetailPageProps): Promi
 
 export default async function TriaseDetailPage({ params }: TriaseDetailPageProps) {
   const { id } = await params;
-  const session = await getSession(); // dijamin non-null oleh (protected)/layout.tsx; dibaca ulang di sini untuk memperoleh prop RBAC
+  const session = await getSession();
   if (!session) {
     redirect("/login?auth_error=1");
   }

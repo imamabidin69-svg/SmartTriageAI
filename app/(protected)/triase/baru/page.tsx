@@ -7,20 +7,8 @@ export const metadata: Metadata = {
   description: "Input gejala, keluhan, dan tanda vital pasien untuk diproses sistem klasifikasi AI.",
 };
 
-/**
- * app/(protected)/triase/baru/page.tsx - Server Component. Struktur halaman
- * (heading, deskripsi) dirender di server; hanya form interaktifnya
- * (TriaseFormClient) yang dibatasi "use client".
- *
- * Guard peran: sesuai tabel aktor SRS, hanya Perawat yang berwenang
- * "Input gejala & tanda vital" — DPJ TIDAK berwenang di fungsi ini
- * (wewenangnya ada di validasi/koreksi hasil, bukan input awal). Ini
- * pertahanan lapis kedua di sisi tampilan; penegakan sesungguhnya tetap di
- * Route Handler app/api/triase/route.ts (POST), karena guard di halaman
- * bisa saja terlewat kalau seseorang memanggil API langsung.
- */
 export default async function TriaseBaruPage() {
-  const session = await getSession(); // dijamin non-null oleh (protected)/layout.tsx
+  const session = await getSession();
 
   if (session?.role !== "perawat") {
     return (

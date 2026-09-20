@@ -3,7 +3,6 @@ import { z } from "zod";
 export const JenisKelaminSchema = z.enum(["laki_laki", "perempuan"]);
 export type JenisKelamin = z.infer<typeof JenisKelaminSchema>;
 
-/** Data identitas pasien, terpisah dari data klinis (gejala/tanda vital) yang diisi Perawat saat triase. */
 export const PasienSchema = z.object({
   id: z.string().uuid(),
   nama: z.string().min(1),

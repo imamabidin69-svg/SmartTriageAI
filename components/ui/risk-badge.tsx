@@ -31,7 +31,6 @@ export interface RiskBadgeProps extends VariantProps<typeof riskBadgeVariants> {
   level: RiskLevel;
 }
 
-/** RiskBadge - Server Component (tanpa "use client"): murni presentasional. */
 export function RiskBadge({ level }: RiskBadgeProps) {
   return (
     <span className={riskBadgeVariants({ level })} role="status" aria-label={`Tingkat kegawatan: ${RISK_LABEL[level]}`}>

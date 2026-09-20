@@ -5,13 +5,6 @@ import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ForgotPasswordPayloadSchema } from "@/lib/schemas/triase.schema";
 
-/**
- * ForgotPasswordFormClient - "use client": STUB fungsional. Endpoint yang
- * dipanggil (POST /api/auth/forgot-password) tidak benar-benar mengirim
- * email — lihat komentar di Route Handler-nya untuk alasan lengkap.
- * Perilaku UI (pesan sukses generik, tanpa membocorkan apakah email
- * terdaftar) tetap realistis meniru sistem produksi sungguhan.
- */
 export function ForgotPasswordFormClient() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);

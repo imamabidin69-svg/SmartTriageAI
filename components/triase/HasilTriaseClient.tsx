@@ -12,15 +12,6 @@ const STATUS_LABEL: Record<string, string> = {
   menunggu_review_dokter: "Menunggu Review Dokter",
 };
 
-/**
- * HasilTriaseClient - "use client": useTriaseDetailQuery (Server State,
- * TanStack Query) + useSubmitValidasiMutation. `allowedOverride` diteruskan
- * sebagai PROP dari Server Component pembungkus (bukan dibaca ulang dari
- * cookie di klien) — cookie httpOnly memang sengaja tidak bisa dibaca
- * document.cookie di browser, jadi keputusan RBAC untuk tampilan tetap
- * berasal dari server, walau penegakannya yang sesungguhnya ada di Route
- * Handler (defense-in-depth, Modul 6 Bab G).
- */
 export function HasilTriaseClient({
   idTriase,
   currentUserId,

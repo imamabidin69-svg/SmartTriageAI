@@ -12,7 +12,6 @@ import {
 import { passwordResetsKey, staffKey } from "@/lib/query-keys";
 import type { RegisterStaffPayload, UpdateStaffPayload } from "@/lib/schemas/triase.schema";
 
-/** Server State: daftar staf di faskes Admin yang login. */
 export function useStaffQuery() {
   return useQuery({
     queryKey: staffKey(),
@@ -20,7 +19,6 @@ export function useStaffQuery() {
   });
 }
 
-/** Registrasi staf baru, otomatis invalidasi daftar staf setelah berhasil. */
 export function useCreateStaffMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -31,7 +29,6 @@ export function useCreateStaffMutation() {
   });
 }
 
-/** Aktifkan/nonaktifkan akun staf, otomatis invalidasi daftar staf setelah berhasil. */
 export function useToggleStaffMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -42,7 +39,6 @@ export function useToggleStaffMutation() {
   });
 }
 
-/** Edit info akun staf lain (nama, email, peran), otomatis invalidasi daftar staf setelah berhasil. */
 export function useUpdateStaffMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -53,17 +49,15 @@ export function useUpdateStaffMutation() {
   });
 }
 
-/** Server State: permintaan reset password PENDING di faskes Admin. Di-refetch berkala untuk notifikasi. */
 export function usePendingPasswordResetsQuery(enabled: boolean) {
   return useQuery({
     queryKey: passwordResetsKey(),
     queryFn: fetchPendingPasswordResets,
     enabled,
-    refetchInterval: 30_000, // polling ringan setiap 30 detik supaya badge notifikasi cukup real-time
+    refetchInterval: 30_000,
   });
 }
 
-/** Menyelesaikan permintaan reset (set password baru), invalidasi daftar permintaan setelah berhasil. */
 export function useResolvePasswordResetMutation() {
   const queryClient = useQueryClient();
   return useMutation({

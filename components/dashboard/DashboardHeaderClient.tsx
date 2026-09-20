@@ -19,14 +19,6 @@ const ROLE_LABEL: Record<Session["role"], string> = {
   dinas_kesehatan: "Dinas Kesehatan",
 };
 
-/**
- * DashboardHeaderClient - "use client": berlangganan Zustand (isSidebarOpen,
- * themeMode — Client UI State, Modul 7) dan punya event handler. Dipisah
- * dari nav (DashboardSidebarNavClient) karena keduanya menempati posisi DOM
- * berbeda dalam layout (header full-width di atas, nav jadi kolom kiri).
- * Zustand tidak butuh <Provider>, jadi dua Client Component terpisah ini
- * bebas berlangganan store yang sama tanpa masalah.
- */
 export function DashboardHeaderClient({ session }: { session: Session }) {
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
   const themeMode = useUIStore((s) => s.themeMode);
@@ -40,7 +32,6 @@ export function DashboardHeaderClient({ session }: { session: Session }) {
   const { data: kritisPending } = useKritisWatchQuery(isDpj);
   const kritisCount = kritisPending?.length ?? 0;
 
-  // Sinkronkan Zustand themeMode -> class "dark" pada <html>.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", themeMode === "dark");
   }, [themeMode]);

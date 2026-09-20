@@ -3,11 +3,6 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
-/**
- * error.tsx - Error Boundary per-segmen (konvensi App Router). File ini
- * WAJIB "use client" karena React Error Boundary bergantung pada lifecycle
- * method kelas yang hanya berjalan di klien.
- */
 export default function DashboardError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("Dashboard error:", error);

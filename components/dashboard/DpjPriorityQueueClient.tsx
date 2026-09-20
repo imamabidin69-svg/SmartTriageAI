@@ -5,14 +5,6 @@ import { Card } from "@/components/ui/card";
 import { RiskBadge } from "@/components/ui/risk-badge";
 import { useAntreanQuery } from "@/hooks/useTriaseQueries";
 
-/**
- * DpjPriorityQueueClient - "use client": panel yang HANYA dilihat DPJ,
- * menyaring antrean menjadi kasus yang butuh tindakan DPJ secara spesifik
- * (kritis yang belum divalidasi, atau kasus yang diajukan Perawat untuk
- * ditinjau ulang). Ini pembeda utama tampilan dashboard DPJ dari Perawat —
- * DPJ perlu langsung melihat apa yang menunggu keputusannya, bukan seluruh
- * antrean umum.
- */
 export function DpjPriorityQueueClient() {
   const { data } = useAntreanQuery();
 

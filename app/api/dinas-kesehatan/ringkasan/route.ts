@@ -3,7 +3,6 @@ import { listTriaseAllFaskes } from "@/lib/data/triase-store";
 import { listAllFaskes } from "@/lib/data/user-store";
 import { getSession } from "@/lib/session";
 
-/** GET /api/dinas-kesehatan/ringkasan - agregat statistik triase lintas-faskes (read-only, eksternal). */
 export async function GET() {
   const session = await getSession();
   if (!session) {

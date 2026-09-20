@@ -1,6 +1,6 @@
 # SmartTriage AI
 
-Sistem bantu triase pasien untuk IGD dan Puskesmas. Perawat mencatat gejala dan tanda vital, sistem memberi rekomendasi tingkat kegawatan beserta alasannya, dan Dokter Penanggung Jawab (DPJ) memvalidasi sebelum hasil itu dipakai — khusus kasus kritis, validasi DPJ wajib, tidak bisa disetujui sendiri oleh Perawat.
+Sistem bantu triase pasien untuk IGD dan Puskesmas. Perawat mencatat gejala dan tanda vital, sistem memberi rekomendasi tingkat kegawatan beserta alasannya, dan Dokter Penanggung Jawab (DPJ) memvalidasi sebelum hasil itu dipakai, khusus kasus kritis, validasi DPJ wajib, tidak bisa disetujui sendiri oleh Perawat.
 
 Proyek Tugas Akhir mata kuliah Pemrograman Web, D3 Teknik Informatika Kab. Madiun, Sekolah Vokasi UNS — Imam Abidin (V3925008).
 
@@ -38,9 +38,9 @@ Registrasi akun baru hanya bisa dilakukan Admin Faskes dari dalam sistem, tidak 
 
 ## Arsitektur
 
-Dibangun dengan Next.js App Router — sebagian besar halaman adalah React Server Component yang mengambil data langsung di server, komponen klien dipakai seminimal mungkin hanya untuk bagian yang benar-benar interaktif (form, toggle, tombol aksi). State dipisah tegas: Zustand untuk preferensi tampilan (tema, filter yang dipilih), TanStack Query untuk data dari server (antrean, daftar staf, notifikasi), dengan cache invalidation otomatis tiap kali ada perubahan.
+Dibangun dengan Next.js App Router, sebagian besar halaman adalah React Server Component yang mengambil data langsung di server, komponen klien dipakai seminimal mungkin hanya untuk bagian yang benar-benar interaktif (form, toggle, tombol aksi). State dipisah tegas: Zustand untuk preferensi tampilan (tema, filter yang dipilih), TanStack Query untuk data dari server (antrean, daftar staf, notifikasi), dengan cache invalidation otomatis tiap kali ada perubahan.
 
-Komunikasi data lewat Route Handler (`app/api/**`) sebagai REST API, divalidasi Zod di kedua ujung — skema yang sama dipakai untuk memvalidasi request di server maupun memparse response di klien, jadi kalau bentuk data berubah di satu sisi, TypeScript langsung menandai galat di sisi lain. Satu hal yang perlu diperhatikan kalau mengembangkan lebih lanjut: Route Handler dan Server Component dikompilasi sebagai target terpisah oleh Next.js, jadi keduanya tidak otomatis berbagi state modul in-memory — `lib/server-api.ts` menyiasati ini dengan membuat Server Component memanggil Route Handler lewat HTTP juga, sama seperti komponen klien, supaya Route Handler tetap jadi satu-satunya sumber data yang benar.
+Komunikasi data lewat Route Handler (`app/api/**`) sebagai REST API, divalidasi Zod di kedua ujung, skema yang sama dipakai untuk memvalidasi request di server maupun memparse response di klien, jadi kalau bentuk data berubah di satu sisi, TypeScript langsung menandai galat di sisi lain. Satu hal yang perlu diperhatikan kalau mengembangkan lebih lanjut: Route Handler dan Server Component dikompilasi sebagai target terpisah oleh Next.js, jadi keduanya tidak otomatis berbagi state modul in-memory, `lib/server-api.ts` menyiasati ini dengan membuat Server Component memanggil Route Handler lewat HTTP juga, sama seperti komponen klien, supaya Route Handler tetap jadi satu-satunya sumber data yang benar.
 
 Data triase, akun, dan pasien dipisah per faskes (`faskesId` di tiap record) — admin dan staf satu faskes tidak bisa melihat data faskes lain sama sekali. `tsconfig.json` memakai `strict` dan `noUncheckedIndexedAccess` penuh.
 
@@ -81,4 +81,4 @@ docs/                                   # Dokumen matriks SRS per modul
 
 ## Keterbatasan
 
-Data tersimpan in-memory di server, bukan database sungguhan — reset tiap server di-restart. Konfigurasi model AI (halaman Super Admin) memang benar-benar memengaruhi hasil klasifikasi, tapi asesmen pasien tidak sadar tetap memakai pipeline yang sama dengan input triase biasa, bukan model computer vision terpisah. Content-Security-Policy masih mengizinkan `unsafe-inline` untuk script karena Next.js menyuntikkan skrip hidrasi inline; pengetatan penuh butuh setup nonce per-request. Password staf baru ditampilkan langsung di form (bukan lewat email undangan) — sengaja begitu supaya Admin bisa langsung menyampaikan ke staf terkait.
+Data tersimpan in-memory di server, bukan database sungguhan, reset tiap server di-restart. Konfigurasi model AI (halaman Super Admin) memang benar-benar memengaruhi hasil klasifikasi, tapi asesmen pasien tidak sadar tetap memakai pipeline yang sama dengan input triase biasa, bukan model computer vision terpisah. Content-Security-Policy masih mengizinkan `unsafe-inline` untuk script karena Next.js menyuntikkan skrip hidrasi inline; pengetatan penuh butuh setup nonce per-request. Password staf baru ditampilkan langsung di form (bukan lewat email undangan) — sengaja begitu supaya Admin bisa langsung menyampaikan ke staf terkait.

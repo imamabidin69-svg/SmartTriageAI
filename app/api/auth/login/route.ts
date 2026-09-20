@@ -7,16 +7,6 @@ import { LoginPayloadSchema } from "@/lib/schemas/triase.schema";
 import { createSessionForUser } from "@/lib/session";
 import { signSessionCookie } from "@/lib/session-cookie";
 
-/**
- * POST /api/auth/login - FR-01, autentikasi email+password sungguhan.
- * Pesan error SENGAJA dibuat generik ("email atau password salah") baik
- * untuk email tidak terdaftar maupun password salah — supaya penyerang
- * tidak bisa menebak email mana saja yang terdaftar di sistem (praktik umum
- * keamanan autentikasi, mencegah user enumeration).
- *
- * Dibatasi rate limit (5 percobaan / 15 menit per kombinasi IP+email) untuk
- * mitigasi brute-force (Bab K: Keamanan Sisi Klien & OWASP Client-Side).
- */
 export async function POST(request: Request) {
   const body: unknown = await request.json().catch(() => null);
   const parsed = LoginPayloadSchema.safeParse(body);
@@ -63,7 +53,7 @@ export async function POST(request: Request) {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 8, // 8 jam
+    maxAge: 60 * 60 * 8,
   });
   return response;
 }

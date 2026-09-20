@@ -11,29 +11,6 @@ interface ToastItem {
   namaPasien: string;
 }
 
-/**
- * KritisNotificationWatcher - "use client": dipasang SEKALI di
- * app/(protected)/layout.tsx (bukan cuma di halaman dashboard) supaya DPJ
- * tetap dapat notifikasi kasus kritis baru walau sedang membuka halaman
- * lain (mis. Riwayat Triase). Menutup celah FR-13 (Notifikasi Prioritas
- * Kritis) yang sejak dokumen SKPL awal ditandai "direncanakan pada
- * iterasi berikutnya" dan belum pernah benar-benar dibangun.
- *
- * Dua lapis notifikasi:
- * 1. Toast sementara (muncul ~8 detik) - HANYA untuk kasus yang BENAR-BENAR
- *    baru muncul sejak polling terakhir (bukan seluruh kasus kritis yang
- *    sudah ada dari awal sesi).
- * 2. Badge persisten di header (lihat DashboardHeaderClient) - selalu
- *    menunjukkan jumlah kasus kritis yang masih "menunggu" saat ini.
- *
- * Timer auto-dismiss diset LANGSUNG saat sebuah toast dibuat (dalam
- * addToast), bukan lewat useEffect terpisah yang memindai ulang seluruh
- * array `toasts`. Pendekatan lama (effect ber-dependency `toasts.length`)
- * berisiko memakai closure basi kalau satu toast hilang dan satu toast
- * lain masuk di render yang sama (length tetap sama, effect tidak
- * di-re-run, timer untuk toast baru tidak pernah terpasang). Timer
- * per-toast langsung menghindari kelas bug ini sama sekali.
- */
 export function KritisNotificationWatcher({ enabled }: { enabled: boolean }) {
   const { data: kritisPending } = useKritisWatchQuery(enabled);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -66,9 +43,6 @@ export function KritisNotificationWatcher({ enabled }: { enabled: boolean }) {
 
     const currentIds = new Set(kritisPending.map((r) => r.idTriase));
 
-    // Polling pertama: catat semua yang sudah ada TANPA memunculkan toast
-    // (supaya DPJ yang baru login tidak langsung dibanjiri toast untuk
-    // kasus-kasus lama yang sudah menunggu sebelum ia login).
     if (seenIdsRef.current === null) {
       seenIdsRef.current = currentIds;
       return;
@@ -82,7 +56,6 @@ export function KritisNotificationWatcher({ enabled }: { enabled: boolean }) {
     }
   }, [kritisPending, addToast]);
 
-  // Bersihkan semua timer yang masih berjalan saat komponen unmount (mis. logout).
   useEffect(() => {
     const timers = timersRef.current;
     return () => {

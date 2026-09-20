@@ -12,13 +12,8 @@ export const metadata: Metadata = {
   description: "Registrasi dan pengelolaan akun staf faskes (khusus Admin Faskes).",
 };
 
-/**
- * app/(protected)/admin/staff/page.tsx - Server Component, khusus role
- * admin_faskes. Ini SATU-SATUNYA tempat akun baru bisa didaftarkan di
- * seluruh aplikasi (lihat StaffManagementClient untuk alasan desainnya).
- */
 export default async function AdminStaffPage() {
-  const session = await getSession(); // dijamin non-null oleh (protected)/layout.tsx
+  const session = await getSession(); 
 
   if (session?.role !== "admin_faskes") {
     return (

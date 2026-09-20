@@ -1,8 +1,3 @@
-/**
- * getHomeRouteForRole() - dipisah ke file netral (tanpa "server-only" atau
- * next/headers) supaya bisa dipakai baik di middleware.ts (Edge Runtime)
- * maupun app/page.tsx (Node Runtime).
- */
 export function getHomeRouteForRole(role: unknown): string {
   switch (role) {
     case "admin_faskes":

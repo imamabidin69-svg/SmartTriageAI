@@ -1,12 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { getAntreanStats } from "@/lib/data/stats";
 
-/**
- * AntreanStatsServer - async Server Component (Modul 6, Bab C & E). Tidak
- * ada "use client" sama sekali: data diambil langsung dengan await di dalam
- * komponen, tanpa useState/useEffect. Zero JavaScript untuk panel ini
- * dikirim ke browser — murni HTML yang di-stream begitu data siap.
- */
 export async function AntreanStatsServer() {
   const stats = await getAntreanStats();
 

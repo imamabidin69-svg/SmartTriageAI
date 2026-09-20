@@ -1,11 +1,3 @@
-/**
- * Branded Types (Nominal Typing)
- * ---------------------------------------------------------------------------
- * Port dari proyek Modul 3-4 (lihat repo SmartTriageAI). Entitas utama pada
- * SmartTriage AI (lihat SKPL Bab VI - Kamus Data & PDM) seluruhnya berbentuk
- * string (UUID), sehingga tanpa branding TypeScript akan menganggap
- * PatientId dan TriageId sebagai tipe yang identik.
- */
 export type Brand<T, B extends string> = T & { readonly __brand: B };
 
 export type PatientId = Brand<string, "PatientId">;

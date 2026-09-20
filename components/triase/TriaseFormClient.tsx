@@ -30,18 +30,6 @@ function buildInputFromForm(form: HTMLFormElement, pasienTerpilih: Pasien | null
   };
 }
 
-/**
- * TriaseFormClient - "use client": form interaktif (event handler, state
- * error per-field) dan memanggil useSubmitTriaseMutation (TanStack Query
- * useMutation, Modul 7 Bab C). Validasi Zod dijalankan DUA KALI by design:
- * di sini (fail-fast, UX responsif) dan lagi di Route Handler server
- * (pertahanan berlapis — klien tidak pernah dipercaya sepenuhnya).
- *
- * Tanda vital yang tidak lazim TIDAK ditolak otomatis — ditampilkan sebagai
- * dialog konfirmasi (pendingConfirm) yang meminta tenaga medis memastikan
- * data sudah benar sebelum lanjut, alih-alih memblokir input sama sekali
- * (kasus gawat darurat sungguhan bisa saja punya nilai ekstrem).
- */
 export function TriaseFormClient() {
   const router = useRouter();
   const mutation = useSubmitTriaseMutation();
@@ -97,7 +85,6 @@ export function TriaseFormClient() {
 
     const warnings = checkVitalWarnings(parsed.data.tandaVital);
     if (warnings.length > 0) {
-      // Jangan langsung kirim — tampilkan dialog konfirmasi dulu.
       setPendingConfirm({ input: parsed.data, warnings });
       return;
     }

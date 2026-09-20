@@ -4,22 +4,6 @@ import { getTriaseById, updateTriase } from "@/lib/data/triase-store";
 import { ValidasiTriaseSchema } from "@/lib/schemas/triase.schema";
 import { canOverride, getSession } from "@/lib/session";
 
-/**
- * PATCH /api/triase/[id]/validasi - Setujui, Koreksi (khusus DPJ), atau
- * Ajukan Review Dokter. Seluruh wewenang ditegakkan DI SERVER (bukan hanya
- * disembunyikan di UI klien), karena tombol yang disembunyikan tetap bisa
- * dilewati dengan memanggil API langsung.
- *
- * Aturan wewenang:
- * - "setujui" pada kasus risk level KRITIS: hanya DPJ.
- * - "setujui" pada kasus non-kritis: siapa pun tenaga medis yang login.
- * - "koreksi": khusus DPJ, tanpa syarat risk level.
- * - "ajukan_review": tersedia untuk non-DPJ yang tidak sepakat dengan
- *   rekomendasi AI tapi tidak berwenang mengoreksi angka sendiri.
- *
- * Setiap aksi juga dicatat ke log audit (lib/data/audit-store.ts) untuk
- * peran Auditor.
- */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) {
@@ -80,7 +64,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         divalidasiOlehNama: session.nama,
       };
     }
-    // aksi === "ajukan_review"
+  
     return {
       ...current,
       statusValidasi: "menunggu_review_dokter",

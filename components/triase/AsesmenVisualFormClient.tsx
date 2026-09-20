@@ -15,14 +15,6 @@ const OBSERVASI_OPTIONS = [
   { id: "muntah", label: "Muntah atau terdapat cairan pada mulut" },
 ];
 
-/**
- * AsesmenVisualFormClient - "use client": alur triase khusus pasien yang
- * TIDAK BISA menyampaikan keluhan sendiri (tidak sadar, tanpa pendamping).
- * Alih-alih uraian gejala bebas, Perawat mencatat observasi visual via
- * checklist + tanda vital — hasil observasi dirangkai otomatis menjadi
- * teks "gejala" lalu diproses lewat pipeline klasifikasi AI yang sama
- * dengan form triase biasa.
- */
 export function AsesmenVisualFormClient() {
   const router = useRouter();
   const mutation = useSubmitTriaseMutation();

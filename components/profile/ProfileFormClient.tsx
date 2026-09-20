@@ -6,11 +6,6 @@ import { Button } from "@/components/ui/button";
 import { useUpdateProfileMutation } from "@/hooks/useProfileQueries";
 import { UpdateProfilePayloadSchema } from "@/lib/schemas/triase.schema";
 
-/**
- * ProfileFormClient - "use client": form ubah nama & password akun sendiri.
- * Tersedia untuk SEMUA role yang login (bukan cuma Admin Faskes) — lihat
- * app/api/auth/profile/route.ts untuk alasannya.
- */
 export function ProfileFormClient({ namaSaatIni }: { namaSaatIni: string }) {
   const router = useRouter();
   const mutation = useUpdateProfileMutation();
@@ -43,7 +38,7 @@ export function ProfileFormClient({ namaSaatIni }: { namaSaatIni: string }) {
         setSuccessMessage("Profil berhasil diperbarui.");
         setPasswordSaatIni("");
         setPasswordBaru("");
-        router.refresh(); // Server Component (header/sidebar) baca ulang cookie sesi (nama bisa berubah)
+        router.refresh();
       },
       onError: (err) => {
         setFieldErrors({ passwordSaatIni: err instanceof Error ? err.message : "Gagal memperbarui profil." });

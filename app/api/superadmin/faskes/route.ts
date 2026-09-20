@@ -3,7 +3,6 @@ import { listTriaseAllFaskes } from "@/lib/data/triase-store";
 import { listAllFaskes, listAllUsers } from "@/lib/data/user-store";
 import { getSession } from "@/lib/session";
 
-/** GET /api/superadmin/faskes - seluruh faskes lintas-sistem beserta ringkasan jumlah staf & triase. Khusus Super Admin. */
 export async function GET() {
   const session = await getSession();
   if (!session) {

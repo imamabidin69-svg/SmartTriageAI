@@ -10,7 +10,6 @@ function toPublic(user: { passwordHash: string; [k: string]: unknown }): UserPub
   return UserPublicSchema.parse(rest);
 }
 
-/** GET /api/admin/staff - daftar staf DI FASKES SENDIRI SAJA (khusus Admin Faskes). */
 export async function GET() {
   const session = await getSession();
   if (!session) {
@@ -24,17 +23,6 @@ export async function GET() {
   return NextResponse.json(staff, { status: 200 });
 }
 
-/**
- * POST /api/admin/staff - registrasi staf baru (FR-01 lanjutan). HANYA
- * Admin Faskes yang login yang bisa memanggil ini — TIDAK ada endpoint
- * registrasi publik/self-service sama sekali, sesuai keputusan desain:
- * registrasi akun untuk sistem klinis dikontrol penuh oleh faskes, bukan
- * self-service publik (mencegah siapa pun mengklaim jadi DPJ, misalnya).
- *
- * faskesId staf baru SELALU disalin dari sesi admin yang mendaftarkan
- * (bukan dari body request) — satu admin tidak bisa mendaftarkan akun
- * untuk faskes lain walau ia mencoba mengirim faskesId berbeda di payload.
- */
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) {
@@ -60,7 +48,7 @@ export async function POST(request: Request) {
     email: parsed.data.email,
     passwordHash: hashPassword(parsed.data.password),
     role: parsed.data.role,
-    faskesId: session.faskesId, // SELALU dari sesi admin, bukan dari body
+    faskesId: session.faskesId,
     isActive: true,
     createdAt: new Date().toISOString(),
   };

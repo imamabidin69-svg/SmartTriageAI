@@ -5,12 +5,6 @@ import { usePathname } from "next/navigation";
 import type { Role } from "@/lib/schemas/triase.schema";
 import { useUIStore } from "@/lib/store/useUIStore";
 
-/**
- * Item navigasi dengan pembatasan role eksplisit — mengikuti tabel aktor SRS:
- * hanya Perawat yang berwenang "Input gejala & tanda vital". Kalau kolom
- * `roles` tidak diisi, berarti item itu terlihat oleh semua role yang login
- * (mis. Dashboard Antrean, dilihat Perawat maupun DPJ).
- */
 const NAV_ITEMS: Array<{ href: string; label: string; roles?: Role[] }> = [
   { href: "/dashboard", label: "Dashboard Antrean", roles: ["perawat", "dokter_pj"] },
   { href: "/triase/baru", label: "Input Triase", roles: ["perawat"] },
@@ -25,10 +19,6 @@ const NAV_ITEMS: Array<{ href: string; label: string; roles?: Role[] }> = [
   { href: "/dinas-kesehatan", label: "Laporan Regional", roles: ["dinas_kesehatan"] },
 ];
 
-/**
- * DashboardSidebarNavClient - "use client": berlangganan Zustand
- * (isSidebarOpen) dan hook usePathname untuk menyorot nav aktif.
- */
 export function DashboardSidebarNavClient({ role }: { role: Role }) {
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
   const pathname = usePathname();

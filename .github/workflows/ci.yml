@@ -1,11 +1,5 @@
 name: CI
 
-# Bab M: DevOps Front-End & CI/CD Pipelines. Deployment sesungguhnya ke
-# Vercel ditangani integrasi native GitHub milik Vercel (auto-deploy saat
-# push ke main), BUKAN oleh workflow ini - workflow ini murni Quality Gate
-# yang wajib lolos sebelum kode dianggap layak: format/lint (Biome), type
-# check (tsc strict), build produksi, dan scan analisis statis SonarCloud.
-
 on:
   push:
     branches: [main]
@@ -20,7 +14,7 @@ jobs:
       - name: Checkout kode
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # riwayat penuh - dibutuhkan SonarCloud untuk analisis blame/duplikasi
+          fetch-depth: 0 
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

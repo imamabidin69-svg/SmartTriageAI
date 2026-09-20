@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { listTriase } from "@/lib/data/triase-store";
 import { getSession } from "@/lib/session";
 
-/** GET /api/triase/riwayat?nama=... - seluruh riwayat triase pasien dengan nama yang cocok (Perawat & DPJ). */
 export async function GET(request: Request) {
   const session = await getSession();
   if (!session) {

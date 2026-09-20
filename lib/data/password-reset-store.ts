@@ -1,13 +1,8 @@
 import "server-only";
 import type { PasswordResetRequest } from "@/lib/schemas/password-reset.schema";
 
-/**
- * In-memory store untuk antrean permintaan reset password - sama seperti
- * lib/data/triase-store.ts & user-store.ts, reset saat server di-restart.
- */
 const requests: PasswordResetRequest[] = [];
 
-/** Dipanggil dari Route Handler forgot-password saat email DITEMUKAN & akun aktif. */
 export function createResetRequest(params: {
   userId: string;
   userNama: string;

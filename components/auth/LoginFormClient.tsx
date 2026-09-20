@@ -7,13 +7,6 @@ import { Button } from "@/components/ui/button";
 import { getHomeRouteForRole } from "@/lib/role-routes";
 import { LoginPayloadSchema } from "@/lib/schemas/triase.schema";
 
-/**
- * LoginFormClient - "use client": form login email+password sungguhan.
- * Menggantikan versi lama (pilih role dari dropdown) sepenuhnya — kini
- * setiap staf WAJIB punya akun sungguhan yang didaftarkan Admin Faskesnya
- * (lihat components/admin/StaffManagementClient.tsx), tidak ada lagi jalur
- * "demo cepat" tanpa kredensial.
- */
 export function LoginFormClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -52,7 +45,7 @@ export function LoginFormClient() {
           ? session.role
           : null;
       router.push(getHomeRouteForRole(role));
-      router.refresh(); // memastikan Server Component (layout/page) membaca ulang cookie sesi
+      router.refresh(); 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal masuk ke sistem.");
       setIsSubmitting(false);

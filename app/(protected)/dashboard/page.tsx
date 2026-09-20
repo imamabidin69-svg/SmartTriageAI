@@ -16,20 +16,8 @@ export const metadata: Metadata = {
   description: "Antrean pasien tersusun otomatis berdasarkan tingkat kegawatan.",
 };
 
-/**
- * app/(protected)/dashboard/page.tsx - Server Component (RSC, Modul 6 Bab C).
- * Prefetch dilakukan lewat fetchAntreanServer() (HTTP ke /api/triase sendiri
- * — lihat lib/server-fetch.ts untuk alasannya), lalu disuntikkan ke
- * QueryClient lewat prefetchQuery + dehydrate.
- *
- * Client Component turunannya (AntreanListClient) memakai useQuery dengan
- * queryKey yang SAMA PERSIS (antreanKey()) sehingga saat halaman dimuat, ia
- * langsung "melihat" cache yang sudah terisi (hydrated) tanpa loading state
- * — first paint cepat (SSR, Modul 6) DIGABUNG dengan interaktivitas penuh
- * TanStack Query untuk refetch/mutasi berikutnya (Modul 7).
- */
 export default async function DashboardPage() {
-  const session = await getSession(); // dijamin non-null oleh (protected)/layout.tsx
+  const session = await getSession(); 
   const queryClient = getQueryClient();
   await queryClient.prefetchQuery({
     queryKey: antreanKey(),

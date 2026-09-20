@@ -2,13 +2,6 @@ import "server-only";
 import { getAiConfig } from "@/lib/data/ai-config-store";
 import type { RiskLevel, TriageInput } from "@/lib/schemas/triase.schema";
 
-/**
- * classify() - simulasi AI Classification Engine (FR-04) + Explainable AI (FR-05).
- * Ditandai "server-only" karena dijalankan eksklusif di dalam Route Handler
- * (app/api/triase/route.ts). Ambang batas skor (kritis/tinggi/sedang)
- * DIBACA dari ai-config-store.ts — bisa diubah Super Admin lewat halaman
- * Konfigurasi Model AI, tidak lagi hardcoded.
- */
 export function classify(input: TriageInput): { riskLevel: RiskLevel; penjelasanAi: string } {
   const v = input.tandaVital;
   const alasan: string[] = [];

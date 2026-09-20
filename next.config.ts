@@ -1,18 +1,5 @@
 import type { NextConfig } from "next";
 
-/**
- * Security headers - Bab K: Keamanan Sisi Klien & Mitigasi OWASP
- * Client-Side. Diterapkan lewat headers() supaya berlaku di SELURUH rute
- * tanpa perlu diulang manual per Route Handler.
- *
- * Catatan jujur soal CSP: script-src masih menyertakan 'unsafe-inline'
- * karena Next.js App Router menyuntikkan skrip bootstrap hidrasi inline
- * (payload RSC) yang, tanpa penyiapan nonce per-request (di luar cakupan
- * waktu pengerjaan saat ini), akan diblokir oleh CSP yang benar-benar
- * ketat dan merusak aplikasi. Proteksi yang paling relevan untuk ancaman
- * OWASP di sini (clickjacking via frame-ancestors, pemuatan objek/plugin
- * asing, MIME-sniffing) tetap aktif penuh.
- */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },

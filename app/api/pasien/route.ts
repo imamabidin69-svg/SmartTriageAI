@@ -4,7 +4,6 @@ import { insertPasien, listPasienByFaskes } from "@/lib/data/pasien-store";
 import { PasienSchema, RegisterPasienPayloadSchema } from "@/lib/schemas/pasien.schema";
 import { getSession } from "@/lib/session";
 
-/** GET /api/pasien - daftar pasien terdaftar di faskes pengguna yang login (Petugas Pendaftaran, Perawat, DPJ). */
 export async function GET() {
   const session = await getSession();
   if (!session) {
@@ -13,12 +12,6 @@ export async function GET() {
   return NextResponse.json(listPasienByFaskes(session.faskesId), { status: 200 });
 }
 
-/**
- * POST /api/pasien - registrasi pasien baru. Sesuai tabel aktor SRS,
- * Petugas Pendaftaran adalah jalur normal untuk fungsi ini; Perawat tetap
- * diizinkan (jalur darurat untuk pasien tidak sadar tanpa pendamping saat
- * petugas belum sempat menjangkau) — lihat catatan desain terkait role ini.
- */
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) {

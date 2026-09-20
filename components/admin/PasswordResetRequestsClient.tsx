@@ -19,12 +19,6 @@ function formatWaktu(iso: string): string {
   }
 }
 
-/**
- * PasswordResetRequestsClient - "use client": daftar permintaan reset
- * password yang menunggu ditindaklanjuti Admin Faskes (lihat
- * lib/data/password-reset-store.ts untuk konteks kenapa antrean ini ada).
- * Hanya dirender saat role === admin_faskes (lihat pemanggilnya).
- */
 export function PasswordResetRequestsClient() {
   const { data: requests, isPending } = usePendingPasswordResetsQuery(true);
   const resolveMutation = useResolvePasswordResetMutation();

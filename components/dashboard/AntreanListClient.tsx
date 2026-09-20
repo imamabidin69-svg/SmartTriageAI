@@ -28,17 +28,6 @@ function formatWaktu(iso: string): string {
   }
 }
 
-/**
- * AntreanListClient - "use client": memadukan Server State (useAntreanQuery,
- * TanStack Query — data dari database/API sungguhan) dengan Client UI State
- * (selectedRiskFilter, Zustand — murni preferensi tampilan lokal). Filtering
- * terjadi di sisi klien tanpa fetch ulang, sesuai anjuran Modul 7 Bab E.
- *
- * Query ini di-hydrate dari data yang sudah di-prefetch di Server Component
- * pembungkusnya (app/(protected)/dashboard/page.tsx) sehingga first paint
- * tetap cepat (SSR), namun refetch/mutasi berikutnya sepenuhnya ditangani
- * TanStack Query di klien.
- */
 export function AntreanListClient() {
   const { data, isPending, isError, error, refetch, isFetching } = useAntreanQuery();
   const selectedRiskFilter = useUIStore((s) => s.selectedRiskFilter);

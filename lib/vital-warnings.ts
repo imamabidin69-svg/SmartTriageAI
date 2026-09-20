@@ -1,12 +1,5 @@
 import type { VitalSigns } from "@/lib/schemas/triase.schema";
 
-/**
- * checkVitalWarnings() - versi "lunak" dari batas wajar tanda vital (nilai
- * ambang di sini adalah bekas batas keras Zod sebelumnya). Dipanggil SETELAH
- * validasi Zod (yang hanya menolak data mustahil), untuk memberi kesempatan
- * tenaga medis mengonfirmasi ulang input yang di luar kebiasaan sebelum
- * benar-benar dikirim — bukan menolaknya begitu saja.
- */
 export function checkVitalWarnings(v: VitalSigns): string[] {
   const warnings: string[] = [];
 

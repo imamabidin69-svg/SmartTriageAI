@@ -23,13 +23,6 @@ const ROLE_LABEL: Record<FacilityBoundRole, string> = {
   admin_faskes: "Admin Faskes",
 };
 
-/**
- * StaffManagementClient - "use client": satu-satunya jalur registrasi akun
- * di seluruh aplikasi ini (Modul 6 Bab G, keputusan desain FR-01 lanjutan).
- * TIDAK ada endpoint publik untuk mendaftar sendiri — hanya Admin Faskes
- * yang login yang bisa mengakses komponen ini (ditegakkan di server, lihat
- * app/(protected)/admin/staff/page.tsx dan Route Handler-nya).
- */
 export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNama: string; currentUserId: string }) {
   const { data: staff, isPending, isError, error } = useStaffQuery();
   const createMutation = useCreateStaffMutation();

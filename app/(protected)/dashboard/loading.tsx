@@ -1,9 +1,3 @@
-/**
- * loading.tsx - Streaming Skeleton Fallback UI (Modul 6, Bab E). Next.js
- * otomatis menampilkan ini saat navigasi menuju /dashboard, selagi Server
- * Component page.tsx pada segmen ini masih menyiapkan data (mis. saat
- * baru datang dari halaman login).
- */
 export default function DashboardLoading() {
   return (
     <div className="animate-pulse space-y-6" aria-hidden="true">

@@ -5,11 +5,6 @@ import { inter } from "./fonts";
 import { Providers } from "./providers";
 import "./globals.css";
 
-// next/font: dimensi CSS font ditetapkan eksplisit di build-time, mendukung
-// CLS <= 0.1 (Modul 6, Bab F). Lihat app/fonts.ts untuk detail self-hosting.
-
-// Metadata API statis (Modul 6, Bab F) - berlaku sebagai default untuk
-// seluruh rute, bisa ditimpa oleh metadata/generateMetadata per halaman.
 export const metadata: Metadata = {
   title: {
     default: "SmartTriage AI",
@@ -26,13 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="id" className={inter.variable}>
       <body className="min-h-screen font-sans antialiased">
         <Providers>{children}</Providers>
-        {/* Bab J: Core Web Vitals - mengumpulkan LCP/INP/CLS field data
-            sungguhan dari pengunjung nyata (metodologi CrUX) begitu
-            aplikasi live di Vercel, terlihat di dashboard Vercel >
-            Speed Insights. Kedua komponen memuat skrip & mengirim data
-            lewat path same-origin /_vercel/* (bukan domain pihak
-            ketiga) - selaras dengan Content-Security-Policy ketat di
-            next.config.ts tanpa perlu pengecualian tambahan. */}
+        {}
         <SpeedInsights />
         <Analytics />
       </body>

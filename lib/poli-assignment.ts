@@ -1,12 +1,6 @@
 import "server-only";
 import type { DokterRujukan, RiskLevel, TriageInput } from "@/lib/schemas/triase.schema";
 
-/**
- * Roster dokter simulasi (bukan data sungguhan). Pada implementasi produksi
- * ini akan menjadi query ke tabel dokter/jadwal-praktik di database,
- * kemungkinan juga mempertimbangkan ketersediaan/jadwal jaga saat itu —
- * di luar cakupan prototipe front-end ini.
- */
 interface RosterEntry {
   poli: string;
   dokter: DokterRujukan;
@@ -37,14 +31,6 @@ const POLI_UMUM: RosterEntry = {
   dokter: { nama: "dr. Fitri Handayani", jenis: "umum" },
 };
 
-/**
- * assignPoliDanDokter() - simulasi penentuan rujukan poli & dokter
- * berdasarkan kata kunci gejala dan risk level hasil classify(). Kasus
- * KRITIS selalu diarahkan ke IGD terlebih dahulu (siapa pun gejalanya)
- * karena itu prosedur standar kegawatdaruratan, baru poli spesialis
- * ditentukan belakangan setelah kondisi pasien stabil (di luar cakupan
- * prototipe ini).
- */
 export function assignPoliDanDokter(
   input: TriageInput,
   riskLevel: RiskLevel,

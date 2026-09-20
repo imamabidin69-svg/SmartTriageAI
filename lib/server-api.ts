@@ -15,7 +15,6 @@ import {
 } from "@/lib/schemas/triase.schema";
 import { serverFetch } from "@/lib/server-fetch";
 
-/** Dipakai Server Component (bukan Client Component — lihat lib/api-client.ts untuk versi klien). */
 export async function fetchAntreanServer(): Promise<TriageRecord[]> {
   const res = await serverFetch("/api/triase");
   if (!res.ok) throw new Error(`Gagal memuat antrean (HTTP ${res.status})`);
@@ -31,7 +30,6 @@ export async function fetchTriageByIdServer(id: string): Promise<TriageRecord | 
   return TriageRecordSchema.parse(body);
 }
 
-/** Daftar staf di faskes Admin yang login - dipakai untuk prefetch SSR halaman Kelola Staf. */
 export async function fetchStaffServer(): Promise<UserPublic[]> {
   const res = await serverFetch("/api/admin/staff");
   if (!res.ok) throw new Error(`Gagal memuat daftar staf (HTTP ${res.status})`);
@@ -39,7 +37,6 @@ export async function fetchStaffServer(): Promise<UserPublic[]> {
   return z.array(UserPublicSchema).parse(body);
 }
 
-/** Daftar pasien terdaftar - dipakai untuk prefetch SSR halaman Registrasi Pasien. */
 export async function fetchPasienServer(): Promise<Pasien[]> {
   const res = await serverFetch("/api/pasien");
   if (!res.ok) throw new Error(`Gagal memuat daftar pasien (HTTP ${res.status})`);
@@ -47,7 +44,6 @@ export async function fetchPasienServer(): Promise<Pasien[]> {
   return z.array(PasienSchema).parse(body);
 }
 
-/** Ringkasan seluruh faskes - dipakai halaman Super Admin. */
 export async function fetchFaskesRingkasanServer(): Promise<FaskesRingkasan[]> {
   const res = await serverFetch("/api/superadmin/faskes");
   if (!res.ok) throw new Error(`Gagal memuat data faskes (HTTP ${res.status})`);
@@ -55,7 +51,6 @@ export async function fetchFaskesRingkasanServer(): Promise<FaskesRingkasan[]> {
   return z.array(FaskesRingkasanSchema).parse(body);
 }
 
-/** Log audit lintas-faskes - dipakai halaman Auditor. */
 export async function fetchAuditLogServer(): Promise<AuditLogEntry[]> {
   const res = await serverFetch("/api/auditor/log");
   if (!res.ok) throw new Error(`Gagal memuat log audit (HTTP ${res.status})`);
@@ -63,7 +58,6 @@ export async function fetchAuditLogServer(): Promise<AuditLogEntry[]> {
   return z.array(AuditLogEntrySchema).parse(body);
 }
 
-/** Ringkasan agregat lintas-faskes - dipakai halaman Dinas Kesehatan. */
 export async function fetchRingkasanRegionalServer(): Promise<RingkasanFaskes[]> {
   const res = await serverFetch("/api/dinas-kesehatan/ringkasan");
   if (!res.ok) throw new Error(`Gagal memuat ringkasan regional (HTTP ${res.status})`);
@@ -71,7 +65,6 @@ export async function fetchRingkasanRegionalServer(): Promise<RingkasanFaskes[]>
   return z.array(RingkasanFaskesSchema).parse(body);
 }
 
-/** Konfigurasi model AI - dipakai prefetch SSR halaman Konfigurasi Model AI. */
 export async function fetchAiConfigServer(): Promise<AiConfig> {
   const res = await serverFetch("/api/superadmin/konfigurasi-ai");
   if (!res.ok) throw new Error(`Gagal memuat konfigurasi AI (HTTP ${res.status})`);

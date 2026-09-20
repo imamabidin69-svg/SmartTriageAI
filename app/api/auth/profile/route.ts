@@ -11,7 +11,6 @@ function toPublic(user: { passwordHash: string; [k: string]: unknown }): UserPub
   return UserPublicSchema.parse(rest);
 }
 
-/** GET /api/auth/profile - data profil pengguna yang sedang login. */
 export async function GET() {
   const session = await getSession();
   if (!session) {
@@ -24,13 +23,6 @@ export async function GET() {
   return NextResponse.json(toPublic(user), { status: 200 });
 }
 
-/**
- * PATCH /api/auth/profile - ubah nama dan/atau password akun SENDIRI.
- * Tersedia untuk semua role (bukan cuma Admin Faskes) — setiap pengguna
- * berhak mengelola profilnya sendiri. Mengganti password wajib membuktikan
- * tahu password lama (passwordSaatIni) walau sudah dalam sesi
- * terautentikasi, sebagai pertahanan berlapis.
- */
 export async function PATCH(request: Request) {
   const session = await getSession();
   if (!session) {
@@ -69,7 +61,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Data faskes untuk akun ini tidak ditemukan." }, { status: 500 });
   }
 
-  // Nama bisa berubah -> sinkronkan ulang cookie sesi supaya header langsung menampilkan nama terbaru.
   const newSession = createSessionForUser(updated, faskes);
   const response = NextResponse.json(toPublic(updated), { status: 200 });
   response.cookies.set(SESSION_COOKIE, signSessionCookie(JSON.stringify(newSession)), {

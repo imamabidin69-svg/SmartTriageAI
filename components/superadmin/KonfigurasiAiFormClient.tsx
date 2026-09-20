@@ -5,12 +5,6 @@ import { Button } from "@/components/ui/button";
 import { useAiConfigQuery, useUpdateAiConfigMutation } from "@/hooks/useAiConfigQueries";
 import { UpdateAiConfigPayloadSchema } from "@/lib/schemas/ai-config.schema";
 
-/**
- * KonfigurasiAiFormClient - "use client": form ini SEKARANG benar-benar
- * memengaruhi lib/classify.ts (via lib/data/ai-config-store.ts), bukan
- * cuma tampilan seperti sebelumnya. Ambang batas Kritis > Tinggi > Sedang
- * divalidasi berurutan (Zod refine) sebelum disimpan.
- */
 export function KonfigurasiAiFormClient() {
   const { data: config, isPending } = useAiConfigQuery();
   const mutation = useUpdateAiConfigMutation();
@@ -23,7 +17,6 @@ export function KonfigurasiAiFormClient() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // Sinkronkan form dengan data yang berhasil di-fetch dari server.
   useEffect(() => {
     if (!config) return;
     setVersiModel(config.versiModel);

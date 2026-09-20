@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { listPendingByFaskes } from "@/lib/data/password-reset-store";
 import { getSession } from "@/lib/session";
 
-/** GET /api/admin/password-resets - permintaan reset password PENDING di faskes Admin yang login. */
 export async function GET() {
   const session = await getSession();
   if (!session) {

@@ -7,10 +7,6 @@ export const metadata: Metadata = {
   description: "Minta instruksi reset password untuk akun SmartTriage AI Anda.",
 };
 
-/**
- * Sama seperti app/login/page.tsx: SENGAJA tidak ada varian dark: sama
- * sekali (lihat ForcePublicAppearance untuk alasannya).
- */
 export default function LupaPasswordPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-4 bg-slate-50">

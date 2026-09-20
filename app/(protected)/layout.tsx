@@ -4,18 +4,6 @@ import { DashboardSidebarNavClient } from "@/components/dashboard/DashboardSideb
 import { KritisNotificationWatcher } from "@/components/dashboard/KritisNotificationWatcher";
 import { getSession } from "@/lib/session";
 
-/**
- * app/(protected)/layout.tsx - Nested Layout (Modul 6, Bab D) yang dipakai
- * BERSAMA oleh /dashboard, /triase/baru, dan /triase/[id] lewat Route Group
- * "(protected)" (nama dalam kurung tidak muncul di URL). Karena ketiganya
- * berbagi layout yang sama, Next.js TIDAK me-remount elemen ini saat
- * pengguna berpindah antar rute tersebut — status sidebar (Zustand,
- * Client UI State) tetap terjaga tanpa berkedip/reset.
- *
- * Server Component ini sendiri melakukan pekerjaan berat (baca cookie sesi)
- * di server; hanya sidebar interaktifnya yang dilimpahkan ke Client
- * Component (Leaf Component pattern, Modul 6 Bab C).
- */
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) {

@@ -8,14 +8,6 @@ interface Attempt {
 const WINDOW_MS = 15 * 60 * 1000; // 15 menit
 const MAX_ATTEMPTS = 5;
 
-/**
- * Rate limiter in-memory sederhana (sliding window per kunci — biasanya
- * IP+email) untuk mitigasi brute-force pada endpoint login (Bab K:
- * Keamanan Sisi Klien & Mitigasi OWASP). Pada skala produksi sungguhan
- * ini idealnya dipindah ke penyimpanan bersama (Redis) supaya konsisten
- * lintas instance server — di sini cukup in-memory karena selaras dengan
- * seluruh store lain di proyek ini (reset saat server di-restart).
- */
 const attempts = new Map<string, Attempt>();
 
 export interface RateLimitResult {
@@ -41,12 +33,10 @@ export function checkRateLimit(key: string): RateLimitResult {
   return { allowed: true };
 }
 
-/** Dipanggil setelah login BERHASIL supaya percobaan gagal sebelumnya tidak terus menghukum pengguna sah. */
 export function resetRateLimit(key: string): void {
   attempts.delete(key);
 }
 
-/** IP klien dari header standar (x-forwarded-for di belakang proxy/edge, x-real-ip sebagai fallback). */
 export function getClientIp(request: Request): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) return forwardedFor.split(",")[0]?.trim() ?? "unknown";

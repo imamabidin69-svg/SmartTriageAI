@@ -7,14 +7,8 @@ export const metadata: Metadata = {
   description: "Ubah nama dan password akun Anda.",
 };
 
-/**
- * app/(protected)/profil/page.tsx - Server Component, TERSEDIA UNTUK SEMUA
- * ROLE (tidak ada guard role di sini, berbeda dari /admin/staff atau
- * /triase/baru) — mengelola profil sendiri adalah kebutuhan dasar semua
- * pengguna terautentikasi, bukan hak istimewa.
- */
 export default async function ProfilPage() {
-  const session = await getSession(); // dijamin non-null oleh (protected)/layout.tsx
+  const session = await getSession(); 
 
   return (
     <div className="max-w-lg">

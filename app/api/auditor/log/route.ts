@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { listAllAuditLog } from "@/lib/data/audit-store";
 import { getSession } from "@/lib/session";
 
-/** GET /api/auditor/log - seluruh log audit lintas-faskes (read-only). Khusus Auditor. */
 export async function GET() {
   const session = await getSession();
   if (!session) {

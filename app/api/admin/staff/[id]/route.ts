@@ -12,14 +12,6 @@ function toPublic(user: { passwordHash: string; [k: string]: unknown }): UserPub
   return UserPublicSchema.parse(rest);
 }
 
-/**
- * PATCH /api/admin/staff/[id] - dua jenis aksi tergantung bentuk body:
- * (1) { isActive } -> aktifkan/nonaktifkan akun, (2) { nama, email, role }
- * -> edit info akun staf. Keduanya dibatasi ke faskesId milik admin yang
- * login, dan admin tidak boleh melakukan salah satu aksi ini pada akunnya
- * sendiri (mencegah admin terkunci/salah-ubah akunnya sendiri secara tidak
- * sengaja — pengeditan profil sendiri sudah punya jalur khusus di /profil).
- */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) {
@@ -39,7 +31,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body: unknown = await request.json().catch(() => null);
 
-  // Coba cocokkan sebagai payload toggle status aktif terlebih dahulu.
   const togglePaylod = ToggleActivePayloadSchema.safeParse(body);
   if (togglePaylod.success) {
     const updated = setUserActive(id, session.faskesId, togglePaylod.data.isActive);
@@ -59,7 +50,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json(toPublic(updated), { status: 200 });
   }
 
-  // Kalau bukan payload toggle, coba cocokkan sebagai payload edit info akun.
   const editPayload = UpdateStaffPayloadSchema.safeParse(body);
   if (!editPayload.success) {
     return NextResponse.json({ error: "Payload tidak valid.", issues: editPayload.error.issues }, { status: 400 });

@@ -2,12 +2,6 @@ import "server-only";
 import { hashPassword } from "@/lib/password";
 import type { Faskes, User } from "@/lib/schemas/triase.schema";
 
-/**
- * In-memory User/Faskes store (server-side only) - sama seperti
- * lib/data/triase-store.ts, reset saat server di-restart. Pada
- * implementasi produksi digantikan tabel users & faskes di PostgreSQL.
- */
-
 let faskesList: Faskes[] = [];
 let users: User[] = [];
 let seeded = false;
@@ -117,13 +111,11 @@ export function findUserByEmail(email: string): User | null {
   return users.find((u) => u.email.toLowerCase() === normalized) ?? null;
 }
 
-/** Lintas-faskes - khusus Super Admin. */
 export function listAllFaskes(): Faskes[] {
   seedIfEmpty();
   return faskesList;
 }
 
-/** Lintas-faskes - khusus Super Admin. */
 export function listAllUsers(): User[] {
   seedIfEmpty();
   return users;
@@ -149,7 +141,6 @@ export function emailExists(email: string): boolean {
   return findUserByEmail(email) !== null;
 }
 
-/** Sama seperti emailExists, tapi mengabaikan satu userId - dipakai saat edit supaya email milik akun itu sendiri tidak dianggap "sudah dipakai". */
 export function emailExistsExcluding(email: string, excludeUserId: string): boolean {
   seedIfEmpty();
   const found = findUserByEmail(email);
@@ -172,7 +163,6 @@ export function setUserActive(id: string, faskesId: string, isActive: boolean): 
   return updated;
 }
 
-/** Dipakai Admin Faskes saat menyelesaikan permintaan reset password (lib/data/password-reset-store.ts). */
 export function setUserPasswordHash(id: string, faskesId: string, passwordHash: string): User | null {
   seedIfEmpty();
   const idx = users.findIndex((u) => u.id === id && u.faskesId === faskesId);
@@ -184,7 +174,6 @@ export function setUserPasswordHash(id: string, faskesId: string, passwordHash: 
   return updated;
 }
 
-/** Dipakai fitur "Profil Saya" - update nama, dan opsional password (lihat app/api/auth/profile/route.ts). */
 export function updateOwnProfile(id: string, changes: { nama: string; passwordHash?: string }): User | null {
   seedIfEmpty();
   const idx = users.findIndex((u) => u.id === id);
@@ -200,7 +189,6 @@ export function updateOwnProfile(id: string, changes: { nama: string; passwordHa
   return updated;
 }
 
-/** Dipakai Admin Faskes untuk mengedit akun staf lain (nama, email, peran) di faskesnya sendiri. */
 export function updateStaffInfo(
   id: string,
   faskesId: string,

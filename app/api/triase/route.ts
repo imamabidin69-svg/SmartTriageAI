@@ -5,7 +5,6 @@ import { assignPoliDanDokter } from "@/lib/poli-assignment";
 import { TriageInputSchema, TriageRecordSchema } from "@/lib/schemas/triase.schema";
 import { getSession } from "@/lib/session";
 
-/** GET /api/triase - daftar antrean terurut prioritas kegawatan, dibatasi ke faskes pengguna. */
 export async function GET() {
   const session = await getSession();
   if (!session) {
@@ -14,12 +13,6 @@ export async function GET() {
   return NextResponse.json(listTriase(session.faskesId), { status: 200 });
 }
 
-/**
- * POST /api/triase - FR-03/04/05: submit gejala & tanda vital, server
- * menjalankan classify(). Sesuai tabel aktor SRS, hanya Perawat yang
- * berwenang di fungsi "Input gejala & tanda vital" — DPJ TIDAK berwenang
- * (wewenangnya ada di validasi/koreksi, bukan input awal).
- */
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) {
