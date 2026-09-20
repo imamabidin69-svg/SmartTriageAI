@@ -45,7 +45,7 @@ export function LoginFormClient() {
           ? session.role
           : null;
       router.push(getHomeRouteForRole(role));
-      router.refresh(); 
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal masuk ke sistem.");
       setIsSubmitting(false);

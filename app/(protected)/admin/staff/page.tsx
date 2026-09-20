@@ -14,7 +14,6 @@ export const metadata: Metadata = {
 
 export default async function AdminStaffPage() {
   const session = await getSession(); 
-
   if (session?.role !== "admin_faskes") {
     return (
       <div
