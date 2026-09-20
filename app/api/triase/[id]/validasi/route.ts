@@ -64,7 +64,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         divalidasiOlehNama: session.nama,
       };
     }
-  
     return {
       ...current,
       statusValidasi: "menunggu_review_dokter",

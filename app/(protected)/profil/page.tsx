@@ -8,7 +8,8 @@ export const metadata: Metadata = {
 };
 
 export default async function ProfilPage() {
-  const session = await getSession(); 
+  const session = await getSession();
+
   return (
     <div className="max-w-lg">
       <h1 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-1">Profil Saya</h1>
