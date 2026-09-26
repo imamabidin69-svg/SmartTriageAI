@@ -46,6 +46,42 @@ export const VitalSignsSchema = z.object({
 });
 export type VitalSigns = z.infer<typeof VitalSignsSchema>;
 
+// Kategori keluhan untuk model machine learning (lib/ml-client.ts). Daftar ini
+// SAMA PERSIS dengan kategori yang dipakai saat melatih model (lihat
+// triase_data.py, ATURAN_KELUHAN) supaya nilainya bisa diteruskan langsung ke
+// layanan ML tanpa tabel pemetaan tambahan.
+export const KategoriKeluhanSchema = z.enum([
+  "Penurunan kesadaran atau kejang",
+  "Nyeri dada",
+  "Sesak napas atau batuk",
+  "Perdarahan",
+  "Gangguan saraf",
+  "Nyeri perut",
+  "Demam",
+  "Pusing",
+  "Nyeri kepala",
+  "Mual, muntah, atau diare",
+  "Cedera atau luka",
+  "Jantung berdebar",
+  "Kulit atau alergi",
+  "Mata, telinga, hidung, atau tenggorokan",
+  "Nyeri punggung, pinggang, atau anggota gerak",
+  "Lemas atau kelemahan umum",
+  "Keluhan kemih atau kandungan",
+  "Lainnya",
+]);
+export type KategoriKeluhan = z.infer<typeof KategoriKeluhanSchema>;
+
+// Skala AVPU. Urutan dari paling sadar ke paling tidak sadar (dipetakan ke
+// kode 1-4 di lib/ml-client.ts sebelum dikirim ke layanan ML).
+export const TingkatKesadaranSchema = z.enum([
+  "sadar_penuh",
+  "respons_suara",
+  "respons_nyeri",
+  "tidak_respons",
+]);
+export type TingkatKesadaran = z.infer<typeof TingkatKesadaranSchema>;
+
 export const TriageInputSchema = z.object({
   idPasien: z.string().uuid("ID pasien tidak valid"),
   namaPasien: z.string().min(1, "Nama pasien wajib diisi").max(120),
@@ -56,6 +92,13 @@ export const TriageInputSchema = z.object({
   keluhanUtama: z.string().min(3, "Keluhan utama wajib diisi").max(200),
   riwayatSingkat: z.string().max(1000, "Riwayat singkat maksimal 1000 karakter").optional(),
   tandaVital: VitalSignsSchema,
+  // Isian baru untuk model machine learning (menggantikan classify.ts berbasis
+  // aturan). Opsional supaya form lama yang belum diperbarui tetap valid;
+  // lib/ml-client.ts memakai imputasi median/modus kalau kosong, sama seperti
+  // yang sudah diuji di notebooks/02_baseline.ipynb.
+  skalaNyeri: z.number().min(0, "Skala nyeri minimal 0").max(10, "Skala nyeri maksimal 10").optional(),
+  tingkatKesadaran: TingkatKesadaranSchema.optional(),
+  kategoriKeluhan: KategoriKeluhanSchema.optional(),
 });
 export type TriageInput = z.infer<typeof TriageInputSchema>;
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { classify } from "@/lib/classify";
 import { insertTriase, listTriase } from "@/lib/data/triase-store";
+import { classifyWithMl } from "@/lib/ml-client";
 import { assignPoliDanDokter } from "@/lib/poli-assignment";
 import { TriageInputSchema, TriageRecordSchema } from "@/lib/schemas/triase.schema";
 import { getSession } from "@/lib/session";
@@ -31,7 +31,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Data triase tidak valid.", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const { riskLevel, penjelasanAi } = classify(parsed.data);
+  const { riskLevel, penjelasanAi, sumber } = await classifyWithMl(parsed.data);
+  console.info(`[triase] Level "${riskLevel}" ditentukan oleh sumber: ${sumber}.`);
   const { poliTujuan, dokterRujukan } = assignPoliDanDokter(parsed.data, riskLevel);
   const record = TriageRecordSchema.parse({
     ...parsed.data,
