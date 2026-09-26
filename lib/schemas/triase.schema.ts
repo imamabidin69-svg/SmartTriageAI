@@ -74,12 +74,7 @@ export type KategoriKeluhan = z.infer<typeof KategoriKeluhanSchema>;
 
 // Skala AVPU. Urutan dari paling sadar ke paling tidak sadar (dipetakan ke
 // kode 1-4 di lib/ml-client.ts sebelum dikirim ke layanan ML).
-export const TingkatKesadaranSchema = z.enum([
-  "sadar_penuh",
-  "respons_suara",
-  "respons_nyeri",
-  "tidak_respons",
-]);
+export const TingkatKesadaranSchema = z.enum(["sadar_penuh", "respons_suara", "respons_nyeri", "tidak_respons"]);
 export type TingkatKesadaran = z.infer<typeof TingkatKesadaranSchema>;
 
 export const TriageInputSchema = z.object({
