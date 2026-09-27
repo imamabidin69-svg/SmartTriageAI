@@ -8,3 +8,12 @@ build/
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# Layanan ML Python (ml-service/) - lihat ml-service/README.md
+ml-service/__pycache__/
+ml-service/venv/
+ml-service/.venv/
+ml-service/data.csv
+
+# Laporan coverage Vitest (dibuat ulang tiap CI run, tidak perlu di-commit)
+coverage/

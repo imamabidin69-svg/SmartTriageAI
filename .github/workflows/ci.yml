@@ -36,6 +36,9 @@ jobs:
         env:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
 
+      - name: Test & coverage (Vitest)
+        run: npm run test:coverage
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v4
         env:

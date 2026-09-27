@@ -12,7 +12,7 @@ const KODE_KESADARAN: Record<TingkatKesadaran, number> = {
   tidak_respons: 4,
 };
 
-function hitungUsia(tanggalLahir: string | undefined): number | null {
+export function hitungUsia(tanggalLahir: string | undefined): number | null {
   if (!tanggalLahir) return null;
   const lahir = new Date(tanggalLahir);
   if (Number.isNaN(lahir.getTime())) return null;
