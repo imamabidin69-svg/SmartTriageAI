@@ -63,7 +63,7 @@ export function AsesmenVisualFormClient() {
   }
 
   const numInputClass =
-    "w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-slate-200";
+    "w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm tabular-nums bg-white dark:bg-slate-900 dark:text-slate-200";
 
   return (
     <form
@@ -115,7 +115,10 @@ export function AsesmenVisualFormClient() {
               htmlFor="tekananDarahSistolik"
               className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
             >
-              Tekanan Darah Sistolik (mmHg) <span className="text-red-500">*</span>
+              Tekanan Darah Sistolik (mmHg){" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               type="number"
@@ -125,7 +128,9 @@ export function AsesmenVisualFormClient() {
               className={numInputClass}
             />
             {fieldErrors["tandaVital.tekananDarahSistolik"] && (
-              <p className="text-xs text-red-600 mt-1">{fieldErrors["tandaVital.tekananDarahSistolik"]}</p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                {fieldErrors["tandaVital.tekananDarahSistolik"]}
+              </p>
             )}
           </div>
           <div>
@@ -133,7 +138,10 @@ export function AsesmenVisualFormClient() {
               htmlFor="tekananDarahDiastolik"
               className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
             >
-              Tekanan Darah Diastolik (mmHg) <span className="text-red-500">*</span>
+              Tekanan Darah Diastolik (mmHg){" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               type="number"
@@ -145,19 +153,28 @@ export function AsesmenVisualFormClient() {
           </div>
           <div>
             <label htmlFor="suhuTubuh" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Suhu Tubuh (°C) <span className="text-red-500">*</span>
+              Suhu Tubuh (°C){" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input type="number" step="0.1" id="suhuTubuh" name="suhuTubuh" required className={numInputClass} />
           </div>
           <div>
             <label htmlFor="nadiPerMenit" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Nadi (bpm) <span className="text-red-500">*</span>
+              Nadi (bpm){" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input type="number" id="nadiPerMenit" name="nadiPerMenit" required className={numInputClass} />
           </div>
           <div>
             <label htmlFor="lajuNapas" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Laju Napas (/menit) <span className="text-red-500">*</span>
+              Laju Napas (/menit){" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input type="number" id="lajuNapas" name="lajuNapas" required className={numInputClass} />
           </div>
@@ -166,7 +183,10 @@ export function AsesmenVisualFormClient() {
               htmlFor="saturasiOksigen"
               className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
             >
-              Saturasi Oksigen (%) <span className="text-red-500">*</span>
+              Saturasi Oksigen (%){" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               type="number"

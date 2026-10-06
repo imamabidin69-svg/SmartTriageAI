@@ -149,7 +149,7 @@ export const ValidasiTriaseSchema = z.discriminatedUnion("aksi", [
     aksi: z.literal("ajukan_review"),
     idTriase: z.string().uuid(),
     idUserValidator: z.string().uuid(),
-    catatanPerawat: z.string().min(5, "Catatan wajib diisi minimal 5 karakter — jelaskan alasan tidak sepakat"),
+    catatanPerawat: z.string().min(5, "Catatan wajib diisi minimal 5 karakter. Jelaskan alasan tidak sepakat"),
   }),
 ]);
 export type ValidasiTriase = z.infer<typeof ValidasiTriaseSchema>;

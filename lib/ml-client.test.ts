@@ -114,7 +114,9 @@ describe("classifyWithMl", () => {
       sumber: "ml",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, opsi] = fetchMock.mock.calls[0]!;
+    const panggilan = fetchMock.mock.calls[0];
+    if (!panggilan) throw new Error("fetch tidak terpanggil");
+    const [url, opsi] = panggilan;
     expect(url).toBe(`${ML_URL}/classify`);
     const body = JSON.parse(opsi.body as string);
     expect(body).toMatchObject({ SBP: 168, DBP: 102, HR: 118, RR: 28, BT: 37.1, Saturation: 91, Sex: 2 });

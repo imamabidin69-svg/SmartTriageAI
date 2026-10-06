@@ -65,14 +65,14 @@ export function KonfigurasiAiFormClient() {
           onChange={(e) => setVersiModel(e.target.value)}
           className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
         >
-          <option value="v1.2.0-rule-based">v1.2.0 — Rule-based (aktif)</option>
-          <option value="v2.0.0-beta-ml">v2.0.0-beta — Machine Learning (belum tersedia)</option>
+          <option value="v1.2.0-rule-based">v1.2.0: Rule-based (aktif)</option>
+          <option value="v2.0.0-beta-ml">v2.0.0-beta: Machine Learning (belum tersedia)</option>
         </select>
       </div>
 
       <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
         <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Ambang Batas Skor Klasifikasi</p>
-        <p className="text-xs text-slate-400 mb-3">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
           Perubahan di sini langsung memengaruhi klasifikasi triase berikutnya di seluruh faskes.
         </p>
         <div className="space-y-4">
@@ -107,8 +107,8 @@ export function KonfigurasiAiFormClient() {
           <input type="checkbox" checked={wajibDpj} onChange={(e) => setWajibDpj(e.target.checked)} />
           Wajibkan validasi DPJ untuk kasus kritis
         </label>
-        <p className="text-xs text-slate-400 ml-6">
-          Nonaktifkan kotak ini akan membuka jalur Perawat menyetujui sendiri kasus kritis — hanya untuk skenario
+        <p className="text-xs text-slate-500 dark:text-slate-400 ml-6">
+          Nonaktifkan kotak ini akan membuka jalur Perawat menyetujui sendiri kasus kritis. Hanya untuk skenario
           pengujian, tidak disarankan pada operasional sungguhan.
         </p>
       </div>

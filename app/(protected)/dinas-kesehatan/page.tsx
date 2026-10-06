@@ -52,24 +52,24 @@ export default async function DinasKesehatanPage() {
 
       <div className="grid grid-cols-2 gap-3">
         <Card padding="compact" className="text-center py-4">
-          <p className="text-3xl font-bold text-slate-900 dark:text-slate-200">{totalRegional}</p>
+          <p className="text-3xl font-bold tabular-nums text-slate-900 dark:text-slate-200">{totalRegional}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Triase Regional</p>
         </Card>
         <Card padding="compact" className="text-center py-4">
-          <p className="text-3xl font-bold text-red-600 dark:text-red-400">{totalKritisRegional}</p>
+          <p className="text-3xl font-bold tabular-nums text-red-600 dark:text-red-400">{totalKritisRegional}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Kasus Kritis</p>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {ringkasan.map((f) => (
-          <Card key={f.faskesId} emphasis="hoverable">
+          <Card key={f.faskesId} emphasis="default">
             <h2 className="font-bold text-slate-900 dark:text-slate-200 mb-3">{f.faskesNama}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Total triase: {f.totalTriase}</p>
             <dl className="grid grid-cols-4 gap-2 text-center">
               {Object.entries(f.perLevel).map(([level, count]) => (
                 <div key={level}>
-                  <dd className="text-lg font-bold text-slate-900 dark:text-slate-200">{count}</dd>
+                  <dd className="text-lg font-bold text-slate-900 dark:text-slate-200 tabular-nums">{count}</dd>
                   <dt className="text-xs text-slate-500 dark:text-slate-400 capitalize">{level}</dt>
                 </div>
               ))}

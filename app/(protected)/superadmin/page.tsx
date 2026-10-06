@@ -36,16 +36,16 @@ export default async function SuperAdminPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {ringkasan.map((f) => (
-          <Card key={f.id} emphasis="hoverable">
+          <Card key={f.id} emphasis="default">
             <h2 className="font-bold text-slate-900 dark:text-slate-200 mb-3">{f.nama}</h2>
             <dl className="grid grid-cols-2 gap-3">
               <div>
                 <dt className="text-xs text-slate-500 dark:text-slate-400">Jumlah Staf</dt>
-                <dd className="text-2xl font-bold text-slate-900 dark:text-slate-200">{f.jumlahStaf}</dd>
+                <dd className="text-2xl font-bold text-slate-900 dark:text-slate-200 tabular-nums">{f.jumlahStaf}</dd>
               </div>
               <div>
                 <dt className="text-xs text-slate-500 dark:text-slate-400">Total Triase</dt>
-                <dd className="text-2xl font-bold text-slate-900 dark:text-slate-200">{f.jumlahTriase}</dd>
+                <dd className="text-2xl font-bold text-slate-900 dark:text-slate-200 tabular-nums">{f.jumlahTriase}</dd>
               </div>
             </dl>
           </Card>

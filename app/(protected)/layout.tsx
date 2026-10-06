@@ -11,12 +11,14 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-900">
       <KritisNotificationWatcher enabled={session.role === "dokter_pj"} />
       <DashboardHeaderClient session={session} />
       <div className="flex-1 flex flex-col md:flex-row max-w-6xl mx-auto w-full">
         <DashboardSidebarNavClient role={session.role} />
-        <main className="flex-1 p-6 min-w-0">{children}</main>
+        <main id="konten-utama" tabIndex={-1} className="flex-1 p-4 md:p-6 min-w-0 focus:outline-none">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -85,19 +85,21 @@ export default async function LaporanPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card padding="compact" className="text-center py-4">
-          <p className="text-3xl font-bold text-slate-900 dark:text-slate-200">{records.length}</p>
+          <p className="text-3xl font-bold tabular-nums text-slate-900 dark:text-slate-200">{records.length}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Triase Tercatat</p>
         </Card>
         <Card padding="compact" className="text-center py-4">
-          <p className="text-3xl font-bold text-red-600 dark:text-red-400">{perLevel.kritis}</p>
+          <p className="text-3xl font-bold tabular-nums text-red-600 dark:text-red-400">{perLevel.kritis}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Kasus Kritis</p>
         </Card>
         <Card padding="compact" className="text-center py-4">
-          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{perStatus.disetujui ?? 0}</p>
+          <p className="text-3xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+            {perStatus.disetujui ?? 0}
+          </p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sudah Disetujui</p>
         </Card>
         <Card padding="compact" className="text-center py-4">
-          <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{tingkatKoreksi}%</p>
+          <p className="text-3xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{tingkatKoreksi}%</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tingkat Koreksi DPJ</p>
         </Card>
       </div>
@@ -109,7 +111,7 @@ export default async function LaporanPage() {
             {Object.entries(perLevel).map(([level, count]) => (
               <div key={level} className="flex items-center justify-between text-sm">
                 <dt className="text-slate-600 dark:text-slate-400 capitalize">{level}</dt>
-                <dd className="font-medium text-slate-900 dark:text-slate-200">{count}</dd>
+                <dd className="font-medium tabular-nums text-slate-900 dark:text-slate-200">{count}</dd>
               </div>
             ))}
           </dl>
@@ -121,7 +123,7 @@ export default async function LaporanPage() {
             {Object.entries(perStatus).map(([status, count]) => (
               <div key={status} className="flex items-center justify-between text-sm">
                 <dt className="text-slate-600 dark:text-slate-400">{STATUS_LABEL[status] ?? status}</dt>
-                <dd className="font-medium text-slate-900 dark:text-slate-200">{count}</dd>
+                <dd className="font-medium tabular-nums text-slate-900 dark:text-slate-200">{count}</dd>
               </div>
             ))}
           </dl>
@@ -138,7 +140,7 @@ export default async function LaporanPage() {
                 .map(([poli, count]) => (
                   <div key={poli} className="flex items-center justify-between text-sm">
                     <dt className="text-slate-600 dark:text-slate-400">{poli}</dt>
-                    <dd className="font-medium text-slate-900 dark:text-slate-200">{count}</dd>
+                    <dd className="font-medium tabular-nums text-slate-900 dark:text-slate-200">{count}</dd>
                   </div>
                 ))}
             </dl>

@@ -1,8 +1,8 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import type { Metadata } from "next";
 import { KonfigurasiAiFormClient } from "@/components/superadmin/KonfigurasiAiFormClient";
-import { aiConfigKey } from "@/hooks/useAiConfigQueries";
 import { getQueryClient } from "@/lib/query-client";
+import { aiConfigKey } from "@/lib/query-keys";
 import { fetchAiConfigServer } from "@/lib/server-api";
 import { getSession } from "@/lib/session";
 

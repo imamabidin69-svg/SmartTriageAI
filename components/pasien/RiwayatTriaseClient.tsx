@@ -1,10 +1,12 @@
 "use client";
 
+import { ArrowRight } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, stretchedLinkClass } from "@/components/ui/card";
 import { RiskBadge } from "@/components/ui/risk-badge";
 import { fetchRiwayatTriase } from "@/lib/api-client";
 
@@ -55,22 +57,22 @@ export function RiwayatTriaseClient() {
           e.preventDefault();
           setSearchNama(namaInput);
         }}
-        className="flex flex-wrap gap-2"
+        className="flex flex-col gap-1.5"
       >
-        <input
-          type="search"
-          value={namaInput}
-          onChange={(e) => setNamaInput(e.target.value)}
-          placeholder="Nama pasien…"
-          aria-label="Cari nama pasien"
-          className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
-        />
-        <button
-          type="submit"
-          className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-        >
-          Cari
-        </button>
+        <label htmlFor="cari-riwayat" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Cari nama pasien
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <input
+            id="cari-riwayat"
+            type="search"
+            value={namaInput}
+            onChange={(e) => setNamaInput(e.target.value)}
+            placeholder="Nama pasien…"
+            className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
+          />
+          <Button type="submit">Cari</Button>
+        </div>
       </form>
 
       {searchNama.length === 0 && (
@@ -95,28 +97,32 @@ export function RiwayatTriaseClient() {
       )}
 
       {data && data.length > 0 && (
-        <div className="space-y-3">
+        <section aria-labelledby="hasil-riwayat-heading" className="space-y-3">
+          <h2 id="hasil-riwayat-heading" className="sr-only">
+            Hasil pencarian riwayat triase
+          </h2>
           {data.map((r) => (
-            <Card key={r.idTriase} emphasis="hoverable">
+            <Card key={r.idTriase} interactive>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <h3 className="font-bold text-slate-900 dark:text-slate-200">{r.namaPasien}</h3>
                 <RiskBadge level={r.riskLevel} />
               </div>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">{r.keluhanUtama}</p>
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span>
+                <span className="tabular-nums">
                   {formatWaktu(r.waktuTriase)} &middot; {r.poliTujuan}
                 </span>
                 <Link
                   href={`/triase/${r.idTriase}`}
-                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  className={`inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline font-medium ${stretchedLinkClass}`}
                 >
-                  Lihat Detail →
+                  Lihat Detail
+                  <ArrowRight size={14} aria-hidden="true" />
                 </Link>
               </div>
             </Card>
           ))}
-        </div>
+        </section>
       )}
     </div>
   );

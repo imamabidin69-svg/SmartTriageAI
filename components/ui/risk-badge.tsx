@@ -12,8 +12,8 @@ export const riskBadgeVariants = cva(
           "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 ring-amber-600/20 dark:ring-amber-400/20",
         tinggi:
           "bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 ring-orange-600/20 dark:ring-orange-400/20",
-        kritis:
-          "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 ring-red-600/30 dark:ring-red-400/25 animate-pulse",
+        // Statis dan berisi penuh: lebih tegas dari level lain tanpa kedip berulang (WCAG 2.2.2).
+        kritis: "bg-red-700 text-white ring-red-700 dark:ring-red-400/40",
       },
     },
     defaultVariants: { level: "rendah" },

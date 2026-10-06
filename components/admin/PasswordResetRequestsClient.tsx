@@ -1,5 +1,6 @@
 "use client";
 
+import { Bell } from "@phosphor-icons/react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -49,8 +50,12 @@ export function PasswordResetRequestsClient() {
 
   return (
     <Card emphasis="critical" className="space-y-3" aria-labelledby="reset-requests-heading">
-      <h2 id="reset-requests-heading" className="font-semibold text-red-800 dark:text-red-300">
-        🔔 {requests.length} Permintaan Reset Password Menunggu
+      <h2
+        id="reset-requests-heading"
+        className="flex items-center gap-1.5 font-semibold text-red-800 dark:text-red-300"
+      >
+        <Bell size={18} aria-hidden="true" className="shrink-0" />
+        <span className="tabular-nums">{requests.length}</span> Permintaan Reset Password Menunggu
       </h2>
       <ul className="space-y-2">
         {requests.map((r) => (
@@ -99,7 +104,7 @@ export function PasswordResetRequestsClient() {
               </form>
             )}
             {activeRequestId === r.id && fieldError && (
-              <p className="text-xs text-red-600 mt-1" role="alert">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                 {fieldError}
               </p>
             )}

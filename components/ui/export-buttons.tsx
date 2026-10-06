@@ -1,5 +1,6 @@
 "use client";
 
+import { DownloadSimple, Printer } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
 
@@ -26,10 +27,12 @@ export function ExportButtons({ filenamePrefix, headers, rows }: ExportButtonsPr
   return (
     <div className="flex gap-2 print:hidden">
       <Button type="button" variant="outline" size="sm" onClick={handleExportCsv}>
-        ⬇ Unduh CSV
+        <DownloadSimple size={16} aria-hidden="true" />
+        Unduh CSV
       </Button>
       <Button type="button" variant="outline" size="sm" onClick={handlePrint}>
-        🖨 Cetak / Simpan PDF
+        <Printer size={16} aria-hidden="true" />
+        Cetak / Simpan PDF
       </Button>
     </div>
   );

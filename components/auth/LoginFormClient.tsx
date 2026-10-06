@@ -55,8 +55,11 @@ export function LoginFormClient() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
-          Email <span className="text-red-500">*</span>
+        <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+          Email{" "}
+          <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+            *
+          </span>
         </label>
         <input
           type="email"
@@ -66,17 +69,20 @@ export function LoginFormClient() {
           autoComplete="username"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white"
+          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
           placeholder="nama@faskes.id"
         />
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-            Password <span className="text-red-500">*</span>
+          <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Password{" "}
+            <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+              *
+            </span>
           </label>
-          <Link href="/lupa-password" className="text-xs text-blue-600 hover:underline">
+          <Link href="/lupa-password" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
             Lupa password?
           </Link>
         </div>
@@ -88,13 +94,13 @@ export function LoginFormClient() {
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white"
+          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
           placeholder="••••••••"
         />
       </div>
 
       {error && (
-        <p className="text-xs text-red-600" role="alert">
+        <p className="text-xs text-red-600 dark:text-red-400" role="alert">
           {error}
         </p>
       )}
@@ -103,7 +109,7 @@ export function LoginFormClient() {
         {isSubmitting ? "Memproses…" : "Masuk"}
       </Button>
 
-      <p className="text-xs text-slate-400 text-center">
+      <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
         Belum punya akun? Registrasi hanya dapat dilakukan oleh Admin Faskes tempat Anda bertugas.
       </p>
     </form>

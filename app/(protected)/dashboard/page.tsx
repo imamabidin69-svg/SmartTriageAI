@@ -1,3 +1,4 @@
+import { Plus } from "@phosphor-icons/react/ssr";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -6,6 +7,7 @@ import { AntreanFilterClient } from "@/components/dashboard/AntreanFilterClient"
 import { AntreanListClient } from "@/components/dashboard/AntreanListClient";
 import { AntreanStatsServer } from "@/components/dashboard/AntreanStatsServer";
 import { DpjPriorityQueueClient } from "@/components/dashboard/DpjPriorityQueueClient";
+import { buttonVariants } from "@/components/ui/button";
 import { getQueryClient } from "@/lib/query-client";
 import { antreanKey } from "@/lib/query-keys";
 import { fetchAntreanServer } from "@/lib/server-api";
@@ -40,11 +42,9 @@ export default async function DashboardPage() {
           </p>
         </div>
         {session?.role === "perawat" && (
-          <Link
-            href="/triase/baru"
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            + Input Triase Baru
+          <Link href="/triase/baru" className={buttonVariants()}>
+            <Plus size={18} aria-hidden="true" />
+            Input Triase
           </Link>
         )}
       </div>
@@ -74,7 +74,7 @@ function StatsSkeletonFallback() {
       {[1, 2, 3, 4, 5].map((i) => (
         <div
           key={i}
-          className="animate-pulse rounded-xl border border-slate-200 dark:border-slate-700 p-3 h-[68px] bg-slate-100 dark:bg-slate-900"
+          className={`motion-safe:animate-pulse rounded-xl border border-slate-200 dark:border-slate-700 p-3 h-[68px] bg-slate-100 dark:bg-slate-800 ${i === 1 ? "col-span-2 md:col-span-1" : ""}`}
         />
       ))}
     </div>

@@ -1,3 +1,4 @@
+import { ArrowLeft } from "@phosphor-icons/react/ssr";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -16,10 +17,8 @@ export async function generateMetadata({ params }: TriaseDetailPageProps): Promi
   const { id } = await params;
   const record = await fetchTriageByIdServer(id).catch(() => null);
   return {
-    title: record ? `Hasil Triase — ${record.namaPasien}` : "Hasil Triase Tidak Ditemukan",
-    description: record
-      ? `Hasil klasifikasi AI dan penjelasan (explainable AI) untuk pasien ${record.namaPasien}.`
-      : undefined,
+    title: record ? "Hasil Triase" : "Hasil Triase Tidak Ditemukan",
+    description: record ? "Hasil klasifikasi AI dan penjelasan (explainable AI) untuk pasien ini." : undefined,
   };
 }
 
@@ -42,8 +41,12 @@ export default async function TriaseDetailPage({ params }: TriaseDetailPageProps
 
   return (
     <div className="max-w-3xl">
-      <Link href="/dashboard" className="text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4 inline-block">
-        ← Kembali ke Dashboard Antrean
+      <Link
+        href="/dashboard"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        <ArrowLeft size={16} aria-hidden="true" />
+        Kembali ke Dashboard Antrean
       </Link>
 
       <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">

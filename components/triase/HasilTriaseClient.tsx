@@ -85,7 +85,7 @@ export function HasilTriaseClient({
     const catatan = fd.get("catatanPerawat")?.toString() ?? "";
 
     if (catatan.trim().length < 5) {
-      setCatatanReviewError("Catatan wajib diisi minimal 5 karakter — jelaskan alasan tidak sepakat.");
+      setCatatanReviewError("Catatan wajib diisi minimal 5 karakter. Jelaskan alasan tidak sepakat.");
       return;
     }
 
@@ -102,31 +102,25 @@ export function HasilTriaseClient({
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200">{record.namaPasien}</h2>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-200">{record.namaPasien}</h1>
         <RiskBadge level={record.riskLevel} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <section
-          aria-labelledby="gejala-heading"
-          className="rounded-lg border border-slate-200 dark:border-slate-700 p-4"
-        >
-          <h3 id="gejala-heading" className="font-semibold text-slate-800 dark:text-slate-200 mb-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-slate-200 dark:border-slate-700 pt-6">
+        <section aria-labelledby="gejala-heading">
+          <h2 id="gejala-heading" className="font-semibold text-slate-800 dark:text-slate-200 mb-2">
             Gejala &amp; Keluhan
-          </h3>
+          </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
             <strong>Keluhan utama:</strong> {record.keluhanUtama}
           </p>
           <p className="text-sm text-slate-600 dark:text-slate-400">{record.gejala}</p>
         </section>
-        <section
-          aria-labelledby="vital-heading"
-          className="rounded-lg border border-slate-200 dark:border-slate-700 p-4"
-        >
-          <h3 id="vital-heading" className="font-semibold text-slate-800 dark:text-slate-200 mb-2">
+        <section aria-labelledby="vital-heading">
+          <h2 id="vital-heading" className="font-semibold text-slate-800 dark:text-slate-200 mb-2">
             Tanda Vital
-          </h3>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
+          </h2>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular-nums text-slate-600 dark:text-slate-400">
             <dt>Tekanan darah</dt>
             <dd>
               {record.tandaVital.tekananDarahSistolik}/{record.tandaVital.tekananDarahDiastolik} mmHg
@@ -143,19 +137,16 @@ export function HasilTriaseClient({
         </section>
       </div>
 
-      <section
-        aria-labelledby="rujukan-heading"
-        className="rounded-lg border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/30 p-4 mb-6"
-      >
-        <h3 id="rujukan-heading" className="font-semibold text-indigo-900 dark:text-indigo-300 mb-2">
+      <section aria-labelledby="rujukan-heading" className="border-t border-slate-200 dark:border-slate-700 mt-6 pt-6">
+        <h2 id="rujukan-heading" className="font-semibold text-slate-800 dark:text-slate-200 mb-2">
           Rujukan Poli &amp; Dokter
-        </h3>
-        <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 text-sm text-indigo-900 dark:text-indigo-200">
-          <dt className="font-medium">Poli tujuan</dt>
+        </h2>
+        <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
+          <dt className="font-medium text-slate-700 dark:text-slate-300">Poli tujuan</dt>
           <dd className="sm:col-span-2">{record.poliTujuan}</dd>
-          <dt className="font-medium">Dokter</dt>
+          <dt className="font-medium text-slate-700 dark:text-slate-300">Dokter</dt>
           <dd className="sm:col-span-2">{record.dokterRujukan.nama}</dd>
-          <dt className="font-medium">Jenis dokter</dt>
+          <dt className="font-medium text-slate-700 dark:text-slate-300">Jenis dokter</dt>
           <dd className="sm:col-span-2">
             {record.dokterRujukan.jenis === "spesialis"
               ? `Dokter Spesialis${record.dokterRujukan.spesialisasi ? ` (${record.dokterRujukan.spesialisasi})` : ""}`
@@ -164,13 +155,10 @@ export function HasilTriaseClient({
         </dl>
       </section>
 
-      <section
-        aria-labelledby="explain-heading"
-        className="rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 p-4 mb-6"
-      >
-        <h3 id="explain-heading" className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+      <section aria-labelledby="explain-heading" className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-4 my-6">
+        <h2 id="explain-heading" className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
           Penjelasan Rekomendasi AI (Explainable AI)
-        </h3>
+        </h2>
         <p className="text-sm text-blue-900 dark:text-blue-200">{record.penjelasanAi}</p>
       </section>
 
@@ -205,7 +193,7 @@ export function HasilTriaseClient({
 
             {isKritisTanpaWewenang && (
               <p className="w-full text-xs text-amber-700 dark:text-amber-400" role="note">
-                Kasus dengan risk level KRITIS wajib ditangani Dokter Penanggung Jawab (DPJ) — Anda tidak berwenang
+                Kasus dengan risk level KRITIS wajib ditangani Dokter Penanggung Jawab (DPJ). Anda tidak berwenang
                 menyetujui sendiri untuk kasus kritis.
               </p>
             )}
@@ -248,7 +236,10 @@ export function HasilTriaseClient({
                   htmlFor="catatanKoreksi"
                   className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
                 >
-                  Catatan Koreksi <span className="text-red-500">*</span>
+                  Catatan Koreksi{" "}
+                  <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                    *
+                  </span>
                 </label>
                 <textarea
                   id="catatanKoreksi"
@@ -259,7 +250,7 @@ export function HasilTriaseClient({
                   aria-describedby="catatan-error"
                 />
                 {catatanError && (
-                  <p id="catatan-error" className="text-xs text-red-600 mt-1" role="alert">
+                  <p id="catatan-error" className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                     {catatanError}
                   </p>
                 )}
@@ -281,7 +272,10 @@ export function HasilTriaseClient({
                   htmlFor="catatanPerawat"
                   className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
                 >
-                  Alasan Tidak Sepakat <span className="text-red-500">*</span>
+                  Alasan Tidak Sepakat{" "}
+                  <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                    *
+                  </span>
                 </label>
                 <textarea
                   id="catatanPerawat"
@@ -293,7 +287,7 @@ export function HasilTriaseClient({
                   placeholder="Jelaskan mengapa Anda menilai rekomendasi AI perlu ditinjau ulang oleh dokter"
                 />
                 {catatanReviewError && (
-                  <p id="catatan-review-error" className="text-xs text-red-600 mt-1" role="alert">
+                  <p id="catatan-review-error" className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                     {catatanReviewError}
                   </p>
                 )}

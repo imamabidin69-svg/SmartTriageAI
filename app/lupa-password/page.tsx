@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ForcePublicAppearance } from "@/components/auth/ForcePublicAppearance";
 import { ForgotPasswordFormClient } from "@/components/auth/ForgotPasswordFormClient";
 
 export const metadata: Metadata = {
@@ -9,8 +8,11 @@ export const metadata: Metadata = {
 
 export default function LupaPasswordPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 bg-slate-50">
-      <ForcePublicAppearance />
+    <main
+      id="konten-utama"
+      tabIndex={-1}
+      className="min-h-dvh flex items-center justify-center px-4 bg-slate-50 dark:bg-slate-900 focus:outline-none"
+    >
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <div
@@ -19,11 +21,16 @@ export default function LupaPasswordPage() {
           >
             ST
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Lupa Password</h1>
-          <p className="text-sm text-slate-500">Masukkan email akun Anda untuk memulai proses reset password.</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Lupa Password</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Masukkan email akun Anda untuk memulai proses reset password.
+          </p>
         </div>
 
-        <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm" aria-labelledby="forgot-heading">
+        <section
+          className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm"
+          aria-labelledby="forgot-heading"
+        >
           <h2 id="forgot-heading" className="sr-only">
             Form Lupa Password
           </h2>

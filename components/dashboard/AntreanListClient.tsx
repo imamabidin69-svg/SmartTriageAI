@@ -1,8 +1,9 @@
 "use client";
 
+import { ArrowRight } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, stretchedLinkClass } from "@/components/ui/card";
 import { RiskBadge } from "@/components/ui/risk-badge";
 import { useAntreanQuery } from "@/hooks/useTriaseQueries";
 import type { TriageRecord } from "@/lib/schemas/triase.schema";
@@ -47,7 +48,7 @@ export function AntreanListClient() {
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="animate-pulse rounded-xl border border-slate-200 dark:border-slate-700 p-5 h-36 bg-slate-100 dark:bg-slate-900"
+            className="motion-safe:animate-pulse rounded-xl border border-slate-200 dark:border-slate-700 p-5 h-36 bg-slate-100 dark:bg-slate-800"
           />
         ))}
       </div>
@@ -69,20 +70,28 @@ export function AntreanListClient() {
   }
 
   return (
-    <div>
+    <section aria-labelledby="antrean-heading">
+      <h2 id="antrean-heading" className="sr-only">
+        Daftar antrean pasien
+      </h2>
       <p className="sr-only" role="status" aria-live="polite">
         {isFetching ? "Memperbarui antrean." : `Antrean diperbarui, ${filtered.length} pasien ditampilkan.`}
       </p>
 
       {data && data.length > 0 && (
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Cari nama pasien di antrean…"
-          aria-label="Cari nama pasien"
-          className="w-full max-w-sm mb-4 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
-        />
+        <div className="mb-4 flex max-w-sm flex-col gap-1.5">
+          <label htmlFor="cari-antrean" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Cari nama pasien
+          </label>
+          <input
+            id="cari-antrean"
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Cari nama pasien di antrean…"
+            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
+          />
+        </div>
       )}
 
       {filtered.length === 0 ? (
@@ -94,7 +103,7 @@ export function AntreanListClient() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((record) => (
-            <Card key={record.idTriase} emphasis={record.riskLevel === "kritis" ? "critical" : "hoverable"}>
+            <Card key={record.idTriase} emphasis={record.riskLevel === "kritis" ? "critical" : "default"} interactive>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h3 className="font-bold text-slate-900 dark:text-slate-200">{record.namaPasien}</h3>
                 <RiskBadge level={record.riskLevel} />
@@ -102,19 +111,20 @@ export function AntreanListClient() {
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{record.keluhanUtama}</p>
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-4">
                 <span>{STATUS_LABEL[record.statusValidasi]}</span>
-                <span>{formatWaktu(record.waktuTriase)}</span>
+                <span className="tabular-nums">{formatWaktu(record.waktuTriase)}</span>
               </div>
               <Link
                 href={`/triase/${record.idTriase}`}
-                className="inline-block text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                className={`inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline ${stretchedLinkClass}`}
                 aria-label={`Lihat hasil dan penjelasan AI untuk pasien ${record.namaPasien}`}
               >
-                Lihat Hasil &amp; Penjelasan AI →
+                Lihat Hasil &amp; Penjelasan AI
+                <ArrowRight size={16} aria-hidden="true" />
               </Link>
             </Card>
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }

@@ -1,9 +1,12 @@
 "use client";
 
+import { Bell, List, Siren } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { MOBILE_NAV_ID, MobileNavDrawerClient } from "@/components/dashboard/MobileNavDrawerClient";
+import { ThemeToggleButton } from "@/components/dashboard/ThemeToggleButton";
 import { Button } from "@/components/ui/button";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePendingPasswordResetsQuery } from "@/hooks/useStaffQueries";
 import { useKritisWatchQuery } from "@/hooks/useTriaseQueries";
 import type { Session } from "@/lib/schemas/triase.schema";
@@ -19,11 +22,18 @@ const ROLE_LABEL: Record<Session["role"], string> = {
   dinas_kesehatan: "Dinas Kesehatan",
 };
 
+const iconButtonClass =
+  "relative flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700 text-white hover:bg-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
+
+const countBadgeClass =
+  "absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold tabular-nums";
+
 export function DashboardHeaderClient({ session }: { session: Session }) {
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
-  const themeMode = useUIStore((s) => s.themeMode);
+  const isMobileNavOpen = useUIStore((s) => s.isMobileNavOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const toggleTheme = useUIStore((s) => s.toggleTheme);
+  const setMobileNavOpen = useUIStore((s) => s.setMobileNavOpen);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const router = useRouter();
   const isAdmin = session.role === "admin_faskes";
   const isDpj = session.role === "dokter_pj";
@@ -32,9 +42,7 @@ export function DashboardHeaderClient({ session }: { session: Session }) {
   const { data: kritisPending } = useKritisWatchQuery(isDpj);
   const kritisCount = kritisPending?.length ?? 0;
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", themeMode === "dark");
-  }, [themeMode]);
+  const navTerbuka = isDesktop ? isSidebarOpen : isMobileNavOpen;
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -43,47 +51,46 @@ export function DashboardHeaderClient({ session }: { session: Session }) {
   }
 
   return (
-    <header className="bg-slate-800 text-white shadow-sm sticky top-0 z-10 border-b border-slate-700/50 print:hidden">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
+    <header className="bg-slate-800 text-white shadow-sm sticky top-0 z-(--z-header) border-b border-slate-700/50 print:hidden">
+      <div className="max-w-6xl mx-auto px-4 h-(--header-h) flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
-            onClick={toggleSidebar}
-            aria-expanded={isSidebarOpen}
-            aria-controls="dashboard-sidebar"
-            className="w-9 h-9 flex items-center justify-center rounded-md bg-slate-700 hover:bg-slate-600 text-white"
-            aria-label={isSidebarOpen ? "Sembunyikan navigasi" : "Tampilkan navigasi"}
+            onClick={() => (isDesktop ? toggleSidebar() : setMobileNavOpen(true))}
+            aria-expanded={navTerbuka}
+            aria-controls={isDesktop ? "dashboard-sidebar" : MOBILE_NAV_ID}
+            className={iconButtonClass}
+            aria-label={navTerbuka ? "Sembunyikan navigasi" : "Tampilkan navigasi"}
           >
-            ☰
+            <List size={20} aria-hidden="true" />
           </button>
           <div
-            className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-lg"
+            className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-lg shrink-0"
             aria-hidden="true"
           >
             ST
           </div>
-          <div>
-            <h1 className="text-lg font-bold leading-tight">SmartTriage AI</h1>
-            <p className="text-xs text-slate-400">Sistem Bantu Triase &mdash; IGD &amp; Puskesmas</p>
+          <div className="min-w-0">
+            <p className="text-lg font-bold leading-tight">SmartTriage AI</p>
+            <p className="hidden truncate text-xs text-slate-400 sm:block">
+              Sistem Bantu Triase untuk IGD &amp; Puskesmas
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex shrink-0 items-center gap-3 text-sm">
           {isDpj && (
             <Link
               href="/dashboard"
-              className="relative w-9 h-9 flex items-center justify-center rounded-md bg-slate-700 hover:bg-slate-600"
+              className={iconButtonClass}
               aria-label={
                 kritisCount > 0 ? `${kritisCount} kasus kritis menunggu validasi` : "Tidak ada kasus kritis menunggu"
               }
               title="Kasus kritis menunggu validasi"
             >
-              🚨
+              <Siren size={20} aria-hidden="true" />
               {kritisCount > 0 && (
-                <span
-                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold"
-                  aria-hidden="true"
-                >
+                <span className={countBadgeClass} aria-hidden="true">
                   {kritisCount}
                 </span>
               )}
@@ -92,7 +99,7 @@ export function DashboardHeaderClient({ session }: { session: Session }) {
           {isAdmin && (
             <Link
               href="/admin/staff"
-              className="relative w-9 h-9 flex items-center justify-center rounded-md bg-slate-700 hover:bg-slate-600"
+              className={iconButtonClass}
               aria-label={
                 pendingCount > 0
                   ? `${pendingCount} permintaan reset password menunggu`
@@ -100,35 +107,38 @@ export function DashboardHeaderClient({ session }: { session: Session }) {
               }
               title="Permintaan reset password"
             >
-              🔔
+              <Bell size={20} aria-hidden="true" />
               {pendingCount > 0 && (
-                <span
-                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold"
-                  aria-hidden="true"
-                >
+                <span className={countBadgeClass} aria-hidden="true">
                   {pendingCount}
                 </span>
               )}
             </Link>
           )}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="w-9 h-9 flex items-center justify-center rounded-md bg-slate-700 hover:bg-slate-600"
-            aria-label={themeMode === "light" ? "Aktifkan mode gelap" : "Aktifkan mode terang"}
-            title="Tema (Client UI State — Zustand)"
+          <div className="hidden md:block">
+            <ThemeToggleButton className={iconButtonClass} />
+          </div>
+          <Link
+            href="/profil"
+            className="hidden max-w-[12rem] truncate text-slate-300 hover:text-white hover:underline md:inline-block"
           >
-            {themeMode === "light" ? "🌙" : "☀️"}
-          </button>
-          <Link href="/profil" className="text-slate-300 hover:text-white hover:underline">
             {session.nama}
           </Link>
-          <span className="text-slate-400 hidden sm:inline">&middot; {ROLE_LABEL[session.role]}</span>
-          <Button type="button" variant="outline" size="sm" onClick={() => void handleLogout()}>
-            Keluar
-          </Button>
+          <span className="text-slate-400 hidden lg:inline">&middot; {ROLE_LABEL[session.role]}</span>
+          <div className="hidden md:block">
+            <Button type="button" variant="outline" size="sm" onClick={() => void handleLogout()}>
+              Keluar
+            </Button>
+          </div>
         </div>
       </div>
+
+      <MobileNavDrawerClient
+        role={session.role}
+        nama={session.nama}
+        roleLabel={ROLE_LABEL[session.role]}
+        onLogout={() => void handleLogout()}
+      />
     </header>
   );
 }
