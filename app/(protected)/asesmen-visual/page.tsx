@@ -27,7 +27,7 @@ export default async function AsesmenVisualPage() {
       <h1 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-1">Asesmen Pasien Tidak Sadar</h1>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         Gunakan alur ini saat pasien tidak dapat menyampaikan keluhan sendiri (tidak sadar, tanpa pendamping). Catat
-        observasi visual dan tanda vital — sistem akan memproses klasifikasi tingkat kegawatan berdasarkan data
+        observasi visual dan tanda vital, lalu sistem akan memproses klasifikasi tingkat kegawatan berdasarkan data
         tersebut.
       </p>
       <AsesmenVisualFormClient />

@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "@phosphor-icons/react";
 import { type FormEvent, Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -104,11 +105,18 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-200">Kelola Akun Staf</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Faskes: <strong>{faskesNama}</strong> — registrasi akun hanya dapat dilakukan dari sini.
+            Faskes: <strong>{faskesNama}</strong>. Registrasi akun hanya dapat dilakukan dari sini.
           </p>
         </div>
         <Button type="button" onClick={() => setShowForm((s) => !s)}>
-          {showForm ? "Batal" : "+ Tambah Akun Staf"}
+          {showForm ? (
+            "Batal"
+          ) : (
+            <>
+              <Plus size={18} aria-hidden="true" />
+              Tambah Akun Staf
+            </>
+          )}
         </Button>
       </div>
 
@@ -133,14 +141,17 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
               disabled
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400"
             />
-            <p className="text-xs text-slate-400 mt-1">
-              Akun baru otomatis terdaftar di faskes ini — tidak bisa diubah dari form ini.
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Akun baru otomatis terdaftar di faskes ini dan tidak bisa diubah dari form ini.
             </p>
           </div>
 
           <div>
             <label htmlFor="nama" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Nama Lengkap <span className="text-red-500">*</span>
+              Nama Lengkap{" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               type="text"
@@ -151,7 +162,7 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
               placeholder="Contoh: Ns. Dewi Anggraini"
             />
             {fieldErrors.nama && (
-              <p className="text-xs text-red-600 mt-1" role="alert">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                 {fieldErrors.nama}
               </p>
             )}
@@ -159,7 +170,10 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Email <span className="text-red-500">*</span>
+              Email{" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               type="email"
@@ -170,7 +184,7 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
               placeholder="nama@faskes.id"
             />
             {fieldErrors.email && (
-              <p className="text-xs text-red-600 mt-1" role="alert">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                 {fieldErrors.email}
               </p>
             )}
@@ -178,7 +192,10 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Password Awal <span className="text-red-500">*</span>
+              Password Awal{" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               type="text"
@@ -188,12 +205,12 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200 font-mono"
               placeholder="Minimal 8 karakter"
             />
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Sampaikan password ini kepada staf secara langsung. Sarankan mereka menggantinya setelah masuk pertama
               kali.
             </p>
             {fieldErrors.password && (
-              <p className="text-xs text-red-600 mt-1" role="alert">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                 {fieldErrors.password}
               </p>
             )}
@@ -201,7 +218,10 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
 
           <div>
             <label htmlFor="role" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Peran <span className="text-red-500">*</span>
+              Peran{" "}
+              <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <select
               id="role"
@@ -216,7 +236,7 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
               ))}
             </select>
             {fieldErrors.role && (
-              <p className="text-xs text-red-600 mt-1" role="alert">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                 {fieldErrors.role}
               </p>
             )}
@@ -229,22 +249,25 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
       )}
 
       {staff && staff.length > 0 && (
-        <div className="relative max-w-sm">
+        <div className="flex max-w-sm flex-col gap-1.5">
+          <label htmlFor="cari-akun-staf" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Cari akun staf
+          </label>
           <input
+            id="cari-akun-staf"
             type="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Cari nama atau email staf…"
-            aria-label="Cari akun staf"
             className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
           />
         </div>
       )}
 
       {isPending && (
-        <div className="animate-pulse space-y-2" aria-busy="true">
+        <div className="motion-safe:animate-pulse space-y-2" aria-busy="true">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-slate-100 dark:bg-slate-900 rounded-lg" />
+            <div key={i} className="h-14 bg-slate-100 dark:bg-slate-800 rounded-lg" />
           ))}
         </div>
       )}
@@ -297,7 +320,7 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
                       </td>
                       <td className="px-4 py-3">
                         {u.id === currentUserId ? (
-                          <span className="text-xs text-slate-400">Akun Anda</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">Akun Anda</span>
                         ) : (
                           <div className="flex flex-wrap gap-2">
                             <Button
@@ -348,7 +371,7 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
                                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 dark:text-slate-200"
                               />
                               {editFieldErrors.nama && (
-                                <p className="text-xs text-red-600 mt-1" role="alert">
+                                <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                                   {editFieldErrors.nama}
                                 </p>
                               )}
@@ -369,7 +392,7 @@ export function StaffManagementClient({ faskesNama, currentUserId }: { faskesNam
                                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 dark:text-slate-200"
                               />
                               {editFieldErrors.email && (
-                                <p className="text-xs text-red-600 mt-1" role="alert">
+                                <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                                   {editFieldErrors.email}
                                 </p>
                               )}

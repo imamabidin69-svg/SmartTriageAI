@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "@phosphor-icons/react";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,14 @@ export function PasienManagementClient({ showRiwayatLink }: { showRiwayatLink: b
           </p>
         </div>
         <Button type="button" onClick={() => setShowForm((s) => !s)}>
-          {showForm ? "Batal" : "+ Registrasi Pasien Baru"}
+          {showForm ? (
+            "Batal"
+          ) : (
+            <>
+              <Plus size={18} aria-hidden="true" />
+              Registrasi Pasien Baru
+            </>
+          )}
         </Button>
       </div>
 
@@ -82,7 +90,10 @@ export function PasienManagementClient({ showRiwayatLink }: { showRiwayatLink: b
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="nama" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Nama Lengkap <span className="text-red-500">*</span>
+                Nama Lengkap{" "}
+                <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+                  *
+                </span>
               </label>
               <input
                 type="text"
@@ -92,7 +103,7 @@ export function PasienManagementClient({ showRiwayatLink }: { showRiwayatLink: b
                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
               />
               {fieldErrors.nama && (
-                <p className="text-xs text-red-600 mt-1" role="alert">
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                   {fieldErrors.nama}
                 </p>
               )}
@@ -110,7 +121,7 @@ export function PasienManagementClient({ showRiwayatLink }: { showRiwayatLink: b
                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
               />
               {fieldErrors.nik && (
-                <p className="text-xs text-red-600 mt-1" role="alert">
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                   {fieldErrors.nik}
                 </p>
               )}
@@ -177,20 +188,25 @@ export function PasienManagementClient({ showRiwayatLink }: { showRiwayatLink: b
       )}
 
       {pasienList && pasienList.length > 0 && (
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Cari nama atau NIK pasien…"
-          aria-label="Cari pasien"
-          className="max-w-sm w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
-        />
+        <div className="flex max-w-sm flex-col gap-1.5">
+          <label htmlFor="cari-pasien-terdaftar" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Cari pasien
+          </label>
+          <input
+            id="cari-pasien-terdaftar"
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Cari nama atau NIK pasien…"
+            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
+          />
+        </div>
       )}
 
       {isPending && (
-        <div className="animate-pulse space-y-2" aria-busy="true">
+        <div className="motion-safe:animate-pulse space-y-2" aria-busy="true">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-slate-100 dark:bg-slate-900 rounded-lg" />
+            <div key={i} className="h-14 bg-slate-100 dark:bg-slate-800 rounded-lg" />
           ))}
         </div>
       )}
@@ -225,7 +241,7 @@ export function PasienManagementClient({ showRiwayatLink }: { showRiwayatLink: b
                 {filtered?.map((p) => (
                   <tr key={p.id}>
                     <td className="px-4 py-3 text-slate-900 dark:text-slate-200">{p.nama}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.nik ?? "-"}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400 tabular-nums">{p.nik ?? "-"}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatTanggal(p.tanggalLahir)}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatTanggal(p.waktuDaftar)}</td>
                     {showRiwayatLink && (

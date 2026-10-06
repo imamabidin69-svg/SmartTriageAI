@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "@phosphor-icons/react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { RiskBadge } from "@/components/ui/risk-badge";
@@ -38,9 +39,10 @@ export function DpjPriorityQueueClient() {
             </div>
             <Link
               href={`/triase/${r.idTriase}`}
-              className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
             >
-              Tinjau Sekarang →
+              Tinjau Sekarang
+              <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </li>
         ))}

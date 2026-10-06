@@ -37,7 +37,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json(
       {
         error:
-          "Kasus dengan risk level KRITIS wajib ditangani Dokter Penanggung Jawab (DPJ) — Anda tidak berwenang menyetujui sendiri.",
+          "Kasus dengan risk level KRITIS wajib ditangani Dokter Penanggung Jawab (DPJ). Anda tidak berwenang menyetujui sendiri.",
       },
       { status: 403 },
     );

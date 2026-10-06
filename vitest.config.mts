@@ -10,8 +10,8 @@ export default defineConfig({
       // jadi dialihkan ke empty.js (no-op) bawaan paket yang sama supaya
       // lib/ml-client.ts dan modul server-only lain bisa di-import di test
       // tanpa perlu menyalin ulang isi paketnya.
-      "server-only": path.resolve(__dirname, "node_modules/server-only/empty.js"),
-      "@": __dirname,
+      "server-only": path.resolve(import.meta.dirname, "node_modules/server-only/empty.js"),
+      "@": import.meta.dirname,
     },
   },
   test: {

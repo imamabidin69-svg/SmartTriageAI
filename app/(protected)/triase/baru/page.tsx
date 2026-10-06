@@ -3,7 +3,7 @@ import { TriaseFormClient } from "@/components/triase/TriaseFormClient";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
-  title: "Input Triase Baru",
+  title: "Input Triase",
   description: "Input gejala, keluhan, dan tanda vital pasien untuk diproses sistem klasifikasi AI.",
 };
 
@@ -27,7 +27,7 @@ export default async function TriaseBaruPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-1">Form Input Triase</h1>
+      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-1">Input Triase</h1>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         Input gejala, keluhan, riwayat singkat, dan tanda vital pasien. Data akan diproses sistem AI untuk menghasilkan
         tingkat kegawatan beserta penjelasannya.

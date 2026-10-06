@@ -15,7 +15,7 @@ export function AntreanFilterClient() {
   const setSelectedRiskFilter = useUIStore((s) => s.setSelectedRiskFilter);
 
   return (
-    <fieldset className="flex flex-wrap gap-2 border-0 p-0 m-0">
+    <fieldset className="flex flex-wrap gap-2 border-0 p-0">
       <legend className="sr-only">Filter kategori kegawatan</legend>
       {FILTERS.map((f) => {
         const isActive = selectedRiskFilter === f.value;

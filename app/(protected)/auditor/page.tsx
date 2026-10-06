@@ -1,3 +1,4 @@
+import { ArrowRight } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import { Card } from "@/components/ui/card";
 import { RiskBadge } from "@/components/ui/risk-badge";
@@ -28,7 +29,7 @@ const AKSI_BADGE_COLOR: Record<string, string> = {
   staf_diedit: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
   staf_diaktifkan: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
   staf_dinonaktifkan: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400",
-  pasien_didaftarkan: "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300",
+  pasien_didaftarkan: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
 };
 
 function formatWaktu(iso: string): string {
@@ -89,7 +90,7 @@ export default async function AuditorPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {log.map((entry) => (
                 <tr key={entry.id}>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap tabular-nums">
                     {formatWaktu(entry.waktu)}
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{entry.faskesNama}</td>
@@ -109,7 +110,8 @@ export default async function AuditorPage() {
                           entry.riskLevelSebelum !== entry.riskLevelSesudah && (
                             <>
                               <RiskBadge level={entry.riskLevelSebelum} />
-                              <span className="text-slate-400">→</span>
+                              <ArrowRight size={14} aria-hidden="true" className="text-slate-500 dark:text-slate-400" />
+                              <span className="sr-only">menjadi</span>
                             </>
                           )}
                         {entry.riskLevelSesudah && <RiskBadge level={entry.riskLevelSesudah} />}

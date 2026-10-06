@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight, Siren, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useKritisWatchQuery } from "@/hooks/useTriaseQueries";
@@ -67,20 +68,18 @@ export function KritisNotificationWatcher({ enabled }: { enabled: boolean }) {
 
   return (
     <section
-      className="fixed top-20 right-4 z-50 flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)]"
+      className="fixed top-[calc(var(--header-h)+1rem)] right-4 z-(--z-toast) flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)]"
       aria-label="Notifikasi kasus kritis"
     >
       {toasts.map((t) => (
         <div
           key={t.id}
           role="alert"
-          className="bg-white dark:bg-slate-800 border border-red-300 dark:border-red-800 rounded-lg shadow-lg p-4"
+          className="enter-fade bg-white dark:bg-slate-800 border border-red-300 dark:border-red-800 rounded-lg shadow-lg p-4"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2">
-              <span aria-hidden="true" className="text-lg">
-                🚨
-              </span>
+              <Siren size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-red-700 dark:text-red-400" />
               <div>
                 <p className="text-sm font-semibold text-red-700 dark:text-red-400">Kasus Kritis Baru</p>
                 <p className="text-sm text-slate-700 dark:text-slate-300">{t.namaPasien}</p>
@@ -90,17 +89,18 @@ export function KritisNotificationWatcher({ enabled }: { enabled: boolean }) {
               type="button"
               onClick={() => dismissToast(t.id)}
               aria-label="Tutup notifikasi"
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg leading-none"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
             >
-              ×
+              <X size={16} aria-hidden="true" />
             </button>
           </div>
           <Link
             href={`/triase/${t.idTriase}`}
             onClick={() => dismissToast(t.id)}
-            className="inline-block mt-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+            className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
           >
-            Tinjau Sekarang →
+            Tinjau Sekarang
+            <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </div>
       ))}

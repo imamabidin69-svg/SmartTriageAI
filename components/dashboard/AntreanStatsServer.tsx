@@ -14,9 +14,13 @@ export async function AntreanStatsServer() {
 
   return (
     <section className="grid grid-cols-2 md:grid-cols-5 gap-3" aria-label="Ringkasan statistik antrean">
-      {items.map((item) => (
-        <Card key={item.label} padding="compact" className="text-center py-3">
-          <p className={`text-2xl font-bold ${item.tone}`}>{item.value}</p>
+      {items.map((item, i) => (
+        <Card
+          key={item.label}
+          padding="compact"
+          className={`text-center py-3 ${i === 0 ? "col-span-2 md:col-span-1" : ""}`}
+        >
+          <p className={`text-2xl font-bold tabular-nums ${item.tone}`}>{item.value}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{item.label}</p>
         </Card>
       ))}

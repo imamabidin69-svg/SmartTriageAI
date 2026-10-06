@@ -2,9 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchAiConfig, updateAiConfig } from "@/lib/api-client";
+import { aiConfigKey } from "@/lib/query-keys";
 import type { AiConfig } from "@/lib/schemas/ai-config.schema";
-
-export const aiConfigKey = () => ["ai-config"] as const;
 
 export function useAiConfigQuery() {
   return useQuery({

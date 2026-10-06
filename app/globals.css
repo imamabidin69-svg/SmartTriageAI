@@ -2,19 +2,127 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Inter di-host sendiri lewat next/font (app/fonts.ts); di sini dipetakan ke font-sans. */
+@theme inline {
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+}
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+
+  /* Tinggi header aplikasi. Dipakai header, offset sticky sidebar, dan posisi toast. */
+  --header-h: 4rem;
+
+  /* Skala z-index proyek. Drawer navigasi memakai <dialog> di top layer, jadi tidak perlu nilai di sini. */
+  --z-dropdown: 10;
+  --z-header: 20;
+  --z-toast: 50;
+
+  /* Default mengikuti preferensi sistem. Kelas .dark/.light menimpanya saat pengguna mengunci tema. */
+  color-scheme: light dark;
+  scroll-padding-top: calc(var(--header-h) + 1rem);
 }
 
 .dark {
   --background: #0f172a;
   --foreground: #e2e8f0;
+  color-scheme: dark;
+}
+
+.light {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+@layer base {
+  /* Placeholder bawaan Tailwind v4 (currentColor 50%) hanya ~3,4:1. Ini menaikkannya ke AA. */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-slate-500);
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: var(--color-slate-400);
+  }
+}
+
+@layer components {
+  /* Drawer navigasi mobile: <dialog> modal yang menempel di sisi kiri (MobileNavDrawerClient). */
+  .nav-drawer {
+    margin: 0;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: min(20rem, 85vw);
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    padding: 0;
+    border: 0;
+  }
+
+  .nav-drawer::backdrop {
+    background-color: rgb(2 6 23 / 0.5);
+  }
+
+  /* Transisi drawer, dropdown, dan toast. Hanya aktif kalau pengguna tidak meminta reduced motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    .nav-drawer {
+      translate: -100% 0;
+      transition-property: translate, display, overlay;
+      transition-duration: 200ms;
+      transition-timing-function: ease-out;
+      transition-behavior: allow-discrete;
+    }
+
+    .nav-drawer[open] {
+      translate: 0 0;
+    }
+
+    .nav-drawer::backdrop {
+      background-color: rgb(2 6 23 / 0);
+      transition-property: background-color, display, overlay;
+      transition-duration: 200ms;
+      transition-behavior: allow-discrete;
+    }
+
+    .nav-drawer[open]::backdrop {
+      background-color: rgb(2 6 23 / 0.5);
+    }
+
+    .enter-fade {
+      transition-property: opacity, translate;
+      transition-duration: 150ms;
+      transition-timing-function: ease-out;
+    }
+
+    @starting-style {
+      .nav-drawer[open] {
+        translate: -100% 0;
+      }
+
+      .nav-drawer[open]::backdrop {
+        background-color: rgb(2 6 23 / 0);
+      }
+
+      .enter-fade {
+        opacity: 0;
+        translate: 0 -0.25rem;
+      }
+    }
+  }
+}
+
+/* Kunci scroll halaman selama drawer terbuka. */
+html:has(.nav-drawer[open]) {
+  overflow: hidden;
 }
 
 @media print {

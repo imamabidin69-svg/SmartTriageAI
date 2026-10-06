@@ -54,7 +54,10 @@ export function ProfileFormClient({ namaSaatIni }: { namaSaatIni: string }) {
     >
       <div>
         <label htmlFor="nama" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-          Nama Lengkap <span className="text-red-500">*</span>
+          Nama Lengkap{" "}
+          <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+            *
+          </span>
         </label>
         <input
           type="text"
@@ -66,7 +69,7 @@ export function ProfileFormClient({ namaSaatIni }: { namaSaatIni: string }) {
           className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
         />
         {fieldErrors.nama && (
-          <p className="text-xs text-red-600 mt-1" role="alert">
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
             {fieldErrors.nama}
           </p>
         )}
@@ -75,7 +78,9 @@ export function ProfileFormClient({ namaSaatIni }: { namaSaatIni: string }) {
       <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
         <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
           Ganti Password{" "}
-          <span className="text-xs font-normal text-slate-400">(kosongkan jika tidak ingin mengganti)</span>
+          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+            (kosongkan jika tidak ingin mengganti)
+          </span>
         </p>
 
         <div className="space-y-3">
@@ -96,7 +101,7 @@ export function ProfileFormClient({ namaSaatIni }: { namaSaatIni: string }) {
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
             />
             {fieldErrors.passwordSaatIni && (
-              <p className="text-xs text-red-600 mt-1" role="alert">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                 {fieldErrors.passwordSaatIni}
               </p>
             )}
@@ -116,7 +121,7 @@ export function ProfileFormClient({ namaSaatIni }: { namaSaatIni: string }) {
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
             />
             {fieldErrors.passwordBaru && (
-              <p className="text-xs text-red-600 mt-1" role="alert">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
                 {fieldErrors.passwordBaru}
               </p>
             )}

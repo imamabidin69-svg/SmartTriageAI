@@ -1,7 +1,9 @@
 "use client";
 
+import { ArrowLeft, Check, Plus, Warning } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { ZodError } from "zod";
 import { Button } from "@/components/ui/button";
 import { usePasienQuery } from "@/hooks/usePasienQueries";
@@ -40,11 +42,73 @@ export function TriaseFormClient() {
   const [pasienSearch, setPasienSearch] = useState("");
   const [showPasienDropdown, setShowPasienDropdown] = useState(false);
   const [modePasienBaru, setModePasienBaru] = useState(false);
+  const [opsiAktif, setOpsiAktif] = useState(-1);
+  const cariPasienRef = useRef<HTMLInputElement>(null);
+  const gantiPasienRef = useRef<HTMLButtonElement>(null);
+  const namaManualRef = useRef<HTMLInputElement>(null);
 
   const pasienCocok =
-    pasienSearch.trim().length > 0
+    (pasienSearch.trim().length > 0
       ? pasienList?.filter((p) => p.nama.toLowerCase().includes(pasienSearch.trim().toLowerCase())).slice(0, 6)
-      : pasienList?.slice(0, 6);
+      : pasienList?.slice(0, 6)) ?? [];
+  // Opsi terakhir di listbox selalu "Pasien belum terdaftar (input manual)".
+  const indexOpsiManual = pasienCocok.length;
+  const jumlahOpsi = pasienCocok.length + 1;
+
+  function tutupDaftarPasien() {
+    setShowPasienDropdown(false);
+    setOpsiAktif(-1);
+  }
+
+  function pilihPasien(pasien: Pasien) {
+    flushSync(() => {
+      setPasienTerpilih(pasien);
+      setPasienSearch("");
+      tutupDaftarPasien();
+    });
+    gantiPasienRef.current?.focus();
+  }
+
+  function pilihInputManual() {
+    flushSync(() => {
+      setModePasienBaru(true);
+      tutupDaftarPasien();
+    });
+    namaManualRef.current?.focus();
+  }
+
+  function kembaliKePencarian() {
+    flushSync(() => {
+      setPasienTerpilih(null);
+      setModePasienBaru(false);
+    });
+    cariPasienRef.current?.focus();
+  }
+
+  // Pola combobox WAI-ARIA: panah memindah opsi aktif, Enter memilih, Esc menutup daftar.
+  function handleCariPasienKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const turun = e.key === "ArrowDown";
+      if (!showPasienDropdown) {
+        setShowPasienDropdown(true);
+        setOpsiAktif(turun ? 0 : jumlahOpsi - 1);
+        return;
+      }
+      setOpsiAktif((i) => (turun ? (i + 1) % jumlahOpsi : i <= 0 ? jumlahOpsi - 1 : i - 1));
+    } else if (e.key === "Enter" && showPasienDropdown && opsiAktif >= 0) {
+      e.preventDefault();
+      if (opsiAktif === indexOpsiManual) {
+        pilihInputManual();
+      } else {
+        const pasien = pasienCocok[opsiAktif];
+        if (pasien) pilihPasien(pasien);
+      }
+    } else if (e.key === "Escape" && showPasienDropdown) {
+      e.preventDefault();
+      tutupDaftarPasien();
+    }
+  }
 
   function doSubmit(input: TriageInput) {
     mutation.mutate(input, {
@@ -114,20 +178,29 @@ export function TriaseFormClient() {
 
         <div>
           <p id="pasien-field-label" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Pasien <span className="text-red-500">*</span>
+            Pasien{" "}
+            <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+              *
+            </span>
           </p>
 
           {pasienTerpilih ? (
             <div className="flex items-center justify-between gap-2 px-3 py-2 border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-sm">
-              <span className="text-emerald-800 dark:text-emerald-300">
-                ✓ <strong>{pasienTerpilih.nama}</strong>
+              <span className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                <Check size={16} aria-hidden="true" className="shrink-0" />
+                <strong>{pasienTerpilih.nama}</strong>
                 {pasienTerpilih.nik && (
-                  <span className="text-emerald-600 dark:text-emerald-400"> &middot; NIK {pasienTerpilih.nik}</span>
+                  <span className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                    {" "}
+                    &middot; NIK {pasienTerpilih.nik}
+                  </span>
                 )}
               </span>
               <button
+                ref={gantiPasienRef}
                 type="button"
-                onClick={() => setPasienTerpilih(null)}
+                onClick={kembaliKePencarian}
+                aria-label={`Ganti pasien terpilih (${pasienTerpilih.nama})`}
                 className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline shrink-0"
               >
                 Ganti
@@ -136,6 +209,7 @@ export function TriaseFormClient() {
           ) : modePasienBaru ? (
             <div className="space-y-2">
               <input
+                ref={namaManualRef}
                 type="text"
                 id="namaPasien"
                 name="namaPasien"
@@ -146,62 +220,96 @@ export function TriaseFormClient() {
               />
               <button
                 type="button"
-                onClick={() => setModePasienBaru(false)}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                onClick={kembaliKePencarian}
+                className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
               >
-                ← Kembali cari pasien terdaftar
+                <ArrowLeft size={14} aria-hidden="true" />
+                Kembali cari pasien terdaftar
               </button>
             </div>
           ) : (
             <div className="relative">
               <input
+                ref={cariPasienRef}
+                id="cari-pasien"
                 type="text"
+                role="combobox"
+                aria-labelledby="pasien-field-label"
+                aria-autocomplete="list"
+                aria-expanded={showPasienDropdown}
+                aria-controls="pasien-listbox"
+                aria-activedescendant={showPasienDropdown && opsiAktif >= 0 ? `pasien-opsi-${opsiAktif}` : undefined}
+                autoComplete="off"
                 value={pasienSearch}
                 onChange={(e) => {
                   setPasienSearch(e.target.value);
                   setShowPasienDropdown(true);
+                  setOpsiAktif(-1);
                 }}
                 onFocus={() => setShowPasienDropdown(true)}
-                onBlur={() => setTimeout(() => setShowPasienDropdown(false), 150)}
+                onBlur={tutupDaftarPasien}
+                onKeyDown={handleCariPasienKeyDown}
                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200"
                 placeholder="Cari nama pasien terdaftar…"
-                aria-label="Cari pasien terdaftar"
               />
               {showPasienDropdown && (
-                <div className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                  {pasienCocok && pasienCocok.length > 0 ? (
-                    pasienCocok.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onMouseDown={() => {
-                          setPasienTerpilih(p);
-                          setPasienSearch("");
-                          setShowPasienDropdown(false);
-                        }}
-                        className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200"
-                      >
-                        {p.nama} {p.nik && <span className="text-slate-400 text-xs">&middot; {p.nik}</span>}
-                      </button>
-                    ))
-                  ) : (
-                    <p className="px-3 py-2 text-sm text-slate-400">Tidak ada pasien yang cocok.</p>
+                <div className="enter-fade absolute z-(--z-dropdown) mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  {pasienCocok.length === 0 && (
+                    <p className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Tidak ada pasien yang cocok.</p>
                   )}
-                  <button
-                    type="button"
-                    onMouseDown={() => {
-                      setModePasienBaru(true);
-                      setShowPasienDropdown(false);
-                    }}
-                    className="block w-full text-left px-3 py-2 text-sm text-blue-600 dark:text-blue-400 border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
-                  >
-                    + Pasien belum terdaftar (input manual)
-                  </button>
+                  <div id="pasien-listbox" role="listbox" aria-labelledby="pasien-field-label">
+                    {pasienCocok.map((p, i) => (
+                      // Keyboard ditangani input combobox lewat aria-activedescendant (pola WAI-ARIA).
+                      // biome-ignore lint/a11y/useKeyWithClickEvents: opsi dipilih lewat keyboard dari input combobox
+                      <div
+                        key={p.id}
+                        id={`pasien-opsi-${i}`}
+                        role="option"
+                        tabIndex={-1}
+                        aria-selected={opsiAktif === i}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pilihPasien(p)}
+                        className={`cursor-pointer px-3 py-2 text-sm ${
+                          opsiAktif === i
+                            ? "bg-blue-50 text-blue-800 dark:bg-slate-700 dark:text-white"
+                            : "text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        {p.nama}{" "}
+                        {p.nik && (
+                          <span className="text-xs tabular-nums text-slate-600 dark:text-slate-300">
+                            &middot; {p.nik}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: opsi dipilih lewat keyboard dari input combobox */}
+                    <div
+                      id={`pasien-opsi-${indexOpsiManual}`}
+                      role="option"
+                      tabIndex={-1}
+                      aria-selected={opsiAktif === indexOpsiManual}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={pilihInputManual}
+                      className={`flex cursor-pointer items-center gap-1.5 px-3 py-2 text-sm border-t border-slate-100 dark:border-slate-700 ${
+                        opsiAktif === indexOpsiManual
+                          ? "bg-blue-50 text-blue-800 dark:bg-slate-700 dark:text-white"
+                          : "text-blue-600 hover:bg-slate-50 dark:text-blue-400 dark:hover:bg-slate-700"
+                      }`}
+                    >
+                      <Plus size={16} aria-hidden="true" className="shrink-0" />
+                      Pasien belum terdaftar (input manual)
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           )}
-          {errorFor("namaPasien") && <p className="text-xs text-red-600 mt-1">{errorFor("namaPasien")}</p>}
+          {errorFor("namaPasien") && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
+              {errorFor("namaPasien")}
+            </p>
+          )}
         </div>
 
         <Field label="Keluhan Utama" name="keluhanUtama" error={errorFor("keluhanUtama")} required>
@@ -303,21 +411,25 @@ export function TriaseFormClient() {
           role="alert"
           aria-labelledby="warning-heading"
         >
-          <h3 id="warning-heading" className="font-semibold text-amber-900 dark:text-amber-300">
-            ⚠ Beberapa tanda vital tidak lazim
-          </h3>
+          <h2
+            id="warning-heading"
+            className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-300"
+          >
+            <Warning size={18} aria-hidden="true" className="shrink-0" />
+            Beberapa tanda vital tidak lazim
+          </h2>
           <ul className="text-sm text-amber-800 dark:text-amber-200 list-disc pl-5 space-y-1">
             {pendingConfirm.warnings.map((w) => (
               <li key={w}>{w}</li>
             ))}
           </ul>
           <p className="text-sm text-amber-800 dark:text-amber-200">
-            Ini hanya peringatan — sistem tetap mengizinkan input jika memang sesuai kondisi pasien sesungguhnya.
+            Ini hanya peringatan. Sistem tetap mengizinkan input jika memang sesuai kondisi pasien sesungguhnya.
             Pastikan dulu data yang dimasukkan sudah benar.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button type="button" variant="destructive" onClick={handleConfirmAnyway} disabled={mutation.isPending}>
-              {mutation.isPending ? "Memproses…" : "Ya, Data Sudah Benar — Lanjutkan"}
+              {mutation.isPending ? "Memproses…" : "Ya, Data Sudah Benar"}
             </Button>
             <Button type="button" variant="outline" onClick={() => setPendingConfirm(null)}>
               Periksa Kembali
@@ -337,7 +449,7 @@ export function TriaseFormClient() {
             </span>
           )}
           {mutation.isError && !(mutation.error instanceof ZodError) && (
-            <span className="text-red-600">
+            <span className="text-red-600 dark:text-red-400">
               {mutation.error instanceof Error ? mutation.error.message : "Gagal memproses klasifikasi triase"}
             </span>
           )}
@@ -348,7 +460,7 @@ export function TriaseFormClient() {
 }
 
 const numInputClass =
-  "w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white dark:bg-slate-900 dark:text-slate-200";
+  "w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm tabular-nums bg-white dark:bg-slate-900 dark:text-slate-200";
 
 function Field({
   label,
@@ -366,11 +478,16 @@ function Field({
   return (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
+        {label}{" "}
+        {required && (
+          <span className="text-red-600 dark:text-red-400" aria-hidden="true">
+            *
+          </span>
+        )}
       </label>
       {children}
       {error && (
-        <p className="text-xs text-red-600 mt-1" role="alert">
+        <p className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
           {error}
         </p>
       )}
