@@ -1,0 +1,13 @@
+Migrasi Alembic (Flask-Migrate) untuk satu basis data PostgreSQL.
+
+Jalankan dari folder backend/ dengan role pemilik skema (DATABASE_URL_MIGRASI):
+  flask db upgrade                     menerapkan semua migrasi
+  flask db migrate -m "keterangan"     membuat revisi baru dari perubahan model
+  flask db downgrade                   membatalkan satu revisi
+
+Catatan:
+- Role smarttriage_app harus sudah ada sebelum migrasi awal dijalankan.
+- Alembic tidak mendeteksi perubahan CHECK constraint, isi WHERE pada index parsial, maupun
+  penambahan nilai ENUM. Perubahan seperti itu ditulis manual di berkas revisi.
+- Revisi yang memakai tipe ENUM yang sudah ada harus memakai postgresql.ENUM(..., create_type=False).
+- Berkas revisi baru otomatis dirapikan dengan Ruff (lihat post_write_hooks di alembic.ini).

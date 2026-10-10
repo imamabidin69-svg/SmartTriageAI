@@ -1,0 +1,9 @@
+# Dependensi pengembangan dan pengujian. Dikunci ke requirements-dev.txt lewat:
+# uv pip compile requirements-dev.in -o requirements-dev.txt --python-version 3.12
+-c requirements.txt
+-r requirements.in
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.10
+# Tampilan Swagger UI untuk dokumentasi API, hanya aktif di lingkungan development.
+flask-openapi3-swagger==5.31.0
