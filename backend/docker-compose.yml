@@ -1,0 +1,28 @@
+# PostgreSQL 16 untuk pengembangan lokal. Jalankan dari folder backend/:
+#   docker compose up -d db
+# Nilai DB_OWNER_PASSWORD dan DB_APP_PASSWORD dibaca dari backend/.env.
+services:
+  db:
+    image: postgres:16.15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smarttriage
+      # Pemilik skema, dipakai untuk migrasi dan untuk membuat database tes.
+      POSTGRES_USER: smarttriage_owner
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?isi DB_OWNER_PASSWORD di .env}
+      # Role aplikasi dibuat oleh skrip di docker/initdb saat volume masih kosong.
+      APP_DB_USER: smarttriage_app
+      APP_DB_PASSWORD: ${DB_APP_PASSWORD:?isi DB_APP_PASSWORD di .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - data-postgres:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smarttriage_owner -d smarttriage"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  data-postgres:

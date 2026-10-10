@@ -1,0 +1,37 @@
+[project]
+name = "smarttriage-backend"
+version = "0.1.0"
+description = "Backend Flask SmartTriage AI"
+requires-python = ">=3.12,<3.13"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "C4", "PT", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tes boleh memakai assert dan password contoh.
+"tests/**" = ["S101", "S105", "S106"]
+# Nama SQL di migrasi berasal dari konstanta, bukan input pengguna.
+"migrations/**" = ["S608"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+addopts = "-ra --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+filterwarnings = [
+    "error",
+    # Peringatan dari pustaka pihak ketiga yang belum diperbarui; bukan dari kode SmartTriage.
+    "ignore::DeprecationWarning:flask_limiter.*",
+    "ignore::DeprecationWarning:limits.*",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+relative_files = true
+
+[tool.coverage.report]
+exclude_also = ["if __name__ == .__main__.:"]

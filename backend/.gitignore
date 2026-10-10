@@ -1,0 +1,15 @@
+# Lingkungan dan rahasia lokal (jangan di-commit)
+.env
+.venv/
+
+# Berkas hasil Python, tes, dan lint
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Spesifikasi OpenAPI hasil ekspor (dibangkitkan ulang saat build)
+openapi.json
