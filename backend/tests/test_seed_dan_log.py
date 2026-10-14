@@ -4,8 +4,8 @@ import logging
 import pytest
 from sqlalchemy import select
 
-from app.cli import AKUN_DEMO
-from app.models import Pengguna
+from app.cli import AKUN_DEMO, PASIEN_SIMULASI
+from app.models import Kunjungan, Pasien, Pengguna, Triase
 from app.utils.log import PemformatJson, _HandlerSmartTriage, atur_logging
 from app.utils.schemas import LoginRequest, normalisasi_email
 
@@ -33,6 +33,28 @@ def test_seed_demo_membuat_tiga_akun_dan_aman_diulang(app, sesi_db, password_dem
     ulang = runner.invoke(args=["seed-demo"])
     assert ulang.exit_code == 0
     assert ulang.output.count("Lewati") == 3
+
+
+def test_seed_demo_dengan_pasien_simulasi(app, sesi_db, password_demo):
+    runner = app.test_cli_runner()
+    hasil = runner.invoke(args=["seed-demo", "--dengan-pasien"])
+    assert hasil.exit_code == 0, hasil.output
+
+    nama = [nama for nama, *_ in PASIEN_SIMULASI]
+    pasien = sesi_db.scalars(select(Pasien).where(Pasien.nama.in_(nama))).all()
+    assert len(pasien) == len(PASIEN_SIMULASI)
+    assert all(p.nik is None and p.no_telepon is None for p in pasien)
+    assert sesi_db.query(Kunjungan).count() == len(PASIEN_SIMULASI)
+    triase = sesi_db.scalars(select(Triase)).all()
+    # Satu pasien sengaja belum ditriase supaya terlihat di daftar tunggu sebagai "belum ditriase".
+    assert len(triase) == len(PASIEN_SIMULASI) - 1
+    assert {t.sumber_rekomendasi.value for t in triase} == {"model"}
+    assert len({t.waktu_triase for t in triase}) == len(triase)
+
+    ulang = runner.invoke(args=["seed-demo", "--dengan-pasien"])
+    assert ulang.exit_code == 0
+    assert ulang.output.count("Lewati pasien simulasi") == len(PASIEN_SIMULASI)
+    assert sesi_db.query(Kunjungan).count() == len(PASIEN_SIMULASI)
 
 
 def test_seed_demo_menolak_password_kosong(app, monkeypatch):

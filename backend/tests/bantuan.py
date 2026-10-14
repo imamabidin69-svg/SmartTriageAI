@@ -22,3 +22,8 @@ def nilai_cookie(client: FlaskClient, nama: str, path: str = "/") -> str | None:
 
 def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def header_masuk(client: FlaskClient, email: str) -> dict[str, str]:
+    """Header Authorization untuk pengguna yang sudah dibuat, lewat login mobile."""
+    return bearer(login_mobile(client, email).get_json()["access_token"])

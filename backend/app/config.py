@@ -8,9 +8,12 @@ import copy
 import os
 from collections.abc import Mapping
 from datetime import timedelta
+from pathlib import Path
 from typing import Any, ClassVar
 
 LINGKUNGAN_VALID = ("development", "testing", "production")
+# Folder backend/. Path relatif di environment variable (misalnya MODEL_RF_PATH) dihitung dari sini.
+DIREKTORI_BACKEND = Path(__file__).resolve().parent.parent
 PANJANG_MINIMAL_RAHASIA = 32
 # Nilai contoh di .env.example. Aplikasi menolak start bila nilai ini masih dipakai.
 PENANDA_CONTOH_RAHASIA = "ganti-dengan"
@@ -28,9 +31,11 @@ class Config:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # Batas waktu koneksi supaya health check tidak menggantung saat basis data tidak terjangkau.
+    # hide_parameters: pesan error SQLAlchemy tidak menyalin nilai parameter (nama, NIK, gejala) ke log.
     SQLALCHEMY_ENGINE_OPTIONS: ClassVar[dict[str, Any]] = {
         "pool_pre_ping": True,
         "connect_args": {"connect_timeout": 3},
+        "hide_parameters": True,
     }
 
     # Sesi JWT sesuai Desain Arsitektur Backend 7.1.
@@ -66,6 +71,12 @@ class Config:
     DOKUMENTASI_API_AKTIF = False
     PREFIKS_DOKUMENTASI = "/api/v1/openapi"
 
+    # Bundle Random Forest (Desain baris 117 dan 582). Berkas ini dimuat dengan pickle,
+    # jadi hanya boleh menunjuk ke artefak dari repo sendiri, bukan berkas kiriman pengguna.
+    MODEL_RF_PATH = str(DIREKTORI_BACKEND / "app" / "ai" / "artefak" / "model_rf.joblib")
+    # Konfigurasi triase disimpan di memori proses selama 60 detik (Desain baris 380).
+    CACHE_KONFIGURASI_DETIK = 60
+
 
 class DevelopmentConfig(Config):
     APP_ENV = "development"
@@ -77,6 +88,8 @@ class DevelopmentConfig(Config):
 class TestingConfig(Config):
     APP_ENV = "testing"
     TESTING = True
+    # Tanpa cache supaya perubahan konfigurasi di satu tes langsung terbaca dan tidak bocor ke tes lain.
+    CACHE_KONFIGURASI_DETIK = 0
 
 
 class ProductionConfig(Config):
@@ -130,6 +143,10 @@ def buat_konfigurasi(nama_env: str) -> dict[str, Any]:
     jumlah_proxy = _ambil_env("JUMLAH_PROXY")
     if jumlah_proxy is not None:
         konfigurasi["JUMLAH_PROXY"] = jumlah_proxy
+
+    path_model = _ambil_env("MODEL_RF_PATH")
+    if path_model is not None:
+        konfigurasi["MODEL_RF_PATH"] = str(DIREKTORI_BACKEND / path_model)
     return konfigurasi
 
 

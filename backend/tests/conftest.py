@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from bantuan import PASSWORD_TES
+from bantuan import PASSWORD_TES, header_masuk
 from dotenv import load_dotenv
 from flask import Flask
 from flask.testing import FlaskClient
@@ -93,8 +93,18 @@ def app(konfigurasi_app: dict[str, Any], url_db: dict[str, str]) -> Iterator[Fla
 
 
 @pytest.fixture(autouse=True)
-def sesi_db(app: Flask) -> Iterator[scoped_session]:
-    """Satu transaksi luar per tes; commit di kode aplikasi menjadi savepoint lalu ikut di-rollback."""
+def sesi_db(request: pytest.FixtureRequest, app: Flask) -> Iterator[scoped_session]:
+    """Satu transaksi luar per tes; commit di kode aplikasi menjadi savepoint lalu ikut di-rollback.
+
+    Tes bertanda tanpa_rollback (misalnya tes konkurensi dua koneksi) memakai sesi biasa yang benar-benar
+    commit; datanya dibersihkan fixture data_nyata.
+    """
+    if request.node.get_closest_marker("tanpa_rollback"):
+        with app.app_context():
+            limiter.reset()
+            yield db.session
+            db.session.remove()
+        return
     with app.app_context():
         koneksi = db.engine.connect()
         transaksi = koneksi.begin()
@@ -157,3 +167,34 @@ def kunjungan(sesi_db: scoped_session, buat_pengguna: Callable[..., Pengguna]) -
     sesi_db.add(kunjungan)
     sesi_db.commit()
     return kunjungan
+
+
+@pytest.fixture
+def masuk(client: FlaskClient, buat_pengguna: Callable[..., Pengguna]) -> Callable[[Peran], tuple[Pengguna, dict]]:
+    """Membuat pengguna dengan peran tertentu lalu mengembalikan pengguna dan header Authorization-nya."""
+
+    def _masuk(peran: Peran) -> tuple[Pengguna, dict[str, str]]:
+        pengguna = buat_pengguna(peran)
+        return pengguna, header_masuk(client, pengguna.email)
+
+    return _masuk
+
+
+@pytest.fixture(scope="session")
+def app_tanpa_model(konfigurasi_app: dict[str, Any], app: Flask) -> Flask:
+    """Aplikasi yang model triasenya tidak bisa dimuat, untuk menguji aturan cadangan (SKPL TC-09)."""
+    return create_app({**konfigurasi_app, "MODEL_RF_PATH": "/tidak/ada/model_rf.joblib"})
+
+
+@pytest.fixture
+def data_nyata(url_db: dict[str, str]) -> Iterator[None]:
+    """Mengosongkan tabel lewat role pemilik setelah tes tanpa_rollback (role aplikasi tidak boleh menghapus log)."""
+    yield
+    # Request di thread utama memakai app context fixture, jadi sesinya baru ditutup di sini. Tanpa ini,
+    # transaksi yang masih terbuka menahan TRUNCATE.
+    db.session.remove()
+    mesin = sa.create_engine(url_db["migrasi"])
+    with mesin.begin() as koneksi:
+        koneksi.execute(sa.text("SET LOCAL lock_timeout = '10s'"))
+        koneksi.execute(sa.text("TRUNCATE log_audit, pemindaian_alat, sesi_eir, triase, kunjungan, pasien, pengguna"))
+    mesin.dispose()

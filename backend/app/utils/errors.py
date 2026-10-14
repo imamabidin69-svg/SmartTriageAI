@@ -59,15 +59,49 @@ class ProblemDetails(BaseModel):
 
 
 class AplikasiError(Exception):
-    """Error yang sudah diketahui bentuk responsnya, dilempar oleh service."""
+    """Error yang sudah diketahui bentuk responsnya, dilempar oleh service.
+
+    `errors` berisi pesan per field (dipakai error validasi dari service), sedangkan `ekstra`
+    ditambahkan sebagai anggota tambahan Problem Details, misalnya id kunjungan yang masih aktif.
+    """
 
     status = 400
     tipe = Tipe.PERMINTAAN_TIDAK_VALID
     judul = "Permintaan tidak valid"
 
-    def __init__(self, detail: str | None = None) -> None:
+    def __init__(
+        self,
+        detail: str | None = None,
+        errors: list[dict[str, str]] | None = None,
+        ekstra: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(detail or self.judul)
         self.detail = detail
+        self.errors = errors
+        self.ekstra = ekstra
+
+
+class TidakDitemukanError(AplikasiError):
+    status = 404
+    tipe = Tipe.TIDAK_DITEMUKAN
+    judul = "Tidak ditemukan"
+
+
+class KonflikError(AplikasiError):
+    status = 409
+    tipe = Tipe.KONFLIK
+    judul = "Terjadi konflik data"
+
+
+class ValidasiGagalError(AplikasiError):
+    """Validasi yang butuh data dari basis data, sehingga tidak bisa dilakukan oleh model Pydantic."""
+
+    status = 422
+    tipe = Tipe.VALIDASI
+    judul = "Data tidak valid"
+
+    def __init__(self, errors: list[dict[str, str]], detail: str = "Periksa kembali isian yang ditandai.") -> None:
+        super().__init__(detail, errors=errors)
 
 
 def respons_problem(
@@ -77,6 +111,7 @@ def respons_problem(
     detail: str | None = None,
     errors: list[dict[str, str]] | None = None,
     headers: dict[str, str] | None = None,
+    ekstra: dict[str, Any] | None = None,
 ) -> Response:
     isi: dict[str, Any] = {"type": tipe, "title": judul, "status": status}
     if detail:
@@ -84,6 +119,8 @@ def respons_problem(
     isi["instance"] = request.path
     if errors:
         isi["errors"] = errors
+    for kunci, nilai in (ekstra or {}).items():
+        isi.setdefault(kunci, nilai)
     respons = Response(json.dumps(isi, ensure_ascii=False), status=status, mimetype=MIMETYPE_PROBLEM)
     for kunci, nilai in (headers or {}).items():
         respons.headers[kunci] = nilai
@@ -106,8 +143,40 @@ class PenerjemahPesan:
         "td_sistolik": "Tekanan darah sistolik",
         "td_diastolik": "Tekanan darah diastolik",
         "skala_nyeri": "Skala nyeri",
+        "keluhan_utama": "Keluhan utama",
+        "gejala": "Gejala",
+        "kategori_keluhan": "Kategori keluhan",
+        "tingkat_kesadaran": "Tingkat kesadaran",
+        "tanda_vital": "Tanda vital",
+        "id_pemindaian": "ID pemindaian",
+        "id_pasien": "ID pasien",
+        "tanggal_lahir": "Tanggal lahir",
+        "perkiraan_usia": "Perkiraan usia",
+        "jenis_kelamin": "Jenis kelamin",
+        "nik": "NIK",
+        "no_telepon": "Nomor telepon",
+        "q": "Kata kunci pencarian",
+        "versi_model": "Versi model",
+        "ambang_kritis": "Ambang kritis",
+        "ambang_tinggi": "Ambang tinggi",
+        "ambang_sedang": "Ambang sedang",
+        "batas_tunggu_tinggi": "Batas tunggu tinggi",
+        "batas_tunggu_sedang": "Batas tunggu sedang",
+        "batas_tunggu_rendah": "Batas tunggu rendah",
+        "ambang_keyakinan": "Ambang keyakinan",
     }
-    SATUAN: ClassVar[dict[str, str]] = {"saturasi": "%", "suhu": "°C"}
+    SATUAN: ClassVar[dict[str, str]] = {
+        "saturasi": "%",
+        "suhu": "°C",
+        "td_sistolik": " mmHg",
+        "td_diastolik": " mmHg",
+        "nadi": " x/menit",
+        "laju_napas": " x/menit",
+        "perkiraan_usia": " tahun",
+        "batas_tunggu_tinggi": " menit",
+        "batas_tunggu_sedang": " menit",
+        "batas_tunggu_rendah": " menit",
+    }
 
     TEMPLAT: ClassVar[dict[str, str]] = {
         "missing": "{label} wajib diisi.",
@@ -136,6 +205,12 @@ class PenerjemahPesan:
         "extra_forbidden": "Field {field} tidak dikenal.",
         "list_type": "{label} harus berupa daftar.",
         "dict_type": "{label} harus berupa objek.",
+        "too_long": "{label} maksimal berisi {max_length} item.",
+        "date_from_datetime_inexact": "{label} harus berupa tanggal dengan format YYYY-MM-DD.",
+        "decimal_type": "{label} harus berupa angka.",
+        "decimal_max_places": "{label} maksimal {decimal_places} angka di belakang koma.",
+        "string_pattern_mismatch": "Format {label} tidak valid.",
+        "karakter_tidak_diizinkan": "{label} berisi karakter yang tidak diizinkan.",
     }
 
     def terjemahkan(self, kode: str, field: str, ctx: dict[str, Any] | None = None, pesan_asli: str = "") -> str:
@@ -151,7 +226,7 @@ class PenerjemahPesan:
         nilai = {
             "label": self._label(field),
             "field": field,
-            "satuan": self.SATUAN.get(field, ""),
+            "satuan": self.SATUAN.get(self._nama_dasar(field), ""),
             **{kunci: self._rapikan(nilai) for kunci, nilai in ctx.items()},
         }
         try:
@@ -159,8 +234,19 @@ class PenerjemahPesan:
         except KeyError:
             return f"{self._label(field)} tidak valid."
 
+    @staticmethod
+    def _nama_dasar(field: str) -> str:
+        """Nama field terdalam: "tanda_vital.saturasi" menjadi "saturasi", "id_pemindaian.0" menjadi "id_pemindaian"."""
+        for bagian in reversed(field.split(".")):
+            if not bagian.isdigit():
+                return bagian
+        return field
+
     def _label(self, field: str) -> str:
-        return self.LABEL.get(field, field)
+        if field in self.LABEL:
+            return self.LABEL[field]
+        dasar = self._nama_dasar(field)
+        return self.LABEL.get(dasar, field)
 
     @staticmethod
     def _rapikan(nilai: Any) -> Any:
@@ -241,7 +327,7 @@ def _tangani_batas_percobaan(_galat: RateLimitExceeded) -> Response:
 
 
 def _tangani_galat_aplikasi(galat: AplikasiError) -> Response:
-    return respons_problem(galat.status, galat.tipe, galat.judul, galat.detail)
+    return respons_problem(galat.status, galat.tipe, galat.judul, galat.detail, galat.errors, ekstra=galat.ekstra)
 
 
 def _tangani_tak_terduga(galat: Exception) -> Response:

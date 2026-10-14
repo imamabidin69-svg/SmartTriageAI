@@ -12,3 +12,13 @@ flask-jwt-extended==4.7.4
 # Tech Stack v2.0 menetapkan Flask-Limiter 3; 3.12 adalah rilis 3.x terakhir yang tidak ditarik.
 flask-limiter==3.12
 python-dotenv==1.2.4
+# Komponen AI (Desain Tabel 6.1). scikit-learn dikunci 1.8.0 sesuai versi saat bundle model dibuat;
+# numpy 2.x wajib karena bundle mereferensikan numpy._core. pandas dipakai karena pipeline model
+# memilih kolom berdasarkan nama sehingga hanya menerima DataFrame.
+scikit-learn==1.8.0
+numpy==2.5.4
+pandas==3.0.6
+shap==0.53.0
+joblib==1.6.0
+# Data zona waktu untuk zoneinfo (Asia/Jakarta). Linux sudah punya, Windows tidak.
+tzdata==2026.5

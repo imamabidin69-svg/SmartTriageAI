@@ -3,8 +3,12 @@
 Backend Flask untuk aplikasi mobile perawat dan dokter (Flutter) serta web admin dan halaman Eir (React).
 Rancangannya mengikuti Desain Arsitektur Backend v2.0 dan SKPL v3.0. Semua endpoint ada di bawah `/api/v1`.
 
-Tahap yang sudah dikerjakan baru fondasinya: struktur aplikasi, delapan tabel beserta migrasi awal,
-autentikasi (login, refresh, logout, profil), RBAC tiga peran, format error Problem Details, dan health check.
+Yang sudah dikerjakan:
+
+- Tahap 1: struktur aplikasi, delapan tabel beserta migrasi awal, autentikasi (login, refresh, logout, profil),
+  RBAC tiga peran, format error Problem Details, dan health check.
+- Tahap 2a: pencarian pasien, registrasi kunjungan, input triase dengan rekomendasi risk level (Random Forest +
+  SHAP, dengan aturan cadangan), detail triase, serta konfigurasi triase untuk admin.
 
 ## Kebutuhan
 
@@ -23,6 +27,7 @@ python3.12 -m venv .venv
 
 .venv/bin/flask db upgrade      # membuat tabel (dijalankan sebagai role pemilik)
 .venv/bin/flask seed-demo       # akun demo admin, perawat, dan dokter
+.venv/bin/flask seed-demo --dengan-pasien   # opsional: pasien, kunjungan, dan triase simulasi
 .venv/bin/flask run --debug     # http://127.0.0.1:5000/api/v1/health
 ```
 
@@ -40,6 +45,27 @@ ini dibuat oleh `docker/initdb/10-role-aplikasi.sh`.
 `GET /api/v1/health` ikut memeriksa hal ini. Bila aplikasi ternyata terhubung dengan role yang masih bisa mengubah
 `log_audit` (misalnya `DATABASE_URL` terisi role pemilik), komponen `hak_akses_log_audit` bernilai `gagal` dan health
 check membalas 503.
+
+## Endpoint Tahap 2a
+
+| Endpoint | Peran | Keterangan |
+|---|---|---|
+| `GET /api/v1/pasien?q=` | perawat, dokter | Cari pasien lama dari potongan nama atau NIK lengkap 16 digit, maksimal 20 hasil |
+| `POST /api/v1/kunjungan` | perawat | Registrasi singkat; pilih pasien lama lewat `id_pasien` atau isi identitas pasien baru |
+| `POST /api/v1/kunjungan/{id}/triase` | perawat | Simpan triase beserta rekomendasi risk level, tiga faktor penjelas, dan peringatan tanda vital |
+| `GET /api/v1/triase/{id}` | perawat, dokter | Detail triase dalam bentuk yang sama dengan respons POST |
+| `GET /api/v1/admin/konfigurasi` | admin | Ambang aturan cadangan, batas waktu tunggu, ambang keyakinan, dan versi model |
+| `PATCH /api/v1/admin/konfigurasi` | admin | Ubah sebagian konfigurasi; setiap perubahan masuk log audit |
+
+### Model triase
+
+Bundle Random Forest dari prototipe disalin ke `app/ai/artefak/model_rf.joblib` dan dimuat sekali saat aplikasi
+start, bersama explainer SHAP. Bila berkas itu tidak ada atau rusak, aplikasi tetap berjalan: rekomendasi diambil
+dari aturan cadangan (`sumber_rekomendasi = "aturan"`) dan komponen `model_triase` di health check bernilai `gagal`
+dengan status keseluruhan `degraded`. Lokasinya bisa diganti lewat `MODEL_RF_PATH`.
+
+Konfigurasi triase disimpan di memori proses selama 60 detik. Perubahan lewat PATCH langsung berlaku di worker
+yang memprosesnya; worker Gunicorn lain menyesuaikan paling lambat 60 detik kemudian.
 
 ## Akun demo
 

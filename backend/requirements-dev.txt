@@ -16,6 +16,11 @@ click==8.5.0
     # via
     #   -c requirements.txt
     #   flask
+cloudpickle==3.1.2
+    # via
+    #   -c requirements.txt
+    #   joblib
+    #   shap
 coverage==7.16.2
     # via pytest-cov
 deprecated==3.0.0
@@ -81,6 +86,11 @@ jinja2==3.1.6
     # via
     #   -c requirements.txt
     #   flask
+joblib==1.6.0
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
+    #   scikit-learn
 limits==5.8.0
     # via
     #   -c requirements.txt
@@ -104,6 +114,14 @@ mdurl==0.1.2
     # via
     #   -c requirements.txt
     #   markdown-it-py
+numpy==2.5.4
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
+    #   pandas
+    #   scikit-learn
+    #   scipy
+    #   shap
 ordered-set==4.1.0
     # via
     #   -c requirements.txt
@@ -113,6 +131,12 @@ packaging==26.3
     #   -c requirements.txt
     #   limits
     #   pytest
+    #   shap
+pandas==3.0.6
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
+    #   shap
 pluggy==1.6.0
     # via
     #   pytest
@@ -149,6 +173,10 @@ pytest==9.1.1
     #   pytest-cov
 pytest-cov==7.1.0
     # via -r requirements-dev.in
+python-dateutil==2.9.0.post0
+    # via
+    #   -c requirements.txt
+    #   pandas
 python-dotenv==1.2.4
     # via
     #   -c requirements.txt
@@ -159,12 +187,42 @@ rich==13.9.4
     #   flask-limiter
 ruff==0.16.10
     # via -r requirements-dev.in
+scikit-learn==1.8.0
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
+    #   shap
+scipy==1.18.1
+    # via
+    #   -c requirements.txt
+    #   scikit-learn
+    #   shap
+shap==0.53.0
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
+six==1.17.0
+    # via
+    #   -c requirements.txt
+    #   python-dateutil
+slicer==0.0.8
+    # via
+    #   -c requirements.txt
+    #   shap
 sqlalchemy==2.0.54
     # via
     #   -c requirements.txt
     #   -r requirements.in
     #   alembic
     #   flask-sqlalchemy
+threadpoolctl==3.7.0
+    # via
+    #   -c requirements.txt
+    #   scikit-learn
+tqdm==4.70.1
+    # via
+    #   -c requirements.txt
+    #   shap
 typing-extensions==4.16.0
     # via
     #   -c requirements.txt
@@ -179,6 +237,10 @@ typing-inspection==0.4.4
     # via
     #   -c requirements.txt
     #   pydantic
+tzdata==2026.5
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
 werkzeug==3.1.9
     # via
     #   -c requirements.txt
