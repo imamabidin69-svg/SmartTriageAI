@@ -79,6 +79,7 @@ class AplikasiError(Exception):
         self.detail = detail
         self.errors = errors
         self.ekstra = ekstra
+        self.headers: dict[str, str] | None = None
 
 
 class TidakDitemukanError(AplikasiError):
@@ -91,6 +92,16 @@ class KonflikError(AplikasiError):
     status = 409
     tipe = Tipe.KONFLIK
     judul = "Terjadi konflik data"
+
+
+class TerlaluBanyakPercobaanError(AplikasiError):
+    status = 429
+    tipe = Tipe.TERLALU_BANYAK_PERCOBAAN
+    judul = "Terlalu banyak percobaan"
+
+    def __init__(self, detail: str, coba_lagi_detik: int) -> None:
+        super().__init__(detail)
+        self.headers = {"Retry-After": str(coba_lagi_detik)}
 
 
 class ValidasiGagalError(AplikasiError):
@@ -164,6 +175,10 @@ class PenerjemahPesan:
         "batas_tunggu_sedang": "Batas tunggu sedang",
         "batas_tunggu_rendah": "Batas tunggu rendah",
         "ambang_keyakinan": "Ambang keyakinan",
+        "aksi": "Aksi",
+        "risk_level": "Risk level",
+        "alasan": "Alasan",
+        "status": "Status",
     }
     SATUAN: ClassVar[dict[str, str]] = {
         "saturasi": "%",
@@ -327,7 +342,9 @@ def _tangani_batas_percobaan(_galat: RateLimitExceeded) -> Response:
 
 
 def _tangani_galat_aplikasi(galat: AplikasiError) -> Response:
-    return respons_problem(galat.status, galat.tipe, galat.judul, galat.detail, galat.errors, ekstra=galat.ekstra)
+    return respons_problem(
+        galat.status, galat.tipe, galat.judul, galat.detail, galat.errors, headers=galat.headers, ekstra=galat.ekstra
+    )
 
 
 def _tangani_tak_terduga(galat: Exception) -> Response:

@@ -7,7 +7,17 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Literal
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from pydantic_core import PydanticCustomError
 
 from app.ai.klasifikasi import SKOR_MAKSIMUM_ATURAN
@@ -382,3 +392,107 @@ class KonfigurasiResponse(BaseModel):
     batas_tunggu_rendah: int
     ambang_keyakinan: float
     versi_model_termuat: str | None = Field(description="Versi bundle model yang sedang dimuat, null bila tidak ada.")
+
+
+# ---------------------------------------------------------------- validasi (FR-06)
+
+PANJANG_MINIMAL_ALASAN = 5
+AKSI_BERALASAN = ("koreksi", "ajukan_review")
+NAMA_AKSI = {"koreksi": "koreksi", "ajukan_review": "ajuan review"}
+
+
+class ValidasiRequest(SkemaDasar):
+    """Desain Gambar 2.17. Alasan wajib minimal lima karakter untuk koreksi dan ajuan review (NFR-06)."""
+
+    aksi: Literal["setujui", "koreksi", "ajukan_review"]
+    risk_level: RiskLevel | None = Field(
+        default=None, validate_default=True, description="Level hasil koreksi. Hanya diisi untuk aksi koreksi."
+    )
+    alasan: Annotated[Teks(0, 500) | None, BeforeValidator(_kosong_jadi_none)] = Field(
+        default=None,
+        validate_default=True,
+        description="Wajib minimal 5 karakter untuk koreksi dan ajuan review. Boleh diisi saat menyetujui.",
+    )
+
+    @field_validator("risk_level")
+    @classmethod
+    def _risk_level_hanya_untuk_koreksi(cls, nilai: RiskLevel | None, info: ValidationInfo) -> RiskLevel | None:
+        aksi = info.data.get("aksi")
+        if aksi == "koreksi" and nilai is None:
+            raise PydanticCustomError("kustom_risk_level", "Risk level hasil koreksi wajib diisi.")
+        if aksi in ("setujui", "ajukan_review") and nilai is not None:
+            raise PydanticCustomError("kustom_risk_level", "Risk level hanya diisi untuk aksi koreksi.")
+        return nilai
+
+    @field_validator("alasan")
+    @classmethod
+    def _alasan_wajib(cls, nilai: str | None, info: ValidationInfo) -> str | None:
+        aksi = info.data.get("aksi")
+        if aksi in AKSI_BERALASAN and (nilai is None or len(nilai) < PANJANG_MINIMAL_ALASAN):
+            raise PydanticCustomError(
+                "kustom_alasan",
+                "Alasan {aksi} wajib diisi minimal {minimal} karakter.",
+                {"aksi": NAMA_AKSI[aksi], "minimal": PANJANG_MINIMAL_ALASAN},
+            )
+        return nilai
+
+
+# ---------------------------------------------------------------- status kunjungan dan antrean (FR-07)
+
+
+class StatusKunjunganRequest(SkemaDasar):
+    status: Literal["ditangani", "selesai"] = Field(
+        description="ditangani saat dokter mulai memeriksa, selesai saat pemeriksaan berakhir atau pasien batal."
+    )
+
+
+class StatusKunjunganResponse(BaseModel):
+    id_kunjungan: uuid.UUID
+    status: StatusKunjungan
+    waktu_ditangani: datetime | None
+
+
+class TriaseTerakhir(BaseModel):
+    id_triase: uuid.UUID
+    jenis: JenisTriase
+    risk_level: RiskLevel
+    status_validasi: StatusValidasi
+    keluhan_utama: str
+    waktu_triase: datetime
+
+
+class ItemDaftarTunggu(BaseModel):
+    id_kunjungan: uuid.UUID
+    pasien: PasienTriase
+    waktu_datang: datetime
+    triase_terakhir: TriaseTerakhir | None
+    lama_menunggu_menit: int = Field(description="Sejak triase terakhir, atau sejak datang bila belum ditriase.")
+    batas_tunggu_menit: int | None = Field(description="Batas dari konfigurasi; null untuk kritis dan belum ditriase.")
+    status_tanda: Literal["belum_ditriase", "perlu_triase_ulang", "normal"]
+    menunggu_validasi: bool
+    review_diajukan: bool
+
+
+class DaftarTungguResponse(BaseModel):
+    items: list[ItemDaftarTunggu]
+    waktu_server: datetime
+
+
+class PasienPeringatan(BaseModel):
+    id_pasien: uuid.UUID
+    nama: str
+
+
+class ItemPeringatan(BaseModel):
+    jenis: Literal["kritis_belum_divalidasi", "level_naik", "tanda_bahaya_eir"]
+    id_kunjungan: uuid.UUID
+    id_triase: uuid.UUID | None
+    id_sesi: uuid.UUID | None
+    pasien: PasienPeringatan
+    risk_level: RiskLevel | None
+    alasan: str
+    waktu: datetime
+
+
+class DaftarPeringatanResponse(BaseModel):
+    items: list[ItemPeringatan]

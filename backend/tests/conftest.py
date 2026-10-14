@@ -9,6 +9,8 @@ Aplikasi terhubung sebagai role aplikasi (TEST_DATABASE_URL), migrasi sebagai ro
 import os
 import uuid
 from collections.abc import Callable, Iterator
+from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -25,8 +27,18 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from app import create_app
 from app.config import normalisasi_url_database
 from app.extensions import db, limiter
-from app.models import Kunjungan, Pasien, Pengguna
-from app.models.enums import JenisKelamin, Peran
+from app.models import Kunjungan, Pasien, Pengguna, Triase
+from app.models.enums import (
+    JenisKelamin,
+    JenisTriase,
+    Peran,
+    RiskLevel,
+    StatusKunjungan,
+    StatusValidasi,
+    SumberRekomendasi,
+    SumberTandaVital,
+    TingkatKesadaran,
+)
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
@@ -167,6 +179,75 @@ def kunjungan(sesi_db: scoped_session, buat_pengguna: Callable[..., Pengguna]) -
     sesi_db.add(kunjungan)
     sesi_db.commit()
     return kunjungan
+
+
+@pytest.fixture
+def buat_kunjungan(sesi_db: scoped_session, buat_pengguna: Callable[..., Pengguna]) -> Callable[..., Kunjungan]:
+    """Kunjungan baru untuk pasien baru, dengan waktu datang dan status yang bisa diatur."""
+    perawat = buat_pengguna(Peran.PERAWAT)
+
+    def _buat(
+        nama: str = "Pasien Simulasi",
+        waktu_datang: datetime | None = None,
+        status: StatusKunjungan = StatusKunjungan.MENUNGGU,
+        **pasien: Any,
+    ) -> Kunjungan:
+        data_pasien = {"perkiraan_usia": 40, "jenis_kelamin": JenisKelamin.PEREMPUAN, **pasien}
+        baru = Pasien(didaftarkan_oleh=perawat.id_pengguna, nama=nama, **data_pasien)
+        sesi_db.add(baru)
+        sesi_db.flush()
+        kunjungan = Kunjungan(id_pasien=baru.id_pasien, status=status)
+        if waktu_datang is not None:
+            kunjungan.waktu_datang = waktu_datang
+        sesi_db.add(kunjungan)
+        sesi_db.commit()
+        return kunjungan
+
+    return _buat
+
+
+@pytest.fixture
+def buat_triase(sesi_db: scoped_session, buat_pengguna: Callable[..., Pengguna]) -> Callable[..., Triase]:
+    """Triase langsung di basis data dengan level dan status pilihan, tanpa melewati model."""
+    perawat = buat_pengguna(Peran.PERAWAT)
+
+    def _buat(
+        kunjungan: Kunjungan,
+        risk_level: RiskLevel = RiskLevel.SEDANG,
+        status: StatusValidasi = StatusValidasi.MENUNGGU,
+        waktu: datetime | None = None,
+        jenis: JenisTriase | None = None,
+    ) -> Triase:
+        if jenis is None:
+            sudah_ada = sesi_db.query(Triase).filter_by(id_kunjungan=kunjungan.id_kunjungan).count()
+            jenis = JenisTriase.ULANG if sudah_ada else JenisTriase.AWAL
+        triase = Triase(
+            id_kunjungan=kunjungan.id_kunjungan,
+            jenis=jenis,
+            dibuat_oleh=perawat.id_pengguna,
+            keluhan_utama="Pusing",
+            gejala="Pusing berputar sejak pagi tanpa muntah",
+            skala_nyeri=3,
+            tingkat_kesadaran=TingkatKesadaran.SADAR_PENUH,
+            td_sistolik=120,
+            td_diastolik=80,
+            nadi=80,
+            laju_napas=18,
+            suhu=Decimal("36.8"),
+            saturasi=Decimal("98.0"),
+            sumber_tanda_vital=SumberTandaVital.MANUAL,
+            risk_level=risk_level,
+            sumber_rekomendasi=SumberRekomendasi.MODEL,
+            penjelasan_ai={"versi_model": None, "faktor": [], "probabilitas": None},
+            status_validasi=status,
+        )
+        if waktu is not None:
+            triase.waktu_triase = waktu
+        sesi_db.add(triase)
+        sesi_db.commit()
+        return triase
+
+    return _buat
 
 
 @pytest.fixture

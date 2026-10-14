@@ -15,7 +15,8 @@ from app.models import Kunjungan, Pasien, Pengguna
 from app.models.enums import JenisKelamin, KategoriKeluhan, Peran, TingkatKesadaran
 from app.services.konfigurasi_service import cache_konfigurasi
 from app.services.triase_service import TriaseService
-from app.utils.schemas import TriaseInput
+from app.services.validasi_service import ValidasiService
+from app.utils.schemas import TriaseInput, ValidasiRequest
 from app.utils.waktu import sekarang
 
 PANJANG_MINIMAL_PASSWORD = 8
@@ -31,6 +32,8 @@ EMAIL_PERAWAT_DEMO = "perawat@smarttriage.demo"
 
 # Pasien simulasi untuk demo daftar tunggu dan rekap. Nama fiktif, tanpa NIK dan nomor telepon.
 # Kolom: nama, perkiraan usia, jenis kelamin, menit sejak datang, isian triase (None = belum ditriase).
+# Isian boleh memuat "review" (alasan ajuan review perawat) dan "ulang" (triase ulang beberapa menit lalu),
+# supaya daftar tunggu dan peringatan punya contoh untuk didemokan.
 PASIEN_SIMULASI = (
     (
         "Agus Prasetyo",
@@ -60,6 +63,7 @@ PASIEN_SIMULASI = (
             "tingkat_kesadaran": TingkatKesadaran.SADAR_PENUH,
             "tanda_vital": (118, 76, 96, 20, "38.6", "97.0"),
             "menit_triase": 45,
+            "review": "Demam sudah tiga hari, mohon dicek dokter",
         },
     ),
     (
@@ -107,8 +111,51 @@ PASIEN_SIMULASI = (
             "menit_triase": 10,
         },
     ),
+    (
+        "Hendra Gunawan",
+        49,
+        JenisKelamin.LAKI_LAKI,
+        55,
+        {
+            "keluhan_utama": "Pusing",
+            "gejala": "Pusing dan lemas sejak pagi, belum makan",
+            "kategori_keluhan": KategoriKeluhan.PUSING,
+            "skala_nyeri": 2,
+            "tingkat_kesadaran": TingkatKesadaran.SADAR_PENUH,
+            "tanda_vital": (122, 80, 84, 18, "36.8", "98.0"),
+            "menit_triase": 50,
+            "ulang": {
+                "keluhan_utama": "Sesak napas dan nyeri dada",
+                "gejala": "Saat menunggu mendadak sesak napas dan nyeri dada, keringat dingin",
+                "kategori_keluhan": KategoriKeluhan.NYERI_DADA,
+                "skala_nyeri": 7,
+                "tingkat_kesadaran": TingkatKesadaran.SADAR_PENUH,
+                "tanda_vital": (172, 104, 124, 28, "37.2", "91.0"),
+                "menit_triase": 6,
+            },
+        },
+    ),
     ("Lina Marlina", 63, JenisKelamin.PEREMPUAN, 5, None),
 )
+
+
+def _isian_triase(isian: dict) -> TriaseInput:
+    sistolik, diastolik, nadi, napas, suhu, saturasi = isian["tanda_vital"]
+    return TriaseInput(
+        keluhan_utama=isian["keluhan_utama"],
+        gejala=isian["gejala"],
+        kategori_keluhan=isian["kategori_keluhan"],
+        skala_nyeri=isian["skala_nyeri"],
+        tingkat_kesadaran=isian["tingkat_kesadaran"],
+        tanda_vital={
+            "td_sistolik": sistolik,
+            "td_diastolik": diastolik,
+            "nadi": nadi,
+            "laju_napas": napas,
+            "suhu": Decimal(suhu),
+            "saturasi": Decimal(saturasi),
+        },
+    )
 
 
 def _isi_pasien_simulasi() -> None:
@@ -135,26 +182,19 @@ def _isi_pasien_simulasi() -> None:
         if isian is None:
             click.echo(f"Pasien simulasi {nama} dibuat (belum ditriase).")
             continue
-        sistolik, diastolik, nadi, napas, suhu, saturasi = isian["tanda_vital"]
-        data = TriaseInput(
-            keluhan_utama=isian["keluhan_utama"],
-            gejala=isian["gejala"],
-            kategori_keluhan=isian["kategori_keluhan"],
-            skala_nyeri=isian["skala_nyeri"],
-            tingkat_kesadaran=isian["tingkat_kesadaran"],
-            tanda_vital={
-                "td_sistolik": sistolik,
-                "td_diastolik": diastolik,
-                "nadi": nadi,
-                "laju_napas": napas,
-                "suhu": Decimal(suhu),
-                "saturasi": Decimal(saturasi),
-            },
-        )
-        triase = service.buat(kunjungan.id_kunjungan, data, perawat)
+        triase = service.buat(kunjungan.id_kunjungan, _isian_triase(isian), perawat)
         # Waktu triase dimundurkan supaya daftar tunggu memperlihatkan lama menunggu yang berbeda-beda.
         triase.waktu_triase = waktu - timedelta(minutes=isian["menit_triase"])
         db.session.commit()
+        if "review" in isian:
+            permintaan = ValidasiRequest(aksi="ajukan_review", alasan=isian["review"])
+            ValidasiService().validasi(triase.id_triase, permintaan, perawat)
+        if "ulang" in isian:
+            awal = triase.risk_level
+            triase = service.buat(kunjungan.id_kunjungan, _isian_triase(isian["ulang"]), perawat)
+            triase.waktu_triase = waktu - timedelta(minutes=isian["ulang"]["menit_triase"])
+            db.session.commit()
+            click.echo(f"Triase ulang {nama}: {awal.value} menjadi {triase.risk_level.value}.")
         click.echo(f"Pasien simulasi {nama} dibuat, rekomendasi {triase.risk_level.value}.")
 
 

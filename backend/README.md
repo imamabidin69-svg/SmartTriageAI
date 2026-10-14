@@ -46,14 +46,18 @@ ini dibuat oleh `docker/initdb/10-role-aplikasi.sh`.
 `log_audit` (misalnya `DATABASE_URL` terisi role pemilik), komponen `hak_akses_log_audit` bernilai `gagal` dan health
 check membalas 503.
 
-## Endpoint Tahap 2a
+## Endpoint alur triase
 
 | Endpoint | Peran | Keterangan |
 |---|---|---|
-| `GET /api/v1/pasien?q=` | perawat, dokter | Cari pasien lama dari potongan nama atau NIK lengkap 16 digit, maksimal 20 hasil |
+| `GET /api/v1/pasien?q=` | perawat, dokter | Cari pasien lama dari potongan nama atau NIK lengkap 16 digit, maksimal 20 hasil. Pencarian NIK yang tidak ketemu dibatasi 30 kali per 15 menit per akun |
 | `POST /api/v1/kunjungan` | perawat | Registrasi singkat; pilih pasien lama lewat `id_pasien` atau isi identitas pasien baru |
 | `POST /api/v1/kunjungan/{id}/triase` | perawat | Simpan triase beserta rekomendasi risk level, tiga faktor penjelas, dan peringatan tanda vital |
 | `GET /api/v1/triase/{id}` | perawat, dokter | Detail triase dalam bentuk yang sama dengan respons POST |
+| `POST /api/v1/triase/{id}/validasi` | perawat, dokter | Setujui, koreksi, atau ajukan review; tercatat di log audit dalam transaksi yang sama |
+| `PATCH /api/v1/kunjungan/{id}/status` | dokter | Tandai pasien mulai ditangani atau selesai |
+| `GET /api/v1/daftar-tunggu` | perawat, dokter | Kunjungan yang masih menunggu beserta triase terakhir, lama menunggu, dan penanda triase ulang |
+| `GET /api/v1/peringatan` | perawat, dokter | Triase kritis belum divalidasi, triase ulang yang levelnya naik, dan tanda bahaya Eir |
 | `GET /api/v1/admin/konfigurasi` | admin | Ambang aturan cadangan, batas waktu tunggu, ambang keyakinan, dan versi model |
 | `PATCH /api/v1/admin/konfigurasi` | admin | Ubah sebagian konfigurasi; setiap perubahan masuk log audit |
 
@@ -63,6 +67,13 @@ Bundle Random Forest dari prototipe disalin ke `app/ai/artefak/model_rf.joblib` 
 start, bersama explainer SHAP. Bila berkas itu tidak ada atau rusak, aplikasi tetap berjalan: rekomendasi diambil
 dari aturan cadangan (`sumber_rekomendasi = "aturan"`) dan komponen `model_triase` di health check bernilai `gagal`
 dengan status keseluruhan `degraded`. Lokasinya bisa diganti lewat `MODEL_RF_PATH`.
+
+### Aturan validasi
+
+Perawat boleh menyetujui hasil non-kritis atau mengajukan review untuk semua level. Dokter boleh menyetujui atau
+mengoreksi semua level. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui
+atau dikoreksi, triase lama yang sudah digantikan triase ulang, dan triase pada kunjungan yang sudah selesai dibalas
+409. Ajuan review hanya bisa diputuskan dokter.
 
 Konfigurasi triase disimpan di memori proses selama 60 detik. Perubahan lewat PATCH langsung berlaku di worker
 yang memprosesnya; worker Gunicorn lain menyesuaikan paling lambat 60 detik kemudian.
@@ -76,6 +87,10 @@ yang memprosesnya; worker Gunicorn lain menyesuaikan paling lambat 60 detik kemu
 | Admin   | admin@smarttriage.demo     | `SEED_PASSWORD_ADMIN`   |
 | Perawat | perawat@smarttriage.demo   | `SEED_PASSWORD_PERAWAT` |
 | Dokter  | dokter@smarttriage.demo    | `SEED_PASSWORD_DOKTER`  |
+
+`flask seed-demo --dengan-pasien` menambahkan tujuh pasien simulasi (nama fiktif, tanpa NIK). Isinya mencakup satu
+pasien yang belum ditriase, satu ajuan review, dan satu triase ulang yang levelnya naik, sehingga daftar tunggu dan
+peringatan langsung bisa dicoba.
 
 ## Autentikasi singkat
 

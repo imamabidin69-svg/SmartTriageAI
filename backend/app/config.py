@@ -59,6 +59,9 @@ class Config:
     RATELIMIT_STRATEGY = "moving-window"
     RATELIMIT_HEADERS_ENABLED = True
     BATAS_LOGIN = "5 per 15 minutes"
+    # Pencarian NIK yang tidak menemukan pasien dibatasi per akun, supaya endpoint pencarian tidak bisa
+    # dipakai untuk menebak NIK yang terdaftar.
+    BATAS_CARI_NIK = "30 per 15 minutes"
 
     # Ukuran maksimal isi request (1 MiB). Endpoint unggah foto menaikkannya sendiri.
     MAX_CONTENT_LENGTH = 1024 * 1024

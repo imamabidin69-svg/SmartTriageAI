@@ -12,9 +12,9 @@ import pytest
 from bantuan import PASSWORD_TES, header_masuk
 
 from app.extensions import db
-from app.models import Kunjungan, Pasien, Pengguna, Triase
+from app.models import Kunjungan, LogAudit, Pasien, Pengguna, Triase
 from app.models.enums import JenisKelamin, Peran, StatusKunjungan
-from app.services import triase_service
+from app.services import triase_service, validasi_service
 from app.services.audit_logger import AuditLogger
 
 pytestmark = [pytest.mark.tanpa_rollback, pytest.mark.usefixtures("data_nyata")]
@@ -119,3 +119,41 @@ def test_dua_registrasi_nik_baru_yang_sama_hanya_satu_berhasil(app, monkeypatch)
     assert sorted(r.status_code for r in respons) == [201, 409]
     with app.app_context():
         assert db.session.query(Pasien).filter_by(nik="3577010101990001").count() == 1
+
+
+def _dokter(app):
+    with app.app_context():
+        dokter = Pengguna(nama="Dokter Uji", email="dokter.konkuren@smarttriage.demo", peran=Peran.DOKTER)
+        dokter.atur_password(PASSWORD_TES)
+        db.session.add(dokter)
+        db.session.commit()
+        return dokter.email
+
+
+def _triase_tersimpan(app, email_perawat, id_pasien):
+    with app.app_context():
+        kunjungan = Kunjungan(id_pasien=id_pasien)
+        db.session.add(kunjungan)
+        db.session.commit()
+        id_kunjungan = kunjungan.id_kunjungan
+    header = header_masuk(app.test_client(), email_perawat)
+    respons = app.test_client().post(f"/api/v1/kunjungan/{id_kunjungan}/triase", json=ISIAN_TRIASE, headers=header)
+    return respons.get_json()["id_triase"]
+
+
+def test_dua_validasi_bersamaan_hanya_satu_berhasil(app, monkeypatch):
+    email, id_pasien = _siapkan(app)
+    id_triase = _triase_tersimpan(app, email, id_pasien)
+    header = header_masuk(app.test_client(), _dokter(app))
+    # Jeda setelah baris dikunci dan sebelum status diubah; tanpa kunci keduanya membaca status menunggu.
+    asli = validasi_service.ValidasiService._periksa_status
+    monkeypatch.setattr(validasi_service.ValidasiService, "_periksa_status", staticmethod(_dengan_jeda(asli)))
+    isian = [{"aksi": "setujui"}, {"aksi": "koreksi", "risk_level": "kritis", "alasan": "Kondisi memburuk"}]
+
+    respons = _bersamaan(
+        app,
+        lambda klien: klien.post(f"/api/v1/triase/{id_triase}/validasi", json=isian.pop(), headers=header),
+    )
+    assert sorted(r.status_code for r in respons) == [200, 409]
+    with app.app_context():
+        assert db.session.query(LogAudit).filter_by(id_triase=id_triase).count() == 1

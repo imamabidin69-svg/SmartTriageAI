@@ -1,19 +1,22 @@
-"""Blueprint kunjungan: pencarian pasien dan registrasi kunjungan (FR-02)."""
+"""Blueprint kunjungan: pencarian pasien, registrasi kunjungan, dan status kunjungan (FR-02, FR-07)."""
 
 from flask import jsonify
 from flask_jwt_extended import get_current_user
 from flask_openapi3 import APIBlueprint, Tag, validate_request
 
 from app.middleware.auth import role_required
-from app.models.enums import Peran
+from app.models.enums import Peran, StatusKunjungan
 from app.routes.dokumen import RESPONS_422, SEMUA_KANAL_ACCESS, respons_problem_doc
 from app.services.kunjungan_service import KunjunganService, samarkan_nik, usia
 from app.utils.schemas import (
     CariPasienQuery,
     DaftarPasienResponse,
     KunjunganDibuatResponse,
+    KunjunganPath,
     PasienRingkas,
     RegistrasiRequest,
+    StatusKunjunganRequest,
+    StatusKunjunganResponse,
 )
 
 kunjungan_bp = APIBlueprint(
@@ -28,13 +31,16 @@ kunjungan_bp = APIBlueprint(
 @kunjungan_bp.get(
     "/pasien",
     summary="Mencari pasien lama",
-    description="Potongan nama (tanpa membedakan huruf besar) atau NIK lengkap 16 digit. Maksimal 20 hasil.",
-    responses={200: DaftarPasienResponse, **respons_problem_doc(401, 403)},
+    description=(
+        "Potongan nama (tanpa membedakan huruf besar) atau NIK lengkap 16 digit. Maksimal 20 hasil. "
+        "Pencarian NIK yang tidak menemukan pasien dibatasi 30 kali per 15 menit untuk setiap akun."
+    ),
+    responses={200: DaftarPasienResponse, **respons_problem_doc(401, 403, 429)},
 )
 @role_required(Peran.PERAWAT, Peran.DOKTER)
 @validate_request()
 def cari_pasien(query: CariPasienQuery):
-    hasil = KunjunganService().cari_pasien(query.q)
+    hasil = KunjunganService().cari_pasien_oleh(query.q, get_current_user())
     items = [
         PasienRingkas(
             id_pasien=h.pasien.id_pasien,
@@ -73,3 +79,22 @@ def registrasi(body: RegistrasiRequest):
         waktu_datang=kunjungan.waktu_datang,
     )
     return jsonify(respons.model_dump(mode="json")), 201
+
+
+@kunjungan_bp.patch(
+    "/kunjungan/<uuid:id_kunjungan>/status",
+    summary="Menandai pasien mulai diperiksa atau selesai",
+    description=(
+        "Dokter mengubah status menunggu ke ditangani (pasien keluar dari daftar tunggu), ditangani ke selesai, "
+        "atau menunggu ke selesai untuk pasien yang batal diperiksa. Perubahan lain dibalas 409."
+    ),
+    responses={200: StatusKunjunganResponse, **respons_problem_doc(401, 403, 404, 409)},
+)
+@role_required(Peran.DOKTER)
+@validate_request()
+def ubah_status(path: KunjunganPath, body: StatusKunjunganRequest):
+    kunjungan = KunjunganService().ubah_status(path.id_kunjungan, StatusKunjungan(body.status))
+    respons = StatusKunjunganResponse(
+        id_kunjungan=kunjungan.id_kunjungan, status=kunjungan.status, waktu_ditangani=kunjungan.waktu_ditangani
+    )
+    return jsonify(respons.model_dump(mode="json"))
