@@ -75,3 +75,25 @@ class Triase(db.Model):
     pembuat = relationship("Pengguna", foreign_keys=[dibuat_oleh])
     validator = relationship("Pengguna", foreign_keys=[divalidasi_oleh])
     pemindaian = relationship("PemindaianAlat", back_populates="triase")
+
+    # ------------------------------------------------------------ perpindahan status validasi (FR-06)
+    # Jalur yang sah (keputusan K2a): dari menunggu ke disetujui, dikoreksi, atau menunggu_review_dokter;
+    # dari menunggu_review_dokter ke disetujui atau dikoreksi. Disetujui dan dikoreksi bersifat final.
+    # Hak peran diperiksa KebijakanValidasi; method ini hanya menjaga urutan status.
+
+    STATUS_FINAL = (StatusValidasi.DISETUJUI, StatusValidasi.DIKOREKSI)
+
+    def bisa_diputuskan(self) -> bool:
+        return self.status_validasi not in self.STATUS_FINAL
+
+    def setujui(self, validator_id: uuid.UUID) -> None:
+        self.status_validasi = StatusValidasi.DISETUJUI
+        self.divalidasi_oleh = validator_id
+
+    def koreksi(self, level: RiskLevel, validator_id: uuid.UUID) -> None:
+        self.risk_level = level
+        self.status_validasi = StatusValidasi.DIKOREKSI
+        self.divalidasi_oleh = validator_id
+
+    def ajukan_review(self) -> None:
+        self.status_validasi = StatusValidasi.MENUNGGU_REVIEW_DOKTER

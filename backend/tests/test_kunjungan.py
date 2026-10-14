@@ -362,3 +362,72 @@ def test_usia_pasien_memakai_perkiraan_bila_tanggal_lahir_kosong():
     assert usia_pasien(None, 40) == 40
     assert usia_pasien(None, None) is None
     assert usia_pasien(date(2000, 1, 1), 99, pada=date(2010, 1, 1)) == 10
+
+
+# ---------------------------------------------------------------- batas pencarian NIK (keputusan NIK pilihan b)
+
+NIK_TIDAK_ADA = "3577019999990001"
+
+
+@pytest.fixture
+def batas_kecil(app, monkeypatch):
+    monkeypatch.setitem(app.config, "BATAS_CARI_NIK", "3 per 15 minutes")
+
+
+def _cari(client, header, q):
+    return client.get(URL_PASIEN, query_string={"q": q}, headers=header)
+
+
+def test_batas_bawaan_cari_nik():
+    from app.config import Config
+
+    assert Config.BATAS_CARI_NIK == "30 per 15 minutes"
+
+
+def test_pencarian_nik_gagal_dibatasi_per_akun(client, perawat, batas_kecil):
+    _, header = perawat
+    assert [_cari(client, header, NIK_TIDAK_ADA).status_code for _ in range(3)] == [200, 200, 200]
+
+    respons = _cari(client, header, NIK_TIDAK_ADA)
+    assert respons.status_code == 429
+    assert respons.content_type == "application/problem+json"
+    assert respons.get_json()["type"] == Tipe.TERLALU_BANYAK_PERCOBAAN
+    assert respons.get_json()["detail"] == (
+        "Terlalu banyak pencarian NIK yang tidak ditemukan. Coba lagi beberapa saat lagi, atau cari dengan nama."
+    )
+    assert 840 <= int(respons.headers["Retry-After"]) <= 900
+
+
+def test_setelah_dibatasi_nik_yang_ada_pun_ditolak_tetapi_nama_tetap_bisa(client, perawat, sesi_db, batas_kecil):
+    pengguna, header = perawat
+    _pasien(sesi_db, pengguna, nama="Rina", nik="3577010101900002")
+    for _ in range(3):
+        _cari(client, header, NIK_TIDAK_ADA)
+    assert _cari(client, header, "3577010101900002").status_code == 429
+    assert _cari(client, header, "Rina").status_code == 200
+
+
+def test_pencarian_nik_yang_ditemukan_dan_pencarian_nama_tidak_dihitung(client, perawat, sesi_db, batas_kecil):
+    pengguna, header = perawat
+    _pasien(sesi_db, pengguna, nama="Rina", nik="3577010101900002")
+    for _ in range(5):
+        assert _cari(client, header, "3577010101900002").status_code == 200
+        assert _cari(client, header, "Tidak Ada Nama Ini").status_code == 200
+    assert _cari(client, header, NIK_TIDAK_ADA).status_code == 200
+
+
+def test_batas_nik_dihitung_terpisah_per_akun(client, masuk, batas_kecil):
+    _, header_a = masuk(Peran.PERAWAT)
+    _, header_b = masuk(Peran.DOKTER)
+    for _ in range(3):
+        _cari(client, header_a, NIK_TIDAK_ADA)
+    assert _cari(client, header_a, NIK_TIDAK_ADA).status_code == 429
+    assert _cari(client, header_b, NIK_TIDAK_ADA).status_code == 200
+
+
+def test_batas_nik_tidak_berlaku_bila_limiter_dimatikan(client, perawat, batas_kecil, monkeypatch):
+    from app.extensions import limiter
+
+    monkeypatch.setattr(limiter, "enabled", False)
+    _, header = perawat
+    assert [_cari(client, header, NIK_TIDAK_ADA).status_code for _ in range(5)] == [200] * 5

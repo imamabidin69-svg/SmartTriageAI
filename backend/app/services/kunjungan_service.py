@@ -1,22 +1,34 @@
 """Registrasi pasien singkat dan kunjungan (FR-02, Desain 2.2)."""
 
+import math
 import re
+import time
 import uuid
 from dataclasses import dataclass
 
+from flask import current_app
+from limits import parse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.extensions import db
+from app.extensions import db, limiter
 from app.models import Kunjungan, Pasien, Pengguna
 from app.models.enums import AksiAudit, StatusKunjungan
 from app.services.audit_logger import AuditLogger
-from app.utils.errors import KonflikError, ValidasiGagalError
+from app.utils.errors import KonflikError, TerlaluBanyakPercobaanError, TidakDitemukanError, ValidasiGagalError
 from app.utils.schemas import RegistrasiRequest
-from app.utils.waktu import usia_pasien
+from app.utils.waktu import sekarang, usia_pasien
 
 MAKS_HASIL_PENCARIAN = 20
 STATUS_AKTIF = (StatusKunjungan.MENUNGGU, StatusKunjungan.DITANGANI)
+POLA_NIK = re.compile(r"[0-9]{16}")
+
+# Perubahan status yang sah (keputusan K9). Status lain, termasuk mundur, dibalas 409.
+TRANSISI_STATUS = {
+    StatusKunjungan.MENUNGGU: (StatusKunjungan.DITANGANI, StatusKunjungan.SELESAI),
+    StatusKunjungan.DITANGANI: (StatusKunjungan.SELESAI,),
+    StatusKunjungan.SELESAI: (),
+}
 
 
 @dataclass(frozen=True)
@@ -53,16 +65,75 @@ def _subquery_kunjungan_aktif():
     )
 
 
+class PembatasCariNik:
+    """Pencarian NIK yang tidak menemukan pasien dihitung per akun (keputusan pencarian NIK, pilihan b).
+
+    Penyimpanannya sama dengan pembatas login (Flask-Limiter), tetapi hitungan hanya ditambah setelah
+    hasilnya diketahui kosong, sehingga pencarian NIK yang berhasil dan pencarian nama tidak dibatasi.
+    """
+
+    def __init__(self, pengguna: Pengguna) -> None:
+        self.item = parse(current_app.config["BATAS_CARI_NIK"])
+        self.kunci = f"cari-nik:{pengguna.id_pengguna}"
+
+    def periksa(self) -> None:
+        if not limiter.enabled or limiter.limiter.test(self.item, self.kunci):
+            return
+        reset = limiter.limiter.get_window_stats(self.item, self.kunci).reset_time
+        raise TerlaluBanyakPercobaanError(
+            "Terlalu banyak pencarian NIK yang tidak ditemukan. Coba lagi beberapa saat lagi, atau cari dengan nama.",
+            max(1, math.ceil(reset - time.time())),
+        )
+
+    def catat_tidak_ditemukan(self) -> None:
+        if limiter.enabled:
+            limiter.limiter.hit(self.item, self.kunci)
+
+
 class KunjunganService:
     def cari_pasien(self, q: str) -> list[HasilCari]:
         """NIK lengkap dicocokkan persis; selain itu dicari di nama tanpa membedakan huruf besar."""
         kueri = select(Pasien, _subquery_kunjungan_aktif().label("id_kunjungan_aktif"))
-        if re.fullmatch(r"[0-9]{16}", q):
+        if POLA_NIK.fullmatch(q):
             kueri = kueri.where(Pasien.nik == q)
         else:
             kueri = kueri.where(Pasien.nama.ilike(f"%{_escape_like(q)}%", escape="\\"))
         kueri = kueri.order_by(Pasien.nama, Pasien.id_pasien).limit(MAKS_HASIL_PENCARIAN)
         return [HasilCari(pasien=pasien, id_kunjungan_aktif=aktif) for pasien, aktif in db.session.execute(kueri)]
+
+    def cari_pasien_oleh(self, q: str, pengguna: Pengguna) -> list[HasilCari]:
+        if not POLA_NIK.fullmatch(q):
+            return self.cari_pasien(q)
+        pembatas = PembatasCariNik(pengguna)
+        pembatas.periksa()
+        hasil = self.cari_pasien(q)
+        if not hasil:
+            pembatas.catat_tidak_ditemukan()
+        return hasil
+
+    def ubah_status(self, id_kunjungan: uuid.UUID, status: StatusKunjungan) -> Kunjungan:
+        try:
+            kunjungan = db.session.scalar(
+                select(Kunjungan)
+                .where(Kunjungan.id_kunjungan == id_kunjungan)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if kunjungan is None:
+                raise TidakDitemukanError("Kunjungan tidak ditemukan.")
+            if status not in TRANSISI_STATUS[kunjungan.status]:
+                raise KonflikError(
+                    f"Status kunjungan tidak bisa diubah dari {kunjungan.status.value} ke {status.value}."
+                )
+            if status == StatusKunjungan.DITANGANI:
+                kunjungan.waktu_ditangani = sekarang()
+            kunjungan.status = status
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
+        db.session.refresh(kunjungan)
+        return kunjungan
 
     def daftar(self, data: RegistrasiRequest, perawat: Pengguna) -> HasilRegistrasi:
         """Membuat kunjungan berstatus menunggu. Pasien, kunjungan, dan log audit masuk satu transaksi."""

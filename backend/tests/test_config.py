@@ -1,3 +1,53 @@
+from pathlib import Path
+
+import pytest
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+from app import create_app
+from app.config import KonfigurasiTidakValidError, buat_konfigurasi, normalisasi_url_database, validasi_konfigurasi
+
+RAHASIA_A = "a" * 40
+RAHASIA_B = "b" * 40
+
+
+def konfigurasi_valid(**ubah):
+    nilai = {
+        "SQLALCHEMY_DATABASE_URI": "postgresql+psycopg://u:p@localhost/db",
+        "SECRET_KEY": RAHASIA_A,
+        "JWT_SECRET_KEY": RAHASIA_B,
+        "JUMLAH_PROXY": 0,
+    }
+    nilai.update(ubah)
+    return nilai
+
+
+@pytest.mark.parametrize(
+    ("masukan", "hasil"),
+    [
+        ("postgres://u:p@h:5432/db", "postgresql+psycopg://u:p@h:5432/db"),
+        ("postgresql://u:p@h/db?sslmode=require", "postgresql+psycopg://u:p@h/db?sslmode=require"),
+        ("postgresql+psycopg://u:p@h/db", "postgresql+psycopg://u:p@h/db"),
+        (None, None),
+        ("", ""),
+    ],
+)
+def test_normalisasi_url_database(masukan, hasil):
+    assert normalisasi_url_database(masukan) == hasil
+
+
+def test_buat_konfigurasi_membaca_environment(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgres://app:p@h/db")
+    monkeypatch.delenv("DATABASE_URL_MIGRASI", raising=False)
+    monkeypatch.setenv("SECRET_KEY", f"  {RAHASIA_A}  ")
+    monkeypatch.setenv("JUMLAH_PROXY", "1")
+    nilai = buat_konfigurasi("production")
+    assert nilai["SQLALCHEMY_DATABASE_URI"] == "postgresql+psycopg://app:p@h/db"
+    # Tanpa DATABASE_URL_MIGRASI, migrasi memakai URL yang sama.
+    assert nilai["SQLALCHEMY_MIGRASI_URI"] == nilai["SQLALCHEMY_DATABASE_URI"]
+    assert nilai["SECRET_KEY"] == RAHASIA_A
+    assert nilai["JUMLAH_PROXY"] == "1"
+    assert nilai["JWT_COOKIE_SECURE"] is True
+    assert nilai["HSTS_AKTIF"] is True
 
 
 def test_buat_konfigurasi_development_mematikan_cookie_secure():

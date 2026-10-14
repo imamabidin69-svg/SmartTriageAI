@@ -6,6 +6,9 @@ from sqlalchemy import select
 
 from app.cli import AKUN_DEMO, PASIEN_SIMULASI
 from app.models import Kunjungan, Pasien, Pengguna, Triase
+from app.models.enums import JenisTriase, StatusValidasi
+from app.services.daftar_tunggu_service import URUTAN_LEVEL
+from app.services.peringatan_service import PeringatanService
 from app.utils.log import PemformatJson, _HandlerSmartTriage, atur_logging
 from app.utils.schemas import LoginRequest, normalisasi_email
 
@@ -46,10 +49,20 @@ def test_seed_demo_dengan_pasien_simulasi(app, sesi_db, password_demo):
     assert all(p.nik is None and p.no_telepon is None for p in pasien)
     assert sesi_db.query(Kunjungan).count() == len(PASIEN_SIMULASI)
     triase = sesi_db.scalars(select(Triase)).all()
-    # Satu pasien sengaja belum ditriase supaya terlihat di daftar tunggu sebagai "belum ditriase".
-    assert len(triase) == len(PASIEN_SIMULASI) - 1
+    # Satu pasien sengaja belum ditriase supaya terlihat di daftar tunggu sebagai "belum ditriase",
+    # dan satu pasien punya triase ulang.
+    assert len(triase) == len(PASIEN_SIMULASI)
     assert {t.sumber_rekomendasi.value for t in triase} == {"model"}
     assert len({t.waktu_triase for t in triase}) == len(triase)
+    assert [t.status_validasi for t in triase].count(StatusValidasi.MENUNGGU_REVIEW_DOKTER) == 1
+
+    # Triase ulang Hendra levelnya naik, jadi muncul di peringatan.
+    hendra = sorted((t for t in triase if t.kunjungan.pasien.nama == "Hendra Gunawan"), key=lambda t: t.waktu_triase)
+    assert [t.jenis for t in hendra] == [JenisTriase.AWAL, JenisTriase.ULANG]
+    assert URUTAN_LEVEL[hendra[1].risk_level] > URUTAN_LEVEL[hendra[0].risk_level]
+    with app.test_request_context():
+        dipantau = {p.nama_pasien for p in PeringatanService().kumpulkan()}
+    assert "Hendra Gunawan" in dipantau
 
     ulang = runner.invoke(args=["seed-demo", "--dengan-pasien"])
     assert ulang.exit_code == 0

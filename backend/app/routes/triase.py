@@ -1,4 +1,4 @@
-"""Blueprint triase: input triase dengan rekomendasi risk level dan detail triase (FR-03, FR-05)."""
+"""Blueprint triase: input triase, detail triase, dan validasi hasilnya (FR-03, FR-05, FR-06)."""
 
 from flask import jsonify
 from flask_jwt_extended import get_current_user
@@ -11,6 +11,7 @@ from app.models.enums import Peran
 from app.routes.dokumen import RESPONS_422, SEMUA_KANAL_ACCESS, respons_problem_doc
 from app.services.konfigurasi_service import cache_konfigurasi
 from app.services.triase_service import TriaseService, peringatan_triase, tanda_vital_triase
+from app.services.validasi_service import ValidasiService
 from app.utils.schemas import (
     KunjunganPath,
     PasienTriase,
@@ -20,6 +21,7 @@ from app.utils.schemas import (
     TriaseDetail,
     TriaseInput,
     TriasePath,
+    ValidasiRequest,
 )
 from app.utils.waktu import WIB, usia_pasien
 
@@ -98,3 +100,21 @@ def buat_triase(path: KunjunganPath, body: TriaseInput):
 @validate_request()
 def detail_triase(path: TriasePath):
     return jsonify(susun_detail(TriaseService.ambil(path.id_triase)).model_dump(mode="json"))
+
+
+@triase_bp.post(
+    "/triase/<uuid:id_triase>/validasi",
+    summary="Menyetujui, mengoreksi, atau mengajukan review hasil triase",
+    description=(
+        "Perawat boleh menyetujui hasil non-kritis atau mengajukan review; dokter boleh menyetujui atau mengoreksi "
+        "semua tingkat. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui "
+        "atau dikoreksi, sudah digantikan triase ulang, atau kunjungannya sudah selesai dibalas 409. Setiap aksi "
+        "dicatat di log audit dalam transaksi yang sama."
+    ),
+    responses={200: TriaseDetail, **respons_problem_doc(401, 403, 404, 409)},
+)
+@role_required(Peran.PERAWAT, Peran.DOKTER)
+@validate_request()
+def validasi_triase(path: TriasePath, body: ValidasiRequest):
+    triase = ValidasiService().validasi(path.id_triase, body, get_current_user())
+    return jsonify(susun_detail(triase).model_dump(mode="json"))
