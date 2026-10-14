@@ -14,6 +14,8 @@ KETERANGAN_ERROR = {
     400: "Format JSON tidak valid",
     401: "Belum masuk, token tidak valid, atau sesi berakhir",
     403: "Akses ditolak",
+    404: "Data tidak ditemukan",
+    409: "Konflik dengan data yang sudah ada",
     422: "Data tidak valid",
     429: "Terlalu banyak percobaan",
 }

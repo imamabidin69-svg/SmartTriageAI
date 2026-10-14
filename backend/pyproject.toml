@@ -21,6 +21,7 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "C4", "PT", "RUF"]
 testpaths = ["tests"]
 pythonpath = [".", "tests"]
 addopts = "-ra --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+markers = ["tanpa_rollback: tes yang butuh commit sungguhan, misalnya konkurensi dua koneksi"]
 filterwarnings = [
     "error",
     # Peringatan dari pustaka pihak ketiga yang belum diperbarui; bukan dari kode SmartTriage.

@@ -26,7 +26,10 @@ class PemeriksaTiruan(PemeriksaKomponen):
 def test_health_ok_tanpa_login(client):
     respons = client.get("/api/v1/health")
     assert respons.status_code == 200
-    assert respons.get_json() == {"status": "ok", "komponen": {"database": "ok", "hak_akses_log_audit": "ok"}}
+    assert respons.get_json() == {
+        "status": "ok",
+        "komponen": {"database": "ok", "hak_akses_log_audit": "ok", "model_triase": "ok"},
+    }
 
 
 def test_health_503_bila_komponen_wajib_gagal(app, client, monkeypatch):

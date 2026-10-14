@@ -1,8 +1,8 @@
 """Pemeriksaan kesehatan aplikasi (NFR-03, Desain Gambar 3.8 dan 3.9).
 
 PostgreSQL adalah komponen wajib: bila gagal, health check membalas 503 supaya Railway
-memulai ulang container. Komponen tidak wajib (model, sesi ONNX, Groq) ditambahkan di
-tahap berikutnya dan hanya membuat status menjadi "degraded".
+memulai ulang container. Komponen tidak wajib (model triase, lalu sesi ONNX dan Groq di
+tahap berikutnya) hanya membuat status menjadi "degraded".
 """
 
 import logging
@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.ai.registry import ModelRegistry
 from app.extensions import db
 from app.utils.schemas import HealthResponse
 
@@ -68,6 +69,19 @@ class PemeriksaHakAksesLogAudit(PemeriksaKomponen):
             logger.error("Role basis data aplikasi masih bisa mengubah log_audit. Pakai role smarttriage_app.")
             return False
         return True
+
+
+class PemeriksaModel(PemeriksaKomponen):
+    """Model triase tidak wajib: tanpa model, rekomendasi tetap keluar dari aturan cadangan (NFR-03)."""
+
+    nama = "model_triase"
+    wajib = False
+
+    def __init__(self, registry: ModelRegistry) -> None:
+        self.registry = registry
+
+    def cek(self) -> bool:
+        return self.registry.termuat
 
 
 class HealthService:

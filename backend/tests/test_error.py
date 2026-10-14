@@ -99,8 +99,9 @@ def test_respons_validasi_untuk_field_bertingkat(app):
         respons = respons_validasi_gagal(galat.value)
     assert respons.status_code == 422
     assert respons.get_json()["errors"] == [
-        {"field": "tanda_vital.saturasi", "pesan": "tanda_vital.saturasi maksimal 100."},
-        {"field": "tanda_vital.nama", "pesan": "tanda_vital.nama minimal 2 karakter."},
+        # Label dicari dari nama field terdalam, tetapi path lengkap tetap dikirim untuk menyorot kolom.
+        {"field": "tanda_vital.saturasi", "pesan": "Saturasi oksigen maksimal 100%."},
+        {"field": "tanda_vital.nama", "pesan": "Nama minimal 2 karakter."},
     ]
 
 
@@ -111,8 +112,10 @@ def test_respons_validasi_untuk_field_bertingkat(app):
         ("greater_than_equal", "suhu", {"ge": 20}, "Suhu tubuh minimal 20°C."),
         ("greater_than_equal", "suhu", {"ge": 35.5}, "Suhu tubuh minimal 35,5°C."),
         ("less_than_equal", "saturasi", {"le": Decimal("100.0")}, "Saturasi oksigen maksimal 100%."),
-        ("less_than", "nadi", {"lt": 300}, "Nadi harus kurang dari 300."),
-        ("greater_than", "nadi", {"gt": 0}, "Nadi harus lebih dari 0."),
+        ("less_than", "nadi", {"lt": 300}, "Nadi harus kurang dari 300 x/menit."),
+        ("greater_than", "nadi", {"gt": 0}, "Nadi harus lebih dari 0 x/menit."),
+        ("less_than_equal", "tanda_vital.td_sistolik", {"le": 320}, "Tekanan darah sistolik maksimal 320 mmHg."),
+        ("uuid_parsing", "id_pemindaian.1", None, "ID pemindaian harus berupa UUID yang valid."),
         ("string_too_long", "nama", {"max_length": 120}, "Nama maksimal 120 karakter."),
         ("string_too_short", "nama", {"min_length": 1}, "Nama wajib diisi."),
         ("int_parsing", "nadi", None, "Nadi harus berupa bilangan bulat."),
@@ -131,9 +134,10 @@ def test_respons_validasi_untuk_field_bertingkat(app):
             "peran harus salah satu dari: 'perawat', 'dokter', 'admin'.",
         ),
         ("uuid_parsing", "id", None, "id harus berupa UUID yang valid."),
-        ("date_parsing", "tanggal_lahir", None, "tanggal_lahir harus berupa tanggal dengan format YYYY-MM-DD."),
+        ("date_parsing", "tanggal_lahir", None, "Tanggal lahir harus berupa tanggal dengan format YYYY-MM-DD."),
         ("extra_forbidden", "role", None, "Field role tidak dikenal."),
         ("kode_baru_pydantic", "nama", None, "Nama tidak valid."),
+        ("missing", "0", None, "0 wajib diisi."),
         # Templat butuh nilai ctx yang tidak ada: jatuh ke pesan umum, bukan error.
         ("less_than_equal", "nadi", None, "Nadi tidak valid."),
     ],
