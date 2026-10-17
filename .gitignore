@@ -8,6 +8,7 @@ build/
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+.venv
 
 # Layanan ML Python (ml-service/) - lihat ml-service/README.md
 ml-service/__pycache__/
