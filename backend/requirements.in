@@ -20,5 +20,8 @@ numpy==2.5.4
 pandas==3.0.6
 shap==0.53.0
 joblib==1.6.0
+# Pembaca layar alat (Desain 7.3): model YOLO format ONNX dijalankan di CPU tanpa PyTorch, gambar diolah Pillow.
+onnxruntime==1.31.0
+pillow==13.0.0
 # Data zona waktu untuk zoneinfo (Asia/Jakarta). Linux sudah punya, Windows tidak.
 tzdata==2026.5

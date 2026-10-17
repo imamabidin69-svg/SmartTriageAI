@@ -20,7 +20,7 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "C4", "PT", "RUF"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".", "tests"]
-addopts = "-ra --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+addopts = "-ra --cov=app --cov=ai_training --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
 markers = ["tanpa_rollback: tes yang butuh commit sungguhan, misalnya konkurensi dua koneksi"]
 filterwarnings = [
     "error",
@@ -30,7 +30,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["app"]
+source = ["app", "ai_training"]
 branch = true
 relative_files = true
 

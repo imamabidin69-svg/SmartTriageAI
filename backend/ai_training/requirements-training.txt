@@ -1,0 +1,9 @@
+# Dependensi tambahan untuk pelatihan di Google Colab, terpisah dari backend supaya image produksi tidak
+# memuat PyTorch. PyTorch dan CUDA memakai versi bawaan Colab. Skrip evaluasi memakai kode backend,
+# jadi pasang keduanya dari folder backend:
+#   pip install -r requirements.txt -r ai_training/requirements-training.txt
+ultralytics==8.4.178
+roboflow==1.7.1
+onnx==1.23.2
+onnxslim==0.1.98
+pyyaml==6.0.3

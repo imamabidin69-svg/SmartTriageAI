@@ -79,6 +79,14 @@ class Config:
     # Bundle Random Forest (Desain baris 117 dan 582). Berkas ini dimuat dengan pickle,
     # jadi hanya boleh menunjuk ke artefak dari repo sendiri, bukan berkas kiriman pengguna.
     MODEL_RF_PATH = str(DIREKTORI_BACKEND / "app" / "ai" / "artefak" / "model_rf.joblib")
+    # Model YOLO pembaca layar alat dalam format ONNX (Desain baris 117 dan 584).
+    MODEL_YOLO_PATH = str(DIREKTORI_BACKEND / "app" / "ai" / "artefak" / "yolo_digit.onnx")
+    # "onnx" memakai model di atas; "tiruan" mengembalikan angka contoh tanpa model dan hanya boleh
+    # dipakai di development, supaya alur kamera di aplikasi bisa dicoba sebelum model jadi (keputusan P5).
+    PEMBACA_LAYAR = "onnx"
+    # Foto layar alat maksimal 5 MB (Desain Gambar 2.10). Batas request sedikit di atasnya untuk isian form.
+    UKURAN_MAKS_FOTO = 5 * 1024 * 1024
+    UKURAN_MAKS_REQUEST_FOTO = UKURAN_MAKS_FOTO + 64 * 1024
     # Konfigurasi triase disimpan di memori proses selama 60 detik (Desain baris 380).
     CACHE_KONFIGURASI_DETIK = 60
 
@@ -149,9 +157,13 @@ def buat_konfigurasi(nama_env: str) -> dict[str, Any]:
     if jumlah_proxy is not None:
         konfigurasi["JUMLAH_PROXY"] = jumlah_proxy
 
-    path_model = _ambil_env("MODEL_RF_PATH")
-    if path_model is not None:
-        konfigurasi["MODEL_RF_PATH"] = str(DIREKTORI_BACKEND / path_model)
+    for nama in ("MODEL_RF_PATH", "MODEL_YOLO_PATH"):
+        path_model = _ambil_env(nama)
+        if path_model is not None:
+            konfigurasi[nama] = str(DIREKTORI_BACKEND / path_model)
+    pembaca = _ambil_env("PEMBACA_LAYAR")
+    if pembaca is not None:
+        konfigurasi["PEMBACA_LAYAR"] = pembaca.lower()
     return konfigurasi
 
 
@@ -181,6 +193,12 @@ def validasi_konfigurasi(konfigurasi: Mapping[str, Any]) -> None:
             raise ValueError
     except (TypeError, ValueError):
         masalah.append("JUMLAH_PROXY harus bilangan bulat 0 atau lebih.")
+
+    pembaca = konfigurasi.get("PEMBACA_LAYAR", "onnx")
+    if pembaca not in ("onnx", "tiruan"):
+        masalah.append("PEMBACA_LAYAR harus onnx atau tiruan.")
+    elif pembaca == "tiruan" and konfigurasi.get("APP_ENV") not in ("development", "testing"):
+        masalah.append("PEMBACA_LAYAR=tiruan hanya boleh dipakai di development.")
 
     if masalah:
         raise KonfigurasiTidakValidError("Konfigurasi tidak valid: " + " ".join(masalah))

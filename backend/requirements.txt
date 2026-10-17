@@ -38,6 +38,8 @@ flask-sqlalchemy==3.1.1
     # via
     #   -r requirements.in
     #   flask-migrate
+flatbuffers==25.12.19
+    # via onnxruntime
 greenlet==3.5.6
     # via sqlalchemy
 idna==3.20
@@ -67,20 +69,28 @@ mdurl==0.1.2
 numpy==2.5.4
     # via
     #   -r requirements.in
+    #   onnxruntime
     #   pandas
     #   scikit-learn
     #   scipy
     #   shap
+onnxruntime==1.31.0
+    # via -r requirements.in
 ordered-set==4.1.0
     # via flask-limiter
 packaging==26.3
     # via
     #   limits
+    #   onnxruntime
     #   shap
 pandas==3.0.6
     # via
     #   -r requirements.in
     #   shap
+pillow==13.0.0
+    # via -r requirements.in
+protobuf==7.36.2
+    # via onnxruntime
 psycopg==3.3.6
     # via -r requirements.in
 psycopg-binary==3.3.6

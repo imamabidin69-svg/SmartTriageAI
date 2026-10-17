@@ -98,7 +98,8 @@ def test_create_app_menolak_start_tanpa_rahasia(monkeypatch):
 
 def test_create_app_bawaannya_production(monkeypatch, konfigurasi_app):
     monkeypatch.delenv("APP_ENV", raising=False)
-    konfigurasi = {k: v for k, v in konfigurasi_app.items() if k != "APP_ENV"}
+    # Pembaca tiruan dari konfigurasi tes tidak boleh dipakai di production, jadi ikut dibuang.
+    konfigurasi = {k: v for k, v in konfigurasi_app.items() if k not in ("APP_ENV", "PEMBACA_LAYAR")}
     aplikasi = create_app(konfigurasi)
     assert aplikasi.config["APP_ENV"] == "production"
     assert aplikasi.config["JWT_COOKIE_SECURE"] is True
@@ -121,3 +122,35 @@ def test_model_rf_path_relatif_dihitung_dari_folder_backend(monkeypatch):
     assert buat_konfigurasi("testing")["MODEL_RF_PATH"] == mutlak
     monkeypatch.delenv("MODEL_RF_PATH")
     assert buat_konfigurasi("testing")["MODEL_RF_PATH"].endswith("model_rf.joblib")
+
+
+def test_model_yolo_path_dan_mode_pembaca_dari_environment(monkeypatch):
+    from app.config import DIREKTORI_BACKEND
+
+    monkeypatch.setenv("MODEL_YOLO_PATH", "app/ai/artefak/lain.onnx")
+    monkeypatch.setenv("PEMBACA_LAYAR", " Tiruan ")
+    nilai = buat_konfigurasi("development")
+    assert nilai["MODEL_YOLO_PATH"] == str(DIREKTORI_BACKEND / "app/ai/artefak/lain.onnx")
+    assert nilai["PEMBACA_LAYAR"] == "tiruan"
+    monkeypatch.delenv("MODEL_YOLO_PATH")
+    monkeypatch.delenv("PEMBACA_LAYAR")
+    nilai = buat_konfigurasi("development")
+    assert nilai["MODEL_YOLO_PATH"].endswith("yolo_digit.onnx")
+    assert nilai["PEMBACA_LAYAR"] == "onnx"
+
+
+@pytest.mark.parametrize("app_env", ["development", "testing"])
+def test_pembaca_tiruan_boleh_di_development(app_env):
+    validasi_konfigurasi(konfigurasi_valid(PEMBACA_LAYAR="tiruan", APP_ENV=app_env))
+
+
+@pytest.mark.parametrize(
+    ("ubah", "pesan"),
+    [
+        ({"PEMBACA_LAYAR": "tiruan", "APP_ENV": "production"}, "hanya boleh dipakai di development"),
+        ({"PEMBACA_LAYAR": "yolo"}, "PEMBACA_LAYAR harus onnx atau tiruan"),
+    ],
+)
+def test_pembaca_layar_tidak_valid_ditolak(ubah, pesan):
+    with pytest.raises(KonfigurasiTidakValidError, match=pesan):
+        validasi_konfigurasi(konfigurasi_valid(**ubah))

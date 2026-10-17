@@ -7,3 +7,5 @@ pytest-cov==7.1.0
 ruff==0.16.10
 # Tampilan Swagger UI untuk dokumentasi API, hanya aktif di lingkungan development.
 flask-openapi3-swagger==5.31.0
+# Membuat model ONNX kecil untuk menguji PembacaLayarOnnx tanpa model YOLO asli.
+onnx==1.23.2

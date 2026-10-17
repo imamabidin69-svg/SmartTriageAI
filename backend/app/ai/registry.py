@@ -1,4 +1,4 @@
-"""ModelRegistry: memuat bundle Random Forest dan membangun explainer SHAP saat aplikasi start.
+"""ModelRegistry: memuat bundle Random Forest, explainer SHAP, dan model YOLO saat aplikasi start.
 
 Bundle berasal dari prototipe (ml-service/latih_model.py) dan berupa dict berisi Pipeline
 (ColumnTransformer + RandomForestClassifier), daftar fitur, urutan level, dan versi model.
@@ -16,6 +16,7 @@ from typing import Any
 
 from flask import current_app
 
+from app.ai.pembaca_layar import PembacaLayar, PembacaLayarOnnx, PembacaLayarTiruan
 from app.models.enums import KategoriKeluhan, RiskLevel
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,7 @@ def _muat_dari_berkas(path: str, waktu_ubah: float) -> ModelTriase:
 class ModelRegistry:
     def __init__(self) -> None:
         self.model_triase: ModelTriase | None = None
+        self.pembaca_layar: PembacaLayar | None = None
 
     @property
     def termuat(self) -> bool:
@@ -120,6 +122,25 @@ class ModelRegistry:
             logger.exception("Model triase gagal dimuat dari %s. Rekomendasi memakai aturan cadangan.", berkas)
         else:
             logger.info("Model triase %s dimuat dari %s.", self.model_triase.versi, berkas)
+
+    def muat_pembaca_layar(self, path_model_yolo: str | None, mode: str = "onnx") -> None:
+        """Tanpa pembaca layar, pemindaian tetap tersimpan tetapi kolomnya dibiarkan kosong (Desain baris 396)."""
+        self.pembaca_layar = None
+        if mode == "tiruan":
+            self.pembaca_layar = PembacaLayarTiruan()
+            logger.warning("Pembaca layar memakai mode tiruan. Angka hasil pemindaian hanya contoh.")
+            return
+        if not path_model_yolo:
+            logger.warning("MODEL_YOLO_PATH kosong. Kolom hasil pemindaian akan diisi manual.")
+            return
+        try:
+            self.pembaca_layar = PembacaLayarOnnx(path_model_yolo)
+        except FileNotFoundError:
+            logger.warning("Model YOLO belum ada di %s. Kolom hasil pemindaian akan diisi manual.", path_model_yolo)
+        except Exception:
+            logger.exception("Model YOLO gagal dimuat dari %s. Kolom pemindaian akan diisi manual.", path_model_yolo)
+        else:
+            logger.info("Model YOLO pembaca layar dimuat dari %s.", path_model_yolo)
 
 
 def model_registry() -> ModelRegistry:

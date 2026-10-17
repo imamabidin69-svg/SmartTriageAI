@@ -192,6 +192,8 @@ class PenerjemahPesan:
         "format": "Format",
         "id_aktor": "ID aktor",
         "id_triase": "ID triase",
+        "jenis_alat": "Jenis alat",
+        "berkas": "Foto",
     }
     SATUAN: ClassVar[dict[str, str]] = {
         "saturasi": "%",

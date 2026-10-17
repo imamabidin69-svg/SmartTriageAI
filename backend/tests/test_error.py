@@ -57,7 +57,7 @@ def test_json_bersarang_terlalu_dalam_dibalas_400(client, caplog):
 
 
 def test_hsts_hanya_di_production(konfigurasi_app):
-    aplikasi = create_app({**konfigurasi_app, "APP_ENV": "production"})
+    aplikasi = create_app({**konfigurasi_app, "APP_ENV": "production", "PEMBACA_LAYAR": "onnx"})
     respons = aplikasi.test_client().get("/api/v1/health")
     assert respons.headers["Strict-Transport-Security"] == "max-age=31536000"
 

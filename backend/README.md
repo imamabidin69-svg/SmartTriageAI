@@ -63,6 +63,7 @@ check membalas 503.
 | `POST /api/v1/admin/staf` | admin | Tambah staf; password sementara dikirim sekali di respons |
 | `PATCH /api/v1/admin/staf/{id}` | admin | Ubah data, aktif/nonaktifkan, atau `atur_ulang_password` |
 | `PATCH /api/v1/auth/password` | semua peran | Ganti password sendiri |
+| `POST /api/v1/pemindaian` | perawat | Baca angka dari foto layar alat (multipart: `jenis_alat`, `berkas`); foto tidak disimpan |
 | `GET /api/v1/rekap` | admin | Rekap per rentang tanggal; `format=csv` untuk unduhan CSV |
 | `GET /api/v1/admin/log-audit` | admin | Log audit dengan filter tanggal, aksi, aktor, dan triase |
 | `GET /api/v1/admin/konfigurasi` | admin | Ambang aturan cadangan, batas waktu tunggu, ambang keyakinan, dan versi model |
@@ -81,6 +82,18 @@ Perawat boleh menyetujui hasil non-kritis atau mengajukan review untuk semua lev
 mengoreksi semua level. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui
 atau dikoreksi, triase lama yang sudah digantikan triase ulang, dan triase pada kunjungan yang sudah selesai dibalas
 409. Ajuan review hanya bisa diputuskan dokter.
+
+### Pembaca layar alat
+
+Foto layar tensimeter, oksimeter, atau termometer dibaca model YOLO format ONNX
+(`app/ai/artefak/yolo_digit.onnx`, bisa diganti lewat `MODEL_YOLO_PATH`). Foto hanya diproses di memori
+lalu dibuang. Kolom diisi bila keyakinan model mencapai ambang di konfigurasi (bawaan 0,85) dan nilainya
+masuk rentang yang mungkin dicatat; selebihnya dikosongkan untuk diisi manual. Bedside monitor sementara
+selalu dikosongkan sampai jenis monitor di dataset diketahui.
+
+Model YOLO belum ada di repo. Selama itu pemindaian tetap tersimpan dengan semua kolom kosong dan
+`GET /api/v1/health` berstatus `degraded`. Untuk mencoba alurnya di development, isi `PEMBACA_LAYAR=tiruan`
+di `.env` supaya keluar angka contoh. Cara melatih dan mengekspor model ada di `ai_training/README.md`.
 
 ### Akun staf dan password
 

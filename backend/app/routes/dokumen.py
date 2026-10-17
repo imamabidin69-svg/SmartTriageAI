@@ -16,6 +16,7 @@ KETERANGAN_ERROR = {
     403: "Akses ditolak",
     404: "Data tidak ditemukan",
     409: "Konflik dengan data yang sudah ada",
+    413: "Isi permintaan terlalu besar",
     422: "Data tidak valid",
     429: "Terlalu banyak percobaan",
 }

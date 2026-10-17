@@ -48,6 +48,8 @@ KONFIGURASI_TES: dict[str, Any] = {
     "JWT_SECRET_KEY": "rahasia-jwt-untuk-pengujian-" + "j" * 32,
     # Ditetapkan eksplisit supaya hasil tes tidak bergantung pada JUMLAH_PROXY di .env pengembang.
     "JUMLAH_PROXY": 0,
+    # Model YOLO belum ada di repo; tes memakai pembaca tiruan, dan jalur ONNX diuji dengan model kecil buatan tes.
+    "PEMBACA_LAYAR": "tiruan",
 }
 
 

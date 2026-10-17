@@ -7,6 +7,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Literal
 
 from email_validator import EmailNotValidError, validate_email
+from flask_openapi3 import FileStorage
 from pydantic import (
     AfterValidator,
     BaseModel,
@@ -23,6 +24,7 @@ from pydantic_core import PydanticCustomError
 from app.ai.klasifikasi import SKOR_MAKSIMUM_ATURAN
 from app.models.enums import (
     AksiAudit,
+    JenisAlat,
     JenisKelamin,
     JenisTriase,
     KategoriKeluhan,
@@ -625,7 +627,9 @@ class RekapResponse(BaseModel):
     )
     persen_koreksi: float | None = Field(description="Triase yang dikoreksi dokter dibagi semua triase, dalam persen.")
     triase_ulang: int
-    akurasi_pemindaian: float | None = Field(description="Masih null sampai pemindaian layar tersedia (Tahap 3).")
+    akurasi_pemindaian: float | None = Field(
+        description="Persen kolom hasil pemindaian yang sama dengan nilai konfirmasi perawat; null bila belum ada."
+    )
 
 
 class LogAuditQuery(BaseModel):
@@ -652,3 +656,24 @@ class ItemLogAudit(BaseModel):
 class LogAuditResponse(BaseModel):
     items: list[ItemLogAudit]
     kursor_berikutnya: str | None
+
+
+# ---------------------------------------------------------------- pemindaian layar alat (FR-04)
+
+
+class UnggahFoto(BaseModel):
+    """Desain Gambar 2.11. Foto JPEG atau PNG maksimal 5 MB, diproses di memori lalu dibuang."""
+
+    jenis_alat: JenisAlat
+    berkas: FileStorage = Field(description="Foto layar alat (JPEG atau PNG, maksimal 5 MB).")
+
+
+class HasilPemindaianResponse(BaseModel):
+    id_pemindaian: uuid.UUID = Field(description="Dikirim lewat field id_pemindaian di form triase.")
+    jenis_alat: JenisAlat
+    nilai: dict[str, int | float | None] = Field(
+        description="Nilai per kolom tanda vital. null berarti kolom dibiarkan kosong untuk diisi manual."
+    )
+    keyakinan: dict[str, float | None] = Field(description="Keyakinan model per kolom, null bila tidak terbaca.")
+    kolom_kosong: list[str]
+    pembaca_tersedia: bool = Field(description="false bila model pembaca layar belum dimuat; semua kolom kosong.")

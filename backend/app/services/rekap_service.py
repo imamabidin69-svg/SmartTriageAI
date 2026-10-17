@@ -10,7 +10,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import aliased
 
 from app.extensions import db
-from app.models import Kunjungan, Triase
+from app.models import Kunjungan, PemindaianAlat, Triase
 from app.models.enums import JenisTriase, RiskLevel, StatusValidasi
 from app.services.daftar_tunggu_service import triase_terakhir_per_kunjungan
 from app.utils.errors import ValidasiGagalError
@@ -102,9 +102,25 @@ class RekapService:
         return hasil
 
     @staticmethod
-    def akurasi_pemindaian(_dari: date, _sampai: date) -> float | None:
-        # Pembaca layar baru dibuat di Tahap 3, jadi belum ada pasangan nilai terbaca dan dikonfirmasi.
-        return None
+    def akurasi_pemindaian(dari: date, sampai: date) -> float | None:
+        """Keputusan P6: kolom yang nilai terbacanya sama persis dengan nilai yang dikonfirmasi perawat,
+        dibagi semua kolom terbaca. Hanya pemindaian yang sudah dipakai triase dalam rentang tanggal."""
+        mulai, akhir = batas_waktu(dari, sampai)
+        baris = db.session.execute(
+            select(PemindaianAlat.nilai_terbaca, PemindaianAlat.nilai_dikonfirmasi)
+            .join(Triase, Triase.id_triase == PemindaianAlat.id_triase)
+            .where(
+                PemindaianAlat.nilai_dikonfirmasi.is_not(None),
+                Triase.waktu_triase >= mulai,
+                Triase.waktu_triase < akhir,
+            )
+        ).all()
+        total = benar = 0
+        for terbaca, dikonfirmasi in baris:
+            for kolom, nilai in terbaca.items():
+                total += 1
+                benar += dikonfirmasi.get(kolom) == nilai
+        return round(benar / total * 100, 1) if total else None
 
 
 # ---------------------------------------------------------------- CSV

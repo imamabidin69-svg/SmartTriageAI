@@ -68,6 +68,10 @@ flask-sqlalchemy==3.1.1
     #   -c requirements.txt
     #   -r requirements.in
     #   flask-migrate
+flatbuffers==25.12.19
+    # via
+    #   -c requirements.txt
+    #   onnxruntime
 greenlet==3.5.6
     # via
     #   -c requirements.txt
@@ -114,14 +118,25 @@ mdurl==0.1.2
     # via
     #   -c requirements.txt
     #   markdown-it-py
+ml-dtypes==0.6.0
+    # via onnx
 numpy==2.5.4
     # via
     #   -c requirements.txt
     #   -r requirements.in
+    #   ml-dtypes
+    #   onnx
+    #   onnxruntime
     #   pandas
     #   scikit-learn
     #   scipy
     #   shap
+onnx==1.23.2
+    # via -r requirements-dev.in
+onnxruntime==1.31.0
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
 ordered-set==4.1.0
     # via
     #   -c requirements.txt
@@ -130,6 +145,7 @@ packaging==26.3
     # via
     #   -c requirements.txt
     #   limits
+    #   onnxruntime
     #   pytest
     #   shap
 pandas==3.0.6
@@ -137,10 +153,19 @@ pandas==3.0.6
     #   -c requirements.txt
     #   -r requirements.in
     #   shap
+pillow==13.0.0
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
 pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
+protobuf==7.36.2
+    # via
+    #   -c requirements.txt
+    #   onnx
+    #   onnxruntime
 psycopg==3.3.6
     # via
     #   -c requirements.txt
@@ -228,6 +253,7 @@ typing-extensions==4.16.0
     #   -c requirements.txt
     #   alembic
     #   limits
+    #   onnx
     #   psycopg
     #   pydantic
     #   pydantic-core

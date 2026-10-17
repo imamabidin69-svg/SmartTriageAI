@@ -17,11 +17,17 @@ from app.middleware.keamanan import pasang_header_keamanan
 from app.middleware.pengukur_durasi import pasang_pengukur_durasi
 from app.routes import daftarkan_rute
 from app.routes.dokumen import SKEMA_KEAMANAN
-from app.services.health_service import PemeriksaDatabase, PemeriksaHakAksesLogAudit, PemeriksaModel
+from app.services.health_service import (
+    PemeriksaDatabase,
+    PemeriksaHakAksesLogAudit,
+    PemeriksaModel,
+    PemeriksaPembacaLayar,
+)
 from app.services.konfigurasi_service import CacheKonfigurasi
 from app.utils.errors import ProblemDetails, daftarkan_penangan_error, respons_validasi_gagal
 from app.utils.log import atur_logging
 from app.utils.penyedia_json import PenyediaJson
+from app.utils.request import RequestTanpaBerkasSementara
 
 DIREKTORI_MIGRASI = str(Path(__file__).resolve().parent.parent / "migrations")
 
@@ -51,6 +57,7 @@ def create_app(konfigurasi: Mapping[str, Any] | None = None) -> OpenAPI:
     )
     app.config.from_mapping(nilai)
     app.json = PenyediaJson(app)
+    app.request_class = RequestTanpaBerkasSementara
 
     if not app.testing:
         atur_logging()
@@ -73,9 +80,15 @@ def create_app(konfigurasi: Mapping[str, Any] | None = None) -> OpenAPI:
     # Model dimuat sekali per proses (Desain Gambar 3.6). Gagal dimuat berarti aturan cadangan dipakai.
     registry = ModelRegistry()
     registry.muat(app.config["MODEL_RF_PATH"])
+    registry.muat_pembaca_layar(app.config["MODEL_YOLO_PATH"], app.config["PEMBACA_LAYAR"])
     app.extensions["model_registry"] = registry
     app.extensions["cache_konfigurasi"] = CacheKonfigurasi(app.config["CACHE_KONFIGURASI_DETIK"])
 
-    # Daftar komponen yang diperiksa GET /api/v1/health. Tahap berikutnya menambah ONNX dan Groq.
-    app.extensions["pemeriksa_kesehatan"] = [PemeriksaDatabase(), PemeriksaHakAksesLogAudit(), PemeriksaModel(registry)]
+    # Daftar komponen yang diperiksa GET /api/v1/health. Tahap Eir menambah Groq.
+    app.extensions["pemeriksa_kesehatan"] = [
+        PemeriksaDatabase(),
+        PemeriksaHakAksesLogAudit(),
+        PemeriksaModel(registry),
+        PemeriksaPembacaLayar(registry),
+    ]
     return app
