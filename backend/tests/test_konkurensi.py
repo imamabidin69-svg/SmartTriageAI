@@ -157,3 +157,34 @@ def test_dua_validasi_bersamaan_hanya_satu_berhasil(app, monkeypatch):
     assert sorted(r.status_code for r in respons) == [200, 409]
     with app.app_context():
         assert db.session.query(LogAudit).filter_by(id_triase=id_triase).count() == 1
+
+
+def test_dua_admin_saling_menonaktifkan_tetap_tersisa_satu(app, monkeypatch):
+    from app.services import staf_service
+
+    with app.app_context():
+        admin = []
+        for i in range(2):
+            pengguna = Pengguna(nama=f"Admin {i}", email=f"admin{i}.konkuren@smarttriage.demo", peran=Peran.ADMIN)
+            pengguna.atur_password(PASSWORD_TES)
+            db.session.add(pengguna)
+            admin.append(pengguna)
+        db.session.commit()
+        data = [(a.id_pengguna, a.email) for a in admin]
+    header = {email: header_masuk(app.test_client(), email) for _, email in data}
+    # Jeda setelah semua kunci diambil, sebelum status diubah.
+    monkeypatch.setattr(
+        staf_service.StafService, "_jaga_admin", staticmethod(_dengan_jeda(staf_service.StafService._jaga_admin))
+    )
+    antrean = [(data[0][1], data[1][0]), (data[1][1], data[0][0])]
+
+    def kirim(klien):
+        email, sasaran = antrean.pop()
+        return klien.patch(f"/api/v1/admin/staf/{sasaran}", json={"is_active": False}, headers=header[email])
+
+    respons = _bersamaan(app, kirim)
+    # Yang kalah dibalas 409 (admin terakhir), atau 401 bila akunnya sudah nonaktif saat request dibaca.
+    assert sorted(r.status_code for r in respons) in ([200, 401], [200, 409])
+    with app.app_context():
+        aktif = db.session.query(Pengguna).filter_by(peran=Peran.ADMIN, is_active=True).count()
+        assert aktif == 1

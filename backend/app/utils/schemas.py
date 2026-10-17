@@ -22,6 +22,7 @@ from pydantic_core import PydanticCustomError
 
 from app.ai.klasifikasi import SKOR_MAKSIMUM_ATURAN
 from app.models.enums import (
+    AksiAudit,
     JenisKelamin,
     JenisTriase,
     KategoriKeluhan,
@@ -496,3 +497,158 @@ class ItemPeringatan(BaseModel):
 
 class DaftarPeringatanResponse(BaseModel):
     items: list[ItemPeringatan]
+
+
+# ---------------------------------------------------------------- staf dan password (FR-01)
+
+PANJANG_MINIMAL_PASSWORD = 8
+PANJANG_MAKSIMAL_PASSWORD = 128
+Nama = Annotated[Teks(1, 120), AfterValidator(_rapikan_spasi)]
+
+
+class StafRequest(SkemaDasar):
+    """Desain Gambar 2.2. Password tidak dikirim admin; server membuat password sementara (K7)."""
+
+    nama: Nama
+    email: Email
+    peran: Peran
+
+
+class StafPatch(SkemaDasar):
+    nama: Nama = Field(default=None)
+    email: Email = Field(default=None)
+    peran: Peran = Field(default=None)
+    is_active: bool = Field(default=None)
+    atur_ulang_password: bool = Field(
+        default=False, description="true untuk membuat password sementara baru. Password dikirim sekali di respons."
+    )
+
+    @model_validator(mode="after")
+    def _minimal_satu_field(self) -> "StafPatch":
+        if not self.model_fields_set:
+            raise PydanticCustomError("kustom_kosong", "Isi minimal satu data staf yang ingin diubah.")
+        return self
+
+
+class StafQuery(BaseModel):
+    peran: Peran | None = None
+    aktif: bool | None = None
+
+
+class StafPath(BaseModel):
+    id_pengguna: uuid.UUID
+
+
+class StafResponse(PenggunaResponse):
+    created_at: datetime
+
+
+class StafDisimpanResponse(BaseModel):
+    staf: StafResponse
+    password_sementara: str | None = Field(
+        description="Hanya diisi saat staf dibuat atau password diatur ulang. Tidak bisa dilihat lagi."
+    )
+
+
+class DaftarStafResponse(BaseModel):
+    items: list[StafResponse]
+
+
+Password = Annotated[str, Field(min_length=PANJANG_MINIMAL_PASSWORD, max_length=PANJANG_MAKSIMAL_PASSWORD)]
+
+
+class GantiPasswordRequest(SkemaDasar):
+    password_lama: str = Field(min_length=1, max_length=PANJANG_MAKSIMAL_PASSWORD)
+    password_baru: Password
+
+    @field_validator("password_baru")
+    @classmethod
+    def _beda_dari_lama(cls, nilai: str, info: ValidationInfo) -> str:
+        if nilai == info.data.get("password_lama"):
+            raise PydanticCustomError("kustom_password_sama", "Password baru harus berbeda dari password lama.")
+        return nilai
+
+
+# ---------------------------------------------------------------- riwayat, rekap, log audit (FR-09)
+
+
+class HalamanQuery(BaseModel):
+    kursor: str | None = Field(default=None, max_length=200, description="Dari kursor_berikutnya halaman sebelumnya.")
+    ukuran: int = Field(default=20, ge=1, le=50)
+
+
+class PasienPath(BaseModel):
+    id_pasien: uuid.UUID
+
+
+class KunjunganRiwayat(BaseModel):
+    id_kunjungan: uuid.UUID
+    waktu_datang: datetime
+    waktu_ditangani: datetime | None
+    status: StatusKunjungan
+
+
+class ItemRiwayat(BaseModel):
+    id_triase: uuid.UUID
+    jenis: JenisTriase
+    waktu_triase: datetime
+    keluhan_utama: str
+    kategori_keluhan: KategoriKeluhan | None
+    risk_level: RiskLevel
+    sumber_rekomendasi: SumberRekomendasi
+    status_validasi: StatusValidasi
+    tanda_vital: TandaVitalResponse
+    dibuat_oleh: PenggunaRingkas
+    divalidasi_oleh: PenggunaRingkas | None
+    kunjungan: KunjunganRiwayat
+
+
+class RiwayatResponse(BaseModel):
+    pasien: PasienTriase
+    items: list[ItemRiwayat]
+    kursor_berikutnya: str | None = Field(description="null bila sudah halaman terakhir.")
+
+
+class RekapQuery(BaseModel):
+    dari: date | None = Field(default=None, description="YYYY-MM-DD (WIB). Bawaan: 6 hari sebelum sampai.")
+    sampai: date | None = Field(default=None, description="YYYY-MM-DD (WIB), inklusif. Bawaan: hari ini.")
+    format: Literal["json", "csv"] = "json"
+
+
+class RekapResponse(BaseModel):
+    dari: date
+    sampai: date
+    total_triase: int
+    per_level: dict[RiskLevel, int]
+    rata_tunggu_menit: dict[RiskLevel, float | None] = Field(
+        description="Rata-rata menit dari datang sampai ditangani, menurut level triase terakhir kunjungan."
+    )
+    persen_koreksi: float | None = Field(description="Triase yang dikoreksi dokter dibagi semua triase, dalam persen.")
+    triase_ulang: int
+    akurasi_pemindaian: float | None = Field(description="Masih null sampai pemindaian layar tersedia (Tahap 3).")
+
+
+class LogAuditQuery(BaseModel):
+    dari: date | None = None
+    sampai: date | None = None
+    aksi: AksiAudit | None = None
+    id_aktor: uuid.UUID | None = None
+    id_triase: uuid.UUID | None = None
+    kursor: str | None = Field(default=None, max_length=200)
+    ukuran: int = Field(default=50, ge=1, le=50)
+
+
+class ItemLogAudit(BaseModel):
+    id_log: uuid.UUID
+    waktu: datetime
+    aksi: AksiAudit
+    aktor: PenggunaRingkas
+    id_triase: uuid.UUID | None
+    level_sebelum: RiskLevel | None
+    level_sesudah: RiskLevel | None
+    catatan: str | None
+
+
+class LogAuditResponse(BaseModel):
+    items: list[ItemLogAudit]
+    kursor_berikutnya: str | None

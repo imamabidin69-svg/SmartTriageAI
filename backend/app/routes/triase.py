@@ -1,4 +1,4 @@
-"""Blueprint triase: input triase, detail triase, dan validasi hasilnya (FR-03, FR-05, FR-06)."""
+"""Blueprint triase: input triase, detail, validasi, dan riwayat pasien (FR-03, FR-05, FR-06, FR-09)."""
 
 from flask import jsonify
 from flask_jwt_extended import get_current_user
@@ -10,20 +10,26 @@ from app.models import Pengguna, Triase
 from app.models.enums import Peran
 from app.routes.dokumen import RESPONS_422, SEMUA_KANAL_ACCESS, respons_problem_doc
 from app.services.konfigurasi_service import cache_konfigurasi
+from app.services.riwayat_service import RiwayatService
 from app.services.triase_service import TriaseService, peringatan_triase, tanda_vital_triase
 from app.services.validasi_service import ValidasiService
 from app.utils.schemas import (
+    HalamanQuery,
+    ItemRiwayat,
     KunjunganPath,
+    KunjunganRiwayat,
+    PasienPath,
     PasienTriase,
     PenggunaRingkas,
     PenjelasanResponse,
+    RiwayatResponse,
     TandaVitalResponse,
     TriaseDetail,
     TriaseInput,
     TriasePath,
     ValidasiRequest,
 )
-from app.utils.waktu import WIB, usia_pasien
+from app.utils.waktu import WIB, hari_ini, usia_pasien
 
 triase_bp = APIBlueprint(
     "triase",
@@ -118,3 +124,47 @@ def detail_triase(path: TriasePath):
 def validasi_triase(path: TriasePath, body: ValidasiRequest):
     triase = ValidasiService().validasi(path.id_triase, body, get_current_user())
     return jsonify(susun_detail(triase).model_dump(mode="json"))
+
+
+@triase_bp.get(
+    "/pasien/<uuid:id_pasien>/riwayat",
+    summary="Riwayat triase pasien",
+    description=(
+        "Triase awal dan ulang dari semua kunjungan pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan "
+        "mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim."
+    ),
+    responses={200: RiwayatResponse, **respons_problem_doc(401, 403, 404)},
+)
+@role_required(Peran.PERAWAT, Peran.DOKTER)
+@validate_request()
+def riwayat_pasien(path: PasienPath, query: HalamanQuery):
+    halaman = RiwayatService().ambil(path.id_pasien, query.kursor, query.ukuran)
+    pasien = halaman.pasien
+    items = [
+        ItemRiwayat(
+            id_triase=t.id_triase,
+            jenis=t.jenis,
+            waktu_triase=t.waktu_triase,
+            keluhan_utama=t.keluhan_utama,
+            kategori_keluhan=t.kategori_keluhan,
+            risk_level=t.risk_level,
+            sumber_rekomendasi=t.sumber_rekomendasi,
+            status_validasi=t.status_validasi,
+            tanda_vital=TandaVitalResponse(**tanda_vital_triase(t).model_dump()),
+            dibuat_oleh=_ringkas(t.pembuat),
+            divalidasi_oleh=_ringkas(t.validator),
+            kunjungan=KunjunganRiwayat.model_validate(t.kunjungan, from_attributes=True),
+        )
+        for t in halaman.items
+    ]
+    respons = RiwayatResponse(
+        pasien=PasienTriase(
+            id_pasien=pasien.id_pasien,
+            nama=pasien.nama,
+            usia=usia_pasien(pasien.tanggal_lahir, pasien.perkiraan_usia, hari_ini()),
+            jenis_kelamin=pasien.jenis_kelamin,
+        ),
+        items=items,
+        kursor_berikutnya=halaman.kursor_berikutnya,
+    )
+    return jsonify(respons.model_dump(mode="json"))

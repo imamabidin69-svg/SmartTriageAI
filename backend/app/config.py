@@ -62,6 +62,8 @@ class Config:
     # Pencarian NIK yang tidak menemukan pasien dibatasi per akun, supaya endpoint pencarian tidak bisa
     # dipakai untuk menebak NIK yang terdaftar.
     BATAS_CARI_NIK = "30 per 15 minutes"
+    # Percobaan ganti password dengan password lama yang salah, dihitung per akun (keputusan D1).
+    BATAS_GANTI_PASSWORD = "5 per 15 minutes"  # noqa: S105 (batas percobaan, bukan password)
 
     # Ukuran maksimal isi request (1 MiB). Endpoint unggah foto menaikkannya sendiri.
     MAX_CONTENT_LENGTH = 1024 * 1024

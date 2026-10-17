@@ -1,4 +1,4 @@
-"""Blueprint admin. Tahap ini berisi konfigurasi triase (FR-05); kelola staf dan log audit menyusul."""
+"""Blueprint admin: kelola staf (FR-01) dan konfigurasi triase (FR-05). Log audit ada di blueprint rekap."""
 
 from flask import jsonify
 from flask_jwt_extended import get_current_user
@@ -9,7 +9,18 @@ from app.middleware.auth import role_required
 from app.models.enums import Peran
 from app.routes.dokumen import RESPONS_422, SEMUA_KANAL_ACCESS, respons_problem_doc
 from app.services.konfigurasi_service import KonfigurasiService, NilaiKonfigurasi, cache_konfigurasi
-from app.utils.schemas import KonfigurasiPatch, KonfigurasiResponse
+from app.services.staf_service import StafService
+from app.utils.schemas import (
+    DaftarStafResponse,
+    KonfigurasiPatch,
+    KonfigurasiResponse,
+    StafDisimpanResponse,
+    StafPatch,
+    StafPath,
+    StafQuery,
+    StafRequest,
+    StafResponse,
+)
 
 admin_bp = APIBlueprint(
     "admin",
@@ -63,3 +74,57 @@ def ambil_konfigurasi():
 @validate_request()
 def ubah_konfigurasi(body: KonfigurasiPatch):
     return jsonify(_respons(_service().ubah(body, get_current_user())))
+
+
+# ---------------------------------------------------------------- kelola staf (FR-01)
+
+
+def _staf_disimpan(staf, password: str | None) -> dict:
+    respons = StafDisimpanResponse(staf=StafResponse.model_validate(staf), password_sementara=password)
+    return respons.model_dump(mode="json")
+
+
+@admin_bp.get(
+    "/staf",
+    summary="Daftar akun staf",
+    description="Semua staf diurutkan menurut nama, dengan filter opsional peran dan status aktif.",
+    responses={200: DaftarStafResponse, **respons_problem_doc(401, 403)},
+)
+@role_required(Peran.ADMIN)
+@validate_request()
+def daftar_staf(query: StafQuery):
+    items = [StafResponse.model_validate(s) for s in StafService().daftar(query.peran, query.aktif)]
+    return jsonify(DaftarStafResponse(items=items).model_dump(mode="json"))
+
+
+@admin_bp.post(
+    "/staf",
+    summary="Menambah akun staf",
+    description=(
+        "Server membuat password sementara 12 karakter yang dikirim sekali di respons. Sampaikan ke staf dan "
+        "minta segera menggantinya lewat PATCH /auth/password."
+    ),
+    responses={201: StafDisimpanResponse, **respons_problem_doc(401, 403, 409)},
+)
+@role_required(Peran.ADMIN)
+@validate_request()
+def tambah_staf(body: StafRequest):
+    staf, password = StafService().tambah(body, get_current_user())
+    return jsonify(_staf_disimpan(staf, password)), 201
+
+
+@admin_bp.patch(
+    "/staf/<uuid:id_pengguna>",
+    summary="Mengubah, menonaktifkan, atau mengatur ulang password staf",
+    description=(
+        "Hanya field yang dikirim yang diubah. is_active false menonaktifkan akun dan sesi yang sedang berjalan "
+        "langsung ditolak. atur_ulang_password true membuat password sementara baru. Admin tidak bisa "
+        "menonaktifkan atau mengubah peran dirinya sendiri, dan harus selalu ada satu admin aktif."
+    ),
+    responses={200: StafDisimpanResponse, **respons_problem_doc(401, 403, 404, 409)},
+)
+@role_required(Peran.ADMIN)
+@validate_request()
+def ubah_staf(path: StafPath, body: StafPatch):
+    staf, password = StafService().ubah(path.id_pengguna, body, get_current_user())
+    return jsonify(_staf_disimpan(staf, password))

@@ -58,6 +58,13 @@ check membalas 503.
 | `PATCH /api/v1/kunjungan/{id}/status` | dokter | Tandai pasien mulai ditangani atau selesai |
 | `GET /api/v1/daftar-tunggu` | perawat, dokter | Kunjungan yang masih menunggu beserta triase terakhir, lama menunggu, dan penanda triase ulang |
 | `GET /api/v1/peringatan` | perawat, dokter | Triase kritis belum divalidasi, triase ulang yang levelnya naik, dan tanda bahaya Eir |
+| `GET /api/v1/pasien/{id}/riwayat` | perawat, dokter | Riwayat triase pasien dari semua kunjungan, dengan kursor halaman |
+| `GET /api/v1/admin/staf` | admin | Daftar staf, filter opsional `peran` dan `aktif` |
+| `POST /api/v1/admin/staf` | admin | Tambah staf; password sementara dikirim sekali di respons |
+| `PATCH /api/v1/admin/staf/{id}` | admin | Ubah data, aktif/nonaktifkan, atau `atur_ulang_password` |
+| `PATCH /api/v1/auth/password` | semua peran | Ganti password sendiri |
+| `GET /api/v1/rekap` | admin | Rekap per rentang tanggal; `format=csv` untuk unduhan CSV |
+| `GET /api/v1/admin/log-audit` | admin | Log audit dengan filter tanggal, aksi, aktor, dan triase |
 | `GET /api/v1/admin/konfigurasi` | admin | Ambang aturan cadangan, batas waktu tunggu, ambang keyakinan, dan versi model |
 | `PATCH /api/v1/admin/konfigurasi` | admin | Ubah sebagian konfigurasi; setiap perubahan masuk log audit |
 
@@ -74,6 +81,21 @@ Perawat boleh menyetujui hasil non-kritis atau mengajukan review untuk semua lev
 mengoreksi semua level. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui
 atau dikoreksi, triase lama yang sudah digantikan triase ulang, dan triase pada kunjungan yang sudah selesai dibalas
 409. Ajuan review hanya bisa diputuskan dokter.
+
+### Akun staf dan password
+
+Admin tidak mengetik password staf. Saat menambah staf atau mengatur ulang password, server membuat password
+sementara 12 karakter yang hanya muncul sekali di respons, lalu staf menggantinya lewat `PATCH /auth/password`.
+Akun yang dinonaktifkan langsung ditolak di request berikutnya. Setelah password diganti atau diatur ulang, token
+yang sudah terbit tetap berlaku sampai kedaluwarsa (access token 15 menit, refresh token 8 jam), karena backend
+tidak menyimpan daftar token yang dicabut.
+
+### Rekap dan CSV
+
+Rekap dihitung untuk rentang tanggal WIB (bawaan 7 hari terakhir, maksimal 366 hari). Rata-rata tunggu adalah menit
+dari datang sampai ditangani dokter, dikelompokkan menurut level triase terakhir kunjungan. CSV memakai pemisah titik
+koma dan koma desimal supaya langsung terbaca per kolom di Excel berpengaturan Indonesia, berisi agregat saja tanpa
+data pasien.
 
 Konfigurasi triase disimpan di memori proses selama 60 detik. Perubahan lewat PATCH langsung berlaku di worker
 yang memprosesnya; worker Gunicorn lain menyesuaikan paling lambat 60 detik kemudian.

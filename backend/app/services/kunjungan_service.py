@@ -1,21 +1,18 @@
 """Registrasi pasien singkat dan kunjungan (FR-02, Desain 2.2)."""
 
-import math
 import re
-import time
 import uuid
 from dataclasses import dataclass
 
-from flask import current_app
-from limits import parse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.extensions import db, limiter
+from app.extensions import db
 from app.models import Kunjungan, Pasien, Pengguna
 from app.models.enums import AksiAudit, StatusKunjungan
 from app.services.audit_logger import AuditLogger
-from app.utils.errors import KonflikError, TerlaluBanyakPercobaanError, TidakDitemukanError, ValidasiGagalError
+from app.utils.errors import KonflikError, TidakDitemukanError, ValidasiGagalError
+from app.utils.pembatas import PembatasPerAkun
 from app.utils.schemas import RegistrasiRequest
 from app.utils.waktu import sekarang, usia_pasien
 
@@ -65,29 +62,14 @@ def _subquery_kunjungan_aktif():
     )
 
 
-class PembatasCariNik:
-    """Pencarian NIK yang tidak menemukan pasien dihitung per akun (keputusan pencarian NIK, pilihan b).
-
-    Penyimpanannya sama dengan pembatas login (Flask-Limiter), tetapi hitungan hanya ditambah setelah
-    hasilnya diketahui kosong, sehingga pencarian NIK yang berhasil dan pencarian nama tidak dibatasi.
-    """
-
-    def __init__(self, pengguna: Pengguna) -> None:
-        self.item = parse(current_app.config["BATAS_CARI_NIK"])
-        self.kunci = f"cari-nik:{pengguna.id_pengguna}"
-
-    def periksa(self) -> None:
-        if not limiter.enabled or limiter.limiter.test(self.item, self.kunci):
-            return
-        reset = limiter.limiter.get_window_stats(self.item, self.kunci).reset_time
-        raise TerlaluBanyakPercobaanError(
-            "Terlalu banyak pencarian NIK yang tidak ditemukan. Coba lagi beberapa saat lagi, atau cari dengan nama.",
-            max(1, math.ceil(reset - time.time())),
-        )
-
-    def catat_tidak_ditemukan(self) -> None:
-        if limiter.enabled:
-            limiter.limiter.hit(self.item, self.kunci)
+def pembatas_cari_nik(pengguna: Pengguna) -> PembatasPerAkun:
+    """Pencarian NIK yang tidak menemukan pasien dihitung per akun (keputusan pencarian NIK, pilihan b)."""
+    return PembatasPerAkun(
+        "BATAS_CARI_NIK",
+        "cari-nik",
+        pengguna,
+        "Terlalu banyak pencarian NIK yang tidak ditemukan. Coba lagi beberapa saat lagi, atau cari dengan nama.",
+    )
 
 
 class KunjunganService:
@@ -104,11 +86,11 @@ class KunjunganService:
     def cari_pasien_oleh(self, q: str, pengguna: Pengguna) -> list[HasilCari]:
         if not POLA_NIK.fullmatch(q):
             return self.cari_pasien(q)
-        pembatas = PembatasCariNik(pengguna)
+        pembatas = pembatas_cari_nik(pengguna)
         pembatas.periksa()
         hasil = self.cari_pasien(q)
         if not hasil:
-            pembatas.catat_tidak_ditemukan()
+            pembatas.catat_gagal()
         return hasil
 
     def ubah_status(self, id_kunjungan: uuid.UUID, status: StatusKunjungan) -> Kunjungan:

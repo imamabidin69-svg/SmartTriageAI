@@ -1,4 +1,4 @@
-"""Blueprint autentikasi: login, refresh, logout, dan profil (FR-01).
+"""Blueprint autentikasi: login, refresh, logout, profil, dan ganti password (FR-01).
 
 Web admin menerima token sebagai cookie HttpOnly dengan perlindungan CSRF. Aplikasi Flutter
 mengirim header X-Client: mobile saat login dan menerima token di body, lalu memakai header
@@ -21,8 +21,10 @@ from app.extensions import limiter
 from app.models import Pengguna
 from app.routes.dokumen import RESPONS_422, SEMUA_KANAL_ACCESS, SEMUA_KANAL_REFRESH, respons_problem_doc
 from app.services.auth_service import AuthService
+from app.services.staf_service import StafService
 from app.utils.schemas import (
     PANJANG_MAKS_EMAIL,
+    GantiPasswordRequest,
     LoginHeader,
     LoginRequest,
     PenggunaResponse,
@@ -169,3 +171,20 @@ def logout():
 def me():
     pengguna: Pengguna = get_current_user()
     return jsonify(PenggunaResponse.model_validate(pengguna).model_dump(mode="json"))
+
+
+@auth_bp.patch(
+    "/password",
+    summary="Mengganti password sendiri",
+    description=(
+        "Password baru 8-128 karakter dan harus berbeda dari password lama. Password lama yang salah dibatasi "
+        "5 kali per 15 menit. Token yang sudah terbit tetap berlaku sampai kedaluwarsa."
+    ),
+    security=SEMUA_KANAL_ACCESS,
+    responses={204: None, **respons_problem_doc(401, 429)},
+)
+@jwt_required()
+@validate_request()
+def ganti_password(body: GantiPasswordRequest):
+    StafService().ganti_password(get_current_user(), body.password_lama, body.password_baru)
+    return Response(status=204)
