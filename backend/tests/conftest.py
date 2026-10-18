@@ -50,6 +50,8 @@ KONFIGURASI_TES: dict[str, Any] = {
     "JUMLAH_PROXY": 0,
     # Model YOLO belum ada di repo; tes memakai pembaca tiruan, dan jalur ONNX diuji dengan model kecil buatan tes.
     "PEMBACA_LAYAR": "tiruan",
+    # Groq tidak pernah dipanggil di tes; Eir memakai LLM tiruan dan klien Groq diuji dengan klien palsu.
+    "LLM_EIR": "tiruan",
 }
 
 

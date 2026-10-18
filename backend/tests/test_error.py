@@ -57,7 +57,7 @@ def test_json_bersarang_terlalu_dalam_dibalas_400(client, caplog):
 
 
 def test_hsts_hanya_di_production(konfigurasi_app):
-    aplikasi = create_app({**konfigurasi_app, "APP_ENV": "production", "PEMBACA_LAYAR": "onnx"})
+    aplikasi = create_app({**konfigurasi_app, "APP_ENV": "production", "PEMBACA_LAYAR": "onnx", "LLM_EIR": "groq"})
     respons = aplikasi.test_client().get("/api/v1/health")
     assert respons.headers["Strict-Transport-Security"] == "max-age=31536000"
 
@@ -75,7 +75,10 @@ def test_dokumentasi_api_hanya_di_development(app, konfigurasi_app):
     login = spesifikasi["paths"]["/api/v1/auth/login"]["post"]
     assert "application/problem+json" in login["responses"]["422"]["content"]
     assert any(p["name"] == "X-Client" and p["in"] == "header" for p in login["parameters"])
-    assert set(spesifikasi["components"]["securitySchemes"]) == {"bearerAuth", "cookieAccess", "cookieRefresh"}
+    skema_keamanan = set(spesifikasi["components"]["securitySchemes"])
+    assert skema_keamanan == {"bearerAuth", "cookieAccess", "cookieRefresh", "tokenEir"}
+    pesan_eir = spesifikasi["paths"]["/api/v1/eir/sesi/{id_sesi}/pesan"]["post"]
+    assert pesan_eir["security"] == [{"tokenEir": []}]
     assert spesifikasi["paths"]["/api/v1/auth/me"]["get"]["security"] == [{"bearerAuth": []}, {"cookieAccess": []}]
     # Error didokumentasikan dengan Content-Type yang sebenarnya dikirim server.
     for kode in ("400", "401", "403", "429"):

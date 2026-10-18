@@ -1,8 +1,8 @@
 """Pemeriksaan kesehatan aplikasi (NFR-03, Desain Gambar 3.8 dan 3.9).
 
 PostgreSQL adalah komponen wajib: bila gagal, health check membalas 503 supaya Railway
-memulai ulang container. Komponen tidak wajib (model triase, pembaca layar ONNX, dan Groq di
-tahap berikutnya) hanya membuat status menjadi "degraded".
+memulai ulang container. Komponen tidak wajib (model triase, pembaca layar ONNX, dan Groq untuk
+Eir) hanya membuat status menjadi "degraded".
 """
 
 import logging
@@ -95,6 +95,20 @@ class PemeriksaPembacaLayar(PemeriksaKomponen):
 
     def cek(self) -> bool:
         return self.registry.pembaca_layar is not None
+
+
+class PemeriksaGroq(PemeriksaKomponen):
+    """Eir tidak wajib. Yang diperiksa hanya kesiapan konfigurasi (kunci API dan panduan), tanpa memanggil Groq,
+    supaya health check yang dipanggil berkala tidak menghabiskan kuota."""
+
+    nama = "groq"
+    wajib = False
+
+    def __init__(self, registry: ModelRegistry) -> None:
+        self.registry = registry
+
+    def cek(self) -> bool:
+        return self.registry.llm is not None and self.registry.retriever is not None
 
 
 class HealthService:

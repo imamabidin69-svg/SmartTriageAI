@@ -1,4 +1,4 @@
-"""ModelRegistry: memuat bundle Random Forest, explainer SHAP, dan model YOLO saat aplikasi start.
+"""ModelRegistry: memuat bundle Random Forest, explainer SHAP, model YOLO, dan indeks panduan Eir saat aplikasi start.
 
 Bundle berasal dari prototipe (ml-service/latih_model.py) dan berupa dict berisi Pipeline
 (ColumnTransformer + RandomForestClassifier), daftar fitur, urutan level, dan versi model.
@@ -16,6 +16,8 @@ from typing import Any
 
 from flask import current_app
 
+from app.ai.eir.llm import GroqClient, LlmClient, LlmTiruan
+from app.ai.eir.panduan import GuidelineRetriever, muat_panduan
 from app.ai.pembaca_layar import PembacaLayar, PembacaLayarOnnx, PembacaLayarTiruan
 from app.models.enums import KategoriKeluhan, RiskLevel
 
@@ -99,6 +101,8 @@ class ModelRegistry:
     def __init__(self) -> None:
         self.model_triase: ModelTriase | None = None
         self.pembaca_layar: PembacaLayar | None = None
+        self.retriever: GuidelineRetriever | None = None
+        self.llm: LlmClient | None = None
 
     @property
     def termuat(self) -> bool:
@@ -141,6 +145,25 @@ class ModelRegistry:
             logger.exception("Model YOLO gagal dimuat dari %s. Kolom pemindaian akan diisi manual.", path_model_yolo)
         else:
             logger.info("Model YOLO pembaca layar dimuat dari %s.", path_model_yolo)
+
+    def muat_eir(self, folder_panduan: str | None, mode_llm: str = "groq", **groq: Any) -> None:
+        """Tanpa panduan atau LLM, Eir membalas 503 tetapi deteksi tanda bahaya tetap berjalan (Desain baris 396)."""
+        self.retriever = None
+        try:
+            self.retriever = GuidelineRetriever(muat_panduan(Path(folder_panduan or "")))
+        except Exception:
+            logger.exception("Panduan Eir gagal dimuat dari %s. Eir tidak dapat menyusun pertanyaan.", folder_panduan)
+        else:
+            logger.info("%d panduan anamnesis Eir dimuat dari %s.", len(self.retriever.panduan), folder_panduan)
+
+        self.llm = None
+        if mode_llm == "tiruan":
+            self.llm = LlmTiruan()
+            logger.warning("Eir memakai LLM tiruan. Pertanyaan dan ringkasan hanya contoh.")
+        elif not groq.get("api_key"):
+            logger.warning("GROQ_API_KEY kosong. Eir tidak dapat menyusun pertanyaan.")
+        else:
+            self.llm = GroqClient(**groq)
 
 
 def model_registry() -> ModelRegistry:

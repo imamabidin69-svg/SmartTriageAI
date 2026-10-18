@@ -98,8 +98,11 @@ def test_create_app_menolak_start_tanpa_rahasia(monkeypatch):
 
 def test_create_app_bawaannya_production(monkeypatch, konfigurasi_app):
     monkeypatch.delenv("APP_ENV", raising=False)
-    # Pembaca tiruan dari konfigurasi tes tidak boleh dipakai di production, jadi ikut dibuang.
-    konfigurasi = {k: v for k, v in konfigurasi_app.items() if k not in ("APP_ENV", "PEMBACA_LAYAR")}
+    # .env pengembang boleh berisi mode tiruan untuk mencoba di Swagger; di sini harus memakai bawaan production.
+    monkeypatch.delenv("PEMBACA_LAYAR", raising=False)
+    monkeypatch.delenv("LLM_EIR", raising=False)
+    # Pembaca dan LLM tiruan dari konfigurasi tes tidak boleh dipakai di production, jadi ikut dibuang.
+    konfigurasi = {k: v for k, v in konfigurasi_app.items() if k not in ("APP_ENV", "PEMBACA_LAYAR", "LLM_EIR")}
     aplikasi = create_app(konfigurasi)
     assert aplikasi.config["APP_ENV"] == "production"
     assert aplikasi.config["JWT_COOKIE_SECURE"] is True
@@ -154,3 +157,35 @@ def test_pembaca_tiruan_boleh_di_development(app_env):
 def test_pembaca_layar_tidak_valid_ditolak(ubah, pesan):
     with pytest.raises(KonfigurasiTidakValidError, match=pesan):
         validasi_konfigurasi(konfigurasi_valid(**ubah))
+
+
+def test_konfigurasi_eir_dari_environment(monkeypatch):
+    from app.config import DIREKTORI_BACKEND
+
+    monkeypatch.setenv("LLM_EIR", " Tiruan ")
+    monkeypatch.setenv("GROQ_API_KEY", " gsk_contoh ")
+    monkeypatch.setenv("PANDUAN_EIR_PATH", "panduan_lain")
+    nilai = buat_konfigurasi("development")
+    assert (nilai["LLM_EIR"], nilai["GROQ_API_KEY"]) == ("tiruan", "gsk_contoh")
+    assert nilai["PANDUAN_EIR_PATH"] == str(DIREKTORI_BACKEND / "panduan_lain")
+    for nama in ("LLM_EIR", "GROQ_API_KEY", "PANDUAN_EIR_PATH"):
+        monkeypatch.delenv(nama)
+    nilai = buat_konfigurasi("development")
+    assert (nilai["LLM_EIR"], nilai["GROQ_API_KEY"]) == ("groq", None)
+    assert nilai["PANDUAN_EIR_PATH"].endswith("panduan")
+
+
+@pytest.mark.parametrize(
+    ("ubah", "pesan"),
+    [
+        ({"LLM_EIR": "tiruan", "APP_ENV": "production"}, "LLM_EIR=tiruan hanya boleh dipakai di development"),
+        ({"LLM_EIR": "openai"}, "LLM_EIR harus groq atau tiruan"),
+    ],
+)
+def test_llm_eir_tidak_valid_ditolak(ubah, pesan):
+    with pytest.raises(KonfigurasiTidakValidError, match=pesan):
+        validasi_konfigurasi(konfigurasi_valid(**ubah))
+
+
+def test_llm_eir_tiruan_boleh_di_development():
+    validasi_konfigurasi(konfigurasi_valid(LLM_EIR="tiruan", APP_ENV="development"))

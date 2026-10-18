@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import sqlalchemy as sa
@@ -8,6 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
 from app.models.enums import PENGISI_EIR, STATUS_SESI_EIR, PengisiEir, StatusSesiEir
+
+PERAN_EIR = "eir"
+PERAN_PENGISI = "pengisi"
 
 
 class SesiEir(db.Model):
@@ -26,3 +29,28 @@ class SesiEir(db.Model):
     waktu_selesai: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
     kunjungan = relationship("Kunjungan", back_populates="sesi_eir")
+
+    @property
+    def berjalan(self) -> bool:
+        return self.status == StatusSesiEir.BERJALAN
+
+    @property
+    def jumlah_jawaban(self) -> int:
+        return sum(1 for item in self.transkrip or [] if item["peran"] == PERAN_PENGISI)
+
+    def tambah_pesan(self, peran: str, teks: str, waktu: datetime) -> None:
+        # List baru supaya SQLAlchemy mendeteksi perubahan kolom JSONB. Waktu disimpan dalam UTC seperti
+        # kolom timestamptz lain yang dibaca dari basis data.
+        item = {"peran": peran, "teks": teks, "waktu": waktu.astimezone(UTC).isoformat()}
+        self.transkrip = [*(self.transkrip or []), item]
+
+    def hentikan(self, alasan: str, waktu: datetime) -> None:
+        """Sesi dihentikan karena tanda bahaya; peringatan muncul di GET /peringatan."""
+        self.status = StatusSesiEir.DIHENTIKAN
+        self.tanda_bahaya = alasan
+        self.waktu_selesai = waktu
+
+    def selesaikan(self, ringkasan: dict[str, Any], waktu: datetime) -> None:
+        self.status = StatusSesiEir.SELESAI
+        self.ringkasan = ringkasan
+        self.waktu_selesai = waktu

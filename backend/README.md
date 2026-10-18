@@ -64,6 +64,12 @@ check membalas 503.
 | `PATCH /api/v1/admin/staf/{id}` | admin | Ubah data, aktif/nonaktifkan, atau `atur_ulang_password` |
 | `PATCH /api/v1/auth/password` | semua peran | Ganti password sendiri |
 | `POST /api/v1/pemindaian` | perawat | Baca angka dari foto layar alat (multipart: `jenis_alat`, `berkas`); foto tidak disimpan |
+| `POST /api/v1/kunjungan/{id}/tautan-eir` | perawat | Tautan Eir untuk kode QR (berlaku 2 jam), khusus pasien menunggu dengan risk level terakhir rendah |
+| `GET /api/v1/kunjungan/{id}/ringkasan-eir` | perawat, dokter | Sesi Eir terakhir: ringkasan (draf form triase), transkrip, dan tanda bahaya |
+| `POST /api/v1/eir/sesi` | pasien/keluarga | Persetujuan dan pembukaan sesi dengan token dari kode QR |
+| `POST /api/v1/eir/sesi/{id}/pesan` | pasien/keluarga | Kirim jawaban (header `X-Token-Eir`); dibalas pertanyaan berikutnya, penutup, atau arahan ke perawat |
+| `POST /api/v1/eir/sesi/{id}/suara` | pasien/keluarga | Jawaban berupa rekaman suara (webm, ogg, mp3, m4a, wav, maksimal 5 MB); rekaman tidak disimpan |
+| `POST /api/v1/eir/sesi/{id}/selesai` | pasien/keluarga | Selesaikan sesi setelah minimal 7 jawaban dan buat ringkasan |
 | `GET /api/v1/rekap` | admin | Rekap per rentang tanggal; `format=csv` untuk unduhan CSV |
 | `GET /api/v1/admin/log-audit` | admin | Log audit dengan filter tanggal, aksi, aktor, dan triase |
 | `GET /api/v1/admin/konfigurasi` | admin | Ambang aturan cadangan, batas waktu tunggu, ambang keyakinan, dan versi model |
@@ -94,6 +100,24 @@ selalu dikosongkan sampai jenis monitor di dataset diketahui.
 Model YOLO belum ada di repo. Selama itu pemindaian tetap tersimpan dengan semua kolom kosong dan
 `GET /api/v1/health` berstatus `degraded`. Untuk mencoba alurnya di development, isi `PEMBACA_LAYAR=tiruan`
 di `.env` supaya keluar angka contoh. Cara melatih dan mengekspor model ada di `ai_training/README.md`.
+
+### Eir
+
+Eir menanyakan keluhan pasien zona hijau atau keluarganya lewat halaman tanpa akun. Setiap jawaban diperiksa dulu
+dengan aturan tanda bahaya di `app/ai/eir/tanda_bahaya.py` tanpa memanggil LLM. Bila cocok, sesi dihentikan dan
+perawat mendapat peringatan di `GET /peringatan`. Bila aman, tiga panduan paling relevan diambil dengan TF-IDF dari
+18 berkas di `app/ai/artefak/panduan`, nama dan NIK dibuang dari teks, lalu Groq menyusun satu pertanyaan
+berikutnya. Pertanyaan yang berisi diagnosis, saran obat, atau risk level diganti pertanyaan inti dari panduan.
+Setelah 15 jawaban, atau saat jawaban sudah cukup dan minimal 7, ringkasan dibuat otomatis. Bila Groq tidak
+menjawab, respons 503 dan jawaban tetap tersimpan.
+
+Isi 18 panduan dan daftar tanda bahaya masih **draf** dan wajib diperiksa tenaga medis sebelum dipakai di IGD
+sungguhan. Untuk mencoba tanpa kunci Groq, isi `LLM_EIR=tiruan` di `.env` (hanya development). Evaluasi pencarian
+panduan dan tanda bahaya dengan keluhan dataset KTAS:
+
+```bash
+python -m ai_training.evaluasi_eir --data ../ml-service/data.csv
+```
 
 ### Akun staf dan password
 

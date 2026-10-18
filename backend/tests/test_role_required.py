@@ -15,7 +15,8 @@ from app.models import Pengguna
 from app.models.enums import Peran
 from app.utils.errors import Tipe
 
-ENDPOINT_PUBLIK = {"api_v1.auth.login", "api_v1.health.health"}
+# POST /eir/sesi dipakai pasien tanpa akun; tokennya ada di body dan diperiksa setelah validasi isi.
+ENDPOINT_PUBLIK = {"api_v1.auth.login", "api_v1.health.health", "api_v1.eir.buka_sesi"}
 
 
 class CatatanUji(BaseModel):

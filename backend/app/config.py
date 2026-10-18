@@ -90,6 +90,25 @@ class Config:
     # Konfigurasi triase disimpan di memori proses selama 60 detik (Desain baris 380).
     CACHE_KONFIGURASI_DETIK = 60
 
+    # Eir (FR-08, Desain 2.8 dan 7.2). "groq" memakai Groq API; "tiruan" mengembalikan pertanyaan contoh
+    # tanpa kunci API dan hanya boleh dipakai di development, seperti PEMBACA_LAYAR=tiruan.
+    LLM_EIR = "groq"
+    GROQ_API_KEY: str | None = None
+    GROQ_MODEL = "openai/gpt-oss-20b"
+    GROQ_MODEL_SUARA = "whisper-large-v3-turbo"
+    GROQ_BATAS_WAKTU_DETIK = 10
+    # 18 berkas panduan anamnesis yang diindeks TF-IDF saat aplikasi dinyalakan (Desain baris 482).
+    PANDUAN_EIR_PATH = str(DIREKTORI_BACKEND / "app" / "ai" / "artefak" / "panduan")
+    # Tautan QR dan token sesi berlaku dua jam.
+    UMUR_TOKEN_EIR_DETIK = 2 * 60 * 60
+    # Sesi diakhiri setelah minimal tujuh jawaban atau saat batas giliran tercapai (keputusan Tahap 4: 15).
+    EIR_MIN_JAWABAN = 7
+    EIR_MAKS_JAWABAN = 15
+    BATAS_PESAN_EIR = "20 per 1 minute"
+    # Rekaman suara maksimal 5 MB (keputusan E5); diproses di memori lalu dibuang.
+    UKURAN_MAKS_SUARA = 5 * 1024 * 1024
+    UKURAN_MAKS_REQUEST_SUARA = UKURAN_MAKS_SUARA + 64 * 1024
+
 
 class DevelopmentConfig(Config):
     APP_ENV = "development"
@@ -157,13 +176,16 @@ def buat_konfigurasi(nama_env: str) -> dict[str, Any]:
     if jumlah_proxy is not None:
         konfigurasi["JUMLAH_PROXY"] = jumlah_proxy
 
-    for nama in ("MODEL_RF_PATH", "MODEL_YOLO_PATH"):
+    konfigurasi["GROQ_API_KEY"] = _ambil_env("GROQ_API_KEY")
+
+    for nama in ("MODEL_RF_PATH", "MODEL_YOLO_PATH", "PANDUAN_EIR_PATH"):
         path_model = _ambil_env(nama)
         if path_model is not None:
             konfigurasi[nama] = str(DIREKTORI_BACKEND / path_model)
-    pembaca = _ambil_env("PEMBACA_LAYAR")
-    if pembaca is not None:
-        konfigurasi["PEMBACA_LAYAR"] = pembaca.lower()
+    for nama in ("PEMBACA_LAYAR", "LLM_EIR"):
+        mode = _ambil_env(nama)
+        if mode is not None:
+            konfigurasi[nama] = mode.lower()
     return konfigurasi
 
 
@@ -199,6 +221,12 @@ def validasi_konfigurasi(konfigurasi: Mapping[str, Any]) -> None:
         masalah.append("PEMBACA_LAYAR harus onnx atau tiruan.")
     elif pembaca == "tiruan" and konfigurasi.get("APP_ENV") not in ("development", "testing"):
         masalah.append("PEMBACA_LAYAR=tiruan hanya boleh dipakai di development.")
+
+    llm = konfigurasi.get("LLM_EIR", "groq")
+    if llm not in ("groq", "tiruan"):
+        masalah.append("LLM_EIR harus groq atau tiruan.")
+    elif llm == "tiruan" and konfigurasi.get("APP_ENV") not in ("development", "testing"):
+        masalah.append("LLM_EIR=tiruan hanya boleh dipakai di development.")
 
     if masalah:
         raise KonfigurasiTidakValidError("Konfigurasi tidak valid: " + " ".join(masalah))

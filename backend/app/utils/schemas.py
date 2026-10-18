@@ -28,9 +28,11 @@ from app.models.enums import (
     JenisKelamin,
     JenisTriase,
     KategoriKeluhan,
+    PengisiEir,
     Peran,
     RiskLevel,
     StatusKunjungan,
+    StatusSesiEir,
     StatusValidasi,
     SumberRekomendasi,
     SumberTandaVital,
@@ -677,3 +679,78 @@ class HasilPemindaianResponse(BaseModel):
     keyakinan: dict[str, float | None] = Field(description="Keyakinan model per kolom, null bila tidak terbaca.")
     kolom_kosong: list[str]
     pembaca_tersedia: bool = Field(description="false bila model pembaca layar belum dimuat; semua kolom kosong.")
+
+
+# ---------------------------------------------------------------- Eir (FR-08)
+
+
+def _wajib_setuju(nilai: bool) -> bool:
+    if nilai is not True:
+        raise PydanticCustomError("kustom_setuju", "Persetujuan wajib diberikan sebelum memakai Eir.")
+    return nilai
+
+
+class RingkasanTriase(BaseModel):
+    """Desain Gambar 2.23. Ringkasan dari LLM yang divalidasi sebelum menjadi draf form triase."""
+
+    keluhan_utama: Teks(1, 200)
+    gejala: Teks(1, 2000)
+    onset: Teks(1, 200)
+    kategori_keluhan: KategoriKeluhan
+
+
+class TautanEirResponse(BaseModel):
+    token: str = Field(description="Dikirim lewat body POST /eir/sesi.")
+    url: str = Field(description="Alamat halaman Eir untuk kode QR. Token ada di fragmen (#t=), tidak tercatat di log.")
+    kedaluwarsa: datetime
+
+
+class BukaSesiEirRequest(SkemaDasar):
+    token: str = Field(min_length=1, max_length=500)
+    setuju: Annotated[bool, AfterValidator(_wajib_setuju)]
+    pengisi: PengisiEir
+
+
+class SesiEirPath(BaseModel):
+    id_sesi: uuid.UUID
+
+
+class SesiEirDibuatResponse(BaseModel):
+    id_sesi: uuid.UUID
+    token_sesi: str = Field(description="Dikirim lewat header X-Token-Eir pada pesan berikutnya.")
+    kedaluwarsa: datetime
+    pesan: str = Field(description="Pertanyaan pertama Eir.")
+
+
+class PesanEirRequest(SkemaDasar):
+    teks: Teks(1, 1000)
+
+
+class UnggahSuara(BaseModel):
+    berkas: FileStorage = Field(description="Rekaman suara (webm, ogg, mp3, m4a, atau wav, maksimal 5 MB).")
+
+
+class BalasanEirResponse(BaseModel):
+    status: StatusSesiEir
+    pesan: str = Field(description="Pertanyaan berikutnya, penutup, atau arahan menemui perawat.")
+    jumlah_jawaban: int
+    boleh_selesai: bool = Field(description="true bila jawaban sudah cukup untuk menekan Selesai.")
+    transkripsi: str | None = Field(None, description="Hasil ubah suara ke teks (khusus mode suara).")
+
+
+class ItemTranskrip(BaseModel):
+    peran: Literal["eir", "pengisi"]
+    teks: str
+    waktu: datetime
+
+
+class RingkasanEirResponse(BaseModel):
+    id_sesi: uuid.UUID
+    id_kunjungan: uuid.UUID
+    pengisi: PengisiEir
+    status: StatusSesiEir
+    waktu_persetujuan: datetime
+    waktu_selesai: datetime | None
+    tanda_bahaya: str | None
+    ringkasan: RingkasanTriase | None = Field(description="Draf form triase; wajib diperiksa perawat sebelum dipakai.")
+    transkrip: list[ItemTranskrip]

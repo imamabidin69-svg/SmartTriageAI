@@ -19,6 +19,7 @@ from app.routes import daftarkan_rute
 from app.routes.dokumen import SKEMA_KEAMANAN
 from app.services.health_service import (
     PemeriksaDatabase,
+    PemeriksaGroq,
     PemeriksaHakAksesLogAudit,
     PemeriksaModel,
     PemeriksaPembacaLayar,
@@ -81,14 +82,23 @@ def create_app(konfigurasi: Mapping[str, Any] | None = None) -> OpenAPI:
     registry = ModelRegistry()
     registry.muat(app.config["MODEL_RF_PATH"])
     registry.muat_pembaca_layar(app.config["MODEL_YOLO_PATH"], app.config["PEMBACA_LAYAR"])
+    registry.muat_eir(
+        app.config["PANDUAN_EIR_PATH"],
+        app.config["LLM_EIR"],
+        api_key=app.config["GROQ_API_KEY"],
+        model=app.config["GROQ_MODEL"],
+        model_suara=app.config["GROQ_MODEL_SUARA"],
+        batas_waktu=app.config["GROQ_BATAS_WAKTU_DETIK"],
+    )
     app.extensions["model_registry"] = registry
     app.extensions["cache_konfigurasi"] = CacheKonfigurasi(app.config["CACHE_KONFIGURASI_DETIK"])
 
-    # Daftar komponen yang diperiksa GET /api/v1/health. Tahap Eir menambah Groq.
+    # Daftar komponen yang diperiksa GET /api/v1/health.
     app.extensions["pemeriksa_kesehatan"] = [
         PemeriksaDatabase(),
         PemeriksaHakAksesLogAudit(),
         PemeriksaModel(registry),
         PemeriksaPembacaLayar(registry),
+        PemeriksaGroq(registry),
     ]
     return app

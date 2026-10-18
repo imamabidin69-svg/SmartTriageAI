@@ -4,6 +4,8 @@ SKEMA_KEAMANAN = {
     "bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
     "cookieAccess": {"type": "apiKey", "in": "cookie", "name": "access_token_cookie"},
     "cookieRefresh": {"type": "apiKey", "in": "cookie", "name": "refresh_token_cookie"},
+    # Pasien dan keluarga tidak punya akun; Eir memakai token sesi dari POST /eir/sesi (Desain 7.1).
+    "tokenEir": {"type": "apiKey", "in": "header", "name": "X-Token-Eir"},
 }
 
 # Endpoint terlindungi menerima token dari header (Flutter) atau cookie (web admin).
@@ -19,6 +21,7 @@ KETERANGAN_ERROR = {
     413: "Isi permintaan terlalu besar",
     422: "Data tidak valid",
     429: "Terlalu banyak percobaan",
+    503: "Layanan pendukung sedang tidak tersedia",
 }
 
 

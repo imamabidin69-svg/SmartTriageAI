@@ -23,5 +23,8 @@ joblib==1.6.0
 # Pembaca layar alat (Desain 7.3): model YOLO format ONNX dijalankan di CPU tanpa PyTorch, gambar diolah Pillow.
 onnxruntime==1.31.0
 pillow==13.0.0
+# Eir (Desain Tabel 6.1): Groq SDK untuk LLM openai/gpt-oss-20b dan Whisper. TF-IDF memakai scikit-learn di atas,
+# token tautan memakai itsdangerous yang sudah ikut Flask.
+groq==1.7.0
 # Data zona waktu untuk zoneinfo (Asia/Jakarta). Linux sudah punya, Windows tidak.
 tzdata==2026.5

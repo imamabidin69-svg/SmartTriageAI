@@ -39,6 +39,7 @@ class Tipe:
     TERLALU_BESAR = "urn:smarttriage:problem:isi-terlalu-besar"
     TERLALU_BANYAK_PERCOBAAN = "urn:smarttriage:problem:terlalu-banyak-percobaan"
     KESALAHAN_SERVER = "urn:smarttriage:problem:kesalahan-server"
+    LAYANAN_TIDAK_TERSEDIA = "urn:smarttriage:problem:layanan-tidak-tersedia"
     PERMINTAAN_TIDAK_VALID = "urn:smarttriage:problem:permintaan-tidak-valid"
 
 
@@ -102,6 +103,14 @@ class TerlaluBanyakPercobaanError(AplikasiError):
     def __init__(self, detail: str, coba_lagi_detik: int) -> None:
         super().__init__(detail)
         self.headers = {"Retry-After": str(coba_lagi_detik)}
+
+
+class LayananTidakTersediaError(AplikasiError):
+    """Layanan pendukung (misalnya Groq untuk Eir) tidak menjawab; alur manual tetap dapat dipakai (NFR-03)."""
+
+    status = 503
+    tipe = Tipe.LAYANAN_TIDAK_TERSEDIA
+    judul = "Layanan sedang tidak tersedia"
 
 
 class ValidasiGagalError(AplikasiError):
@@ -194,6 +203,10 @@ class PenerjemahPesan:
         "id_triase": "ID triase",
         "jenis_alat": "Jenis alat",
         "berkas": "Foto",
+        "token": "Token",
+        "setuju": "Persetujuan",
+        "pengisi": "Pengisi",
+        "teks": "Pesan",
     }
     SATUAN: ClassVar[dict[str, str]] = {
         "saturasi": "%",

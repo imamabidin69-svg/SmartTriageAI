@@ -28,7 +28,13 @@ def test_health_ok_tanpa_login(client):
     assert respons.status_code == 200
     assert respons.get_json() == {
         "status": "ok",
-        "komponen": {"database": "ok", "hak_akses_log_audit": "ok", "model_triase": "ok", "pembaca_layar": "ok"},
+        "komponen": {
+            "database": "ok",
+            "hak_akses_log_audit": "ok",
+            "model_triase": "ok",
+            "pembaca_layar": "ok",
+            "groq": "ok",
+        },
     }
 
 
@@ -40,6 +46,15 @@ def test_health_degraded_tanpa_model_yolo(konfigurasi_app, app):
     assert respons.status_code == 200
     assert respons.get_json()["status"] == "degraded"
     assert respons.get_json()["komponen"]["pembaca_layar"] == "gagal"
+
+
+def test_health_degraded_tanpa_kunci_groq(konfigurasi_app, app):
+    from app import create_app
+
+    tanpa_groq = create_app({**konfigurasi_app, "LLM_EIR": "groq", "GROQ_API_KEY": None})
+    respons = tanpa_groq.test_client().get("/api/v1/health")
+    assert respons.get_json()["status"] == "degraded"
+    assert respons.get_json()["komponen"]["groq"] == "gagal"
 
 
 def test_health_503_bila_komponen_wajib_gagal(app, client, monkeypatch):
