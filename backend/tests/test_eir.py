@@ -248,7 +248,9 @@ def test_tanda_bahaya_menghentikan_sesi_dan_memicu_peringatan(client, sesi, llm,
     peringatan = client.get("/api/v1/peringatan", headers=masuk(Peran.PERAWAT)[1]).get_json()["items"]
     assert [p["jenis"] for p in peringatan] == ["tanda_bahaya_eir"]
     assert "Nyeri dada seperti ditekan" in peringatan[0]["alasan"]
-    assert _pesan(client, sesi, "halo").status_code == 409
+    respons = _pesan(client, sesi, "halo")
+    assert respons.status_code == 409
+    assert respons.get_json()["status_sesi"] == "dihentikan"
 
 
 def test_tanda_bahaya_tetap_berjalan_saat_groq_mati(client, sesi, pakai_llm):

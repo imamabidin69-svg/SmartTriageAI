@@ -109,6 +109,9 @@ class Config:
     UKURAN_MAKS_SUARA = 5 * 1024 * 1024
     UKURAN_MAKS_REQUEST_SUARA = UKURAN_MAKS_SUARA + 64 * 1024
 
+    # Hasil build aplikasi web React (folder web/ di root repo) yang disajikan SpaRoute.
+    WEB_DIST_PATH = str(DIREKTORI_BACKEND.parent / "web" / "dist")
+
 
 class DevelopmentConfig(Config):
     APP_ENV = "development"
@@ -178,7 +181,7 @@ def buat_konfigurasi(nama_env: str) -> dict[str, Any]:
 
     konfigurasi["GROQ_API_KEY"] = _ambil_env("GROQ_API_KEY")
 
-    for nama in ("MODEL_RF_PATH", "MODEL_YOLO_PATH", "PANDUAN_EIR_PATH"):
+    for nama in ("MODEL_RF_PATH", "MODEL_YOLO_PATH", "PANDUAN_EIR_PATH", "WEB_DIST_PATH"):
         path_model = _ambil_env(nama)
         if path_model is not None:
             konfigurasi[nama] = str(DIREKTORI_BACKEND / path_model)

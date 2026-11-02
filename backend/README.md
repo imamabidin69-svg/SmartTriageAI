@@ -9,6 +9,10 @@ Yang sudah dikerjakan:
   RBAC tiga peran, format error Problem Details, dan health check.
 - Tahap 2a: pencarian pasien, registrasi kunjungan, input triase dengan rekomendasi risk level (Random Forest +
   SHAP, dengan aturan cadangan), detail triase, serta konfigurasi triase untuk admin.
+- Tahap 2b dan 2c: validasi dan log audit, daftar tunggu, peringatan, kelola staf, riwayat, rekap, dan ekspor CSV.
+- Tahap 3: pemindaian layar alat (YOLO ONNX) dan skrip pelatihan di `ai_training/`.
+- Tahap 4: asisten anamnesis Eir.
+- Tahap 5: SpaRoute yang menyajikan aplikasi web admin dan halaman Eir dari folder `web/` di root repo.
 
 ## Kebutuhan
 
@@ -33,6 +37,19 @@ python3.12 -m venv .venv
 
 Dengan `APP_ENV=development`, dokumentasi API bisa dibuka di `http://127.0.0.1:5000/api/v1/openapi/swagger`.
 Spesifikasi OpenAPI untuk membangkitkan klien Dart bisa diekspor dengan `.venv/bin/flask openapi -o openapi.json`.
+
+### Aplikasi web (admin dan Eir)
+
+Hasil build aplikasi React di `web/dist` disajikan Flask dari origin yang sama dengan API, sehingga cookie login dan
+CSRF tidak perlu pengaturan CORS. Aset ber-hash di `assets/` disimpan lama oleh peramban, sedangkan `index.html` dan
+service worker selalu dicek ulang. Alamat lain yang bukan berkas dijawab `index.html` karena rutenya diatur React
+Router; alamat di bawah `/api` tetap dijawab Problem Details. Lokasi build bisa diganti lewat `WEB_DIST_PATH`.
+
+```bash
+cd ../web && npm ci && npm run build   # lalu buka http://127.0.0.1:5000/staf
+```
+
+Saat mengembangkan tampilan, cukup jalankan `npm run dev` di folder `web`; server Vite meneruskan `/api` ke Flask.
 
 ### Dua role basis data
 

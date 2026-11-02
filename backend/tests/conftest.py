@@ -52,6 +52,8 @@ KONFIGURASI_TES: dict[str, Any] = {
     "PEMBACA_LAYAR": "tiruan",
     # Groq tidak pernah dipanggil di tes; Eir memakai LLM tiruan dan klien Groq diuji dengan klien palsu.
     "LLM_EIR": "tiruan",
+    # Tes tidak bergantung pada hasil build web/dist di mesin pengembang; SpaRoute diuji dengan folder sementara.
+    "WEB_DIST_PATH": str(Path(__file__).resolve().parent / "tidak-ada-web-dist"),
 }
 
 

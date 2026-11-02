@@ -15,7 +15,7 @@ def pasang_header_keamanan(app: Flask) -> None:
         header.setdefault("X-Frame-Options", "DENY")
         header.setdefault("Referrer-Policy", "no-referrer")
         # Respons API berisi data pasien dan token: jangan disimpan cache peramban atau service worker.
-        # CSP untuk halaman React diatur terpisah saat SpaRoute dibuat (Tahap 5).
+        # CSP halaman React dipasang SpaRoute (app/routes/spa.py).
         if request.path.startswith("/api/") and not request.path.startswith(prefiks_dokumentasi):
             header.setdefault("Content-Security-Policy", CSP_API)
             header.setdefault("Cache-Control", "no-store")

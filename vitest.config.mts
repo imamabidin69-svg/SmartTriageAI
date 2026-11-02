@@ -17,7 +17,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["**/*.test.ts"],
-    exclude: ["node_modules/**", ".next/**"],
+    // web/ punya konfigurasi Vitest sendiri (jsdom); backend/ memakai pytest.
+    exclude: ["node_modules/**", ".next/**", "web/**", "backend/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],

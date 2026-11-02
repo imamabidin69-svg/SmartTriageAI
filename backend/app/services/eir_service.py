@@ -213,7 +213,8 @@ class EirService:
     @staticmethod
     def _sesi_berjalan(sesi: SesiEir) -> None:
         if not sesi.berjalan:
-            raise KonflikError("Sesi Eir sudah berakhir.", ekstra={"status": sesi.status.value})
+            # "status" sudah dipakai Problem Details untuk kode HTTP, jadi status sesi dikirim sebagai status_sesi.
+            raise KonflikError("Sesi Eir sudah berakhir.", ekstra={"status_sesi": sesi.status.value})
         if sesi.kunjungan.status != StatusKunjungan.MENUNGGU:
             raise KonflikError("Pasien sudah dipanggil untuk diperiksa. Sampaikan keluhan langsung ke petugas.")
 

@@ -17,6 +17,7 @@ from app.middleware.keamanan import pasang_header_keamanan
 from app.middleware.pengukur_durasi import pasang_pengukur_durasi
 from app.routes import daftarkan_rute
 from app.routes.dokumen import SKEMA_KEAMANAN
+from app.routes.spa import daftarkan_web
 from app.services.health_service import (
     PemeriksaDatabase,
     PemeriksaGroq,
@@ -49,6 +50,8 @@ def create_app(konfigurasi: Mapping[str, Any] | None = None) -> OpenAPI:
     app = OpenAPI(
         __name__,
         info=Info(title="SmartTriage AI API", version="1.0.0"),
+        # Folder static bawaan Flask tidak dipakai; aplikasi web disajikan SpaRoute dari WEB_DIST_PATH.
+        static_folder=None,
         security_schemes=SKEMA_KEAMANAN,
         doc_ui=nilai["DOKUMENTASI_API_AKTIF"],
         doc_prefix=nilai["PREFIKS_DOKUMENTASI"],
@@ -76,6 +79,7 @@ def create_app(konfigurasi: Mapping[str, Any] | None = None) -> OpenAPI:
     pasang_header_keamanan(app)
     pasang_pengukur_durasi(app)
     daftarkan_rute(app)
+    daftarkan_web(app)
     daftarkan_perintah(app)
 
     # Model dimuat sekali per proses (Desain Gambar 3.6). Gagal dimuat berarti aturan cadangan dipakai.
