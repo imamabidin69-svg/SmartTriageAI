@@ -1,0 +1,4984 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SmartTriage AI API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Autentikasi"
+        ],
+        "summary": "Masuk dengan email dan password",
+        "operationId": "auth_login_login_post",
+        "parameters": [
+          {
+            "name": "X-Client",
+            "in": "header",
+            "description": "Jenis klien. Tanpa header ini klien dianggap web dan token disimpan di cookie HttpOnly.",
+            "required": false,
+            "schema": {
+              "title": "X-Client",
+              "enum": [
+                "web",
+                "mobile"
+              ],
+              "type": "string",
+              "description": "Jenis klien. Tanpa header ini klien dianggap web dan token disimpan di cookie HttpOnly.",
+              "default": "web"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SesiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Format JSON tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak percobaan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Autentikasi"
+        ],
+        "summary": "Memperbarui access token dengan refresh token",
+        "operationId": "auth_refresh_refresh_post",
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SesiResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieRefresh": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Autentikasi"
+        ],
+        "summary": "Keluar",
+        "description": "Memakai refresh token supaya tetap berhasil walau access token sudah kedaluwarsa.",
+        "operationId": "auth_logout_logout_post",
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieRefresh": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Autentikasi"
+        ],
+        "summary": "Profil pengguna yang sedang masuk",
+        "operationId": "auth_me_me_get",
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PenggunaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/password": {
+      "patch": {
+        "tags": [
+          "Autentikasi"
+        ],
+        "summary": "Mengganti password sendiri",
+        "description": "Password baru 8-128 karakter dan harus berbeda dari password lama. Password lama yang salah dibatasi 5 kali per 15 menit. Token yang sudah terbit tetap berlaku sampai kedaluwarsa.",
+        "operationId": "auth_ganti_password_password_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GantiPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak percobaan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "Sistem"
+        ],
+        "summary": "Pemeriksaan kesehatan aplikasi",
+        "description": "200 bila komponen wajib sehat (status ok atau degraded), 503 bila komponen wajib gagal.",
+        "operationId": "health_health_health_get",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/konfigurasi": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Membaca konfigurasi triase",
+        "operationId": "admin_ambil_konfigurasi_konfigurasi_get",
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KonfigurasiResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Mengubah sebagian konfigurasi triase",
+        "description": "Hanya field yang dikirim yang diubah. Setiap perubahan dicatat di log audit. Ambang harus berurutan (kritis > tinggi > sedang) dan batas tunggu tidak menurun (tinggi <= sedang <= rendah).",
+        "operationId": "admin_ubah_konfigurasi_konfigurasi_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KonfigurasiPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KonfigurasiResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/staf": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Daftar akun staf",
+        "description": "Semua staf diurutkan menurut nama, dengan filter opsional peran dan status aktif.",
+        "operationId": "admin_daftar_staf_staf_get",
+        "parameters": [
+          {
+            "name": "peran",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Peran"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          {
+            "name": "aktif",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Aktif",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaftarStafResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Menambah akun staf",
+        "description": "Server membuat password sementara 12 karakter yang dikirim sekali di respons. Sampaikan ke staf dan minta segera menggantinya lewat PATCH /auth/password.",
+        "operationId": "admin_tambah_staf_staf_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StafRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StafDisimpanResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/staf/{id_pengguna}": {
+      "patch": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Mengubah, menonaktifkan, atau mengatur ulang password staf",
+        "description": "Hanya field yang dikirim yang diubah. is_active false menonaktifkan akun dan sesi yang sedang berjalan langsung ditolak. atur_ulang_password true membuat password sementara baru. Admin tidak bisa menonaktifkan atau mengubah peran dirinya sendiri, dan harus selalu ada satu admin aktif.",
+        "operationId": "admin_ubah_staf_staf__uuid_id_pengguna__patch",
+        "parameters": [
+          {
+            "name": "id_pengguna",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Pengguna",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StafPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StafDisimpanResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pasien": {
+      "get": {
+        "tags": [
+          "Kunjungan"
+        ],
+        "summary": "Mencari pasien lama",
+        "description": "Potongan nama (tanpa membedakan huruf besar) atau NIK lengkap 16 digit. Maksimal 20 hasil. Pencarian NIK yang tidak menemukan pasien dibatasi 30 kali per 15 menit untuk setiap akun.",
+        "operationId": "kunjungan_cari_pasien_pasien_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Potongan nama pasien, atau NIK lengkap 16 digit.",
+            "required": true,
+            "schema": {
+              "title": "Q",
+              "maxLength": 120,
+              "minLength": 2,
+              "type": "string",
+              "description": "Potongan nama pasien, atau NIK lengkap 16 digit."
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaftarPasienResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak percobaan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/kunjungan": {
+      "post": {
+        "tags": [
+          "Kunjungan"
+        ],
+        "summary": "Registrasi singkat dan pembuatan kunjungan",
+        "description": "Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru. Pasien dengan NIK yang sudah terdaftar dipakai ulang bila nama dan jenis kelaminnya sama.",
+        "operationId": "kunjungan_registrasi_kunjungan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrasiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KunjunganDibuatResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/kunjungan/{id_kunjungan}/status": {
+      "patch": {
+        "tags": [
+          "Kunjungan"
+        ],
+        "summary": "Menandai pasien mulai diperiksa atau selesai",
+        "description": "Dokter mengubah status menunggu ke ditangani (pasien keluar dari daftar tunggu), ditangani ke selesai, atau menunggu ke selesai untuk pasien yang batal diperiksa. Perubahan lain dibalas 409.",
+        "operationId": "kunjungan_ubah_status_kunjungan__uuid_id_kunjungan__status_patch",
+        "parameters": [
+          {
+            "name": "id_kunjungan",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Kunjungan",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusKunjunganRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusKunjunganResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/kunjungan/{id_kunjungan}/tautan-eir": {
+      "post": {
+        "tags": [
+          "Kunjungan"
+        ],
+        "summary": "Membuat tautan Eir untuk kode QR",
+        "description": "Khusus kunjungan yang masih menunggu dan risk level terakhirnya rendah. Token berlaku dua jam dan ditampilkan sebagai kode QR untuk pasien atau keluarga. Kunjungan lain dibalas 409.",
+        "operationId": "kunjungan_tautan_eir_kunjungan__uuid_id_kunjungan__tautan_eir_post",
+        "parameters": [
+          {
+            "name": "id_kunjungan",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Kunjungan",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TautanEirResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/kunjungan/{id_kunjungan}/ringkasan-eir": {
+      "get": {
+        "tags": [
+          "Kunjungan"
+        ],
+        "summary": "Membaca ringkasan Eir terakhir sebagai draf form triase",
+        "description": "Sesi Eir terbaru untuk kunjungan ini (keputusan E1), berisi ringkasan, transkrip, dan tanda bahaya bila sesi dihentikan. Ringkasan masih draf dan wajib diperiksa perawat sebelum dipakai di form triase. 404 bila kunjungan belum punya sesi Eir.",
+        "operationId": "kunjungan_ringkasan_eir_kunjungan__uuid_id_kunjungan__ringkasan_eir_get",
+        "parameters": [
+          {
+            "name": "id_kunjungan",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Kunjungan",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RingkasanEirResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/kunjungan/{id_kunjungan}/triase": {
+      "post": {
+        "tags": [
+          "Triase"
+        ],
+        "summary": "Input triase dan rekomendasi risk level",
+        "description": "Menyimpan triase berstatus menunggu validasi beserta rekomendasi risk level dan tiga faktor penjelas. Triase pertama pada kunjungan dicatat sebagai awal, berikutnya sebagai ulang. Nilai tanda vital yang tidak wajar dikembalikan di field peringatan tanpa menolak request.",
+        "operationId": "triase_buat_triase_kunjungan__uuid_id_kunjungan__triase_post",
+        "parameters": [
+          {
+            "name": "id_kunjungan",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Kunjungan",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriaseInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriaseDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/triase/{id_triase}": {
+      "get": {
+        "tags": [
+          "Triase"
+        ],
+        "summary": "Detail triase beserta penjelasan rekomendasi",
+        "operationId": "triase_detail_triase_triase__uuid_id_triase__get",
+        "parameters": [
+          {
+            "name": "id_triase",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Triase",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriaseDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/triase/{id_triase}/validasi": {
+      "post": {
+        "tags": [
+          "Triase"
+        ],
+        "summary": "Menyetujui, mengoreksi, atau mengajukan review hasil triase",
+        "description": "Perawat boleh menyetujui hasil non-kritis atau mengajukan review; dokter boleh menyetujui atau mengoreksi semua tingkat. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui atau dikoreksi, sudah digantikan triase ulang, atau kunjungannya sudah selesai dibalas 409. Setiap aksi dicatat di log audit dalam transaksi yang sama.",
+        "operationId": "triase_validasi_triase_triase__uuid_id_triase__validasi_post",
+        "parameters": [
+          {
+            "name": "id_triase",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Triase",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidasiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriaseDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pasien/{id_pasien}/riwayat": {
+      "get": {
+        "tags": [
+          "Triase"
+        ],
+        "summary": "Riwayat triase pasien",
+        "description": "Triase awal dan ulang dari semua kunjungan pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim.",
+        "operationId": "triase_riwayat_pasien_pasien__uuid_id_pasien__riwayat_get",
+        "parameters": [
+          {
+            "name": "id_pasien",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Pasien",
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kursor",
+            "in": "query",
+            "description": "Dari kursor_berikutnya halaman sebelumnya.",
+            "required": false,
+            "schema": {
+              "title": "Kursor",
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dari kursor_berikutnya halaman sebelumnya.",
+              "default": null
+            }
+          },
+          {
+            "name": "ukuran",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Ukuran",
+              "maximum": 50,
+              "minimum": 1.0,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiwayatResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pemindaian": {
+      "post": {
+        "tags": [
+          "Pemindaian"
+        ],
+        "summary": "Membaca angka dari foto layar alat",
+        "description": "Body multipart berisi jenis_alat dan berkas (foto JPEG atau PNG maksimal 5 MB). Foto hanya diproses di memori lalu dibuang. Kolom diisi bila keyakinan model mencapai ambang konfigurasi dan nilainya wajar; selebihnya null untuk diisi manual. Kirim id_pemindaian lewat form triase setelah nilai dikonfirmasi.",
+        "operationId": "pemindaian_pindai_pemindaian_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UnggahFoto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HasilPemindaianResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Isi permintaan terlalu besar",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/daftar-tunggu": {
+      "get": {
+        "tags": [
+          "Antrean"
+        ],
+        "summary": "Daftar tunggu pasien beserta penanda triase ulang",
+        "description": "Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu. ringkasan_eir_siap bernilai true bila sesi Eir terakhir selesai dengan ringkasan dan belum ada triase sesudahnya.",
+        "operationId": "antrean_daftar_tunggu_daftar_tunggu_get",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaftarTungguResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProblemDetails"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/peringatan": {
+      "get": {
+        "tags": [
+          "Antrean"
+        ],
+        "summary": "Peringatan kritis, level naik, dan tanda bahaya Eir",
+        "description": "Triase kritis yang belum divalidasi, triase ulang yang levelnya naik dan belum divalidasi, serta sesi Eir yang dihentikan karena tanda bahaya tetapi belum diikuti triase baru. Hanya kunjungan yang masih menunggu.",
+        "operationId": "antrean_peringatan_peringatan_get",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaftarPeringatanResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProblemDetails"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/rekap": {
+      "get": {
+        "tags": [
+          "Rekap"
+        ],
+        "summary": "Rekap evaluasi triase",
+        "description": "Jumlah triase per level, rata-rata waktu tunggu, persentase koreksi dokter, jumlah triase ulang, dan akurasi pemindaian dalam rentang tanggal WIB (bawaan 7 hari terakhir, maksimal 366 hari). format=csv mengirim berkas CSV berpemisah titik koma berisi agregat saja, tanpa data pasien.",
+        "operationId": "rekap_rekap_rekap_get",
+        "parameters": [
+          {
+            "name": "dari",
+            "in": "query",
+            "description": "YYYY-MM-DD (WIB). Bawaan: 6 hari sebelum sampai.",
+            "required": false,
+            "schema": {
+              "title": "Dari",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM-DD (WIB). Bawaan: 6 hari sebelum sampai.",
+              "default": null
+            }
+          },
+          {
+            "name": "sampai",
+            "in": "query",
+            "description": "YYYY-MM-DD (WIB), inklusif. Bawaan: hari ini.",
+            "required": false,
+            "schema": {
+              "title": "Sampai",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM-DD (WIB), inklusif. Bawaan: hari ini.",
+              "default": null
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Format",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "type": "string",
+              "default": "json"
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RekapResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/log-audit": {
+      "get": {
+        "tags": [
+          "Rekap"
+        ],
+        "summary": "Log audit",
+        "description": "Jejak validasi, koreksi, review, perubahan konfigurasi, dan kelola staf, terbaru lebih dulu. Halaman berikutnya diambil dengan mengirim kursor_berikutnya sebagai parameter kursor.",
+        "operationId": "rekap_log_audit_admin_log_audit_get",
+        "parameters": [
+          {
+            "name": "dari",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Dari",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          {
+            "name": "sampai",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Sampai",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          {
+            "name": "aksi",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AksiAudit"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          {
+            "name": "id_aktor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Id Aktor",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          {
+            "name": "id_triase",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Id Triase",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          {
+            "name": "kursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Kursor",
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          {
+            "name": "ukuran",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Ukuran",
+              "maximum": 50,
+              "minimum": 1.0,
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogAuditResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAccess": []
+          }
+        ]
+      }
+    },
+    "/api/v1/eir/sesi": {
+      "post": {
+        "tags": [
+          "Eir"
+        ],
+        "summary": "Memberi persetujuan dan membuka sesi Eir",
+        "description": "Token diambil dari kode QR yang dibuat perawat (berlaku dua jam). Persetujuan wajib true. Respons berisi token sesi untuk header X-Token-Eir dan pertanyaan pertama Eir.",
+        "operationId": "eir_buka_sesi_eir_sesi_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BukaSesiEirRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SesiEirDibuatResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eir/sesi/{id_sesi}/pesan": {
+      "post": {
+        "tags": [
+          "Eir"
+        ],
+        "summary": "Mengirim jawaban ke Eir",
+        "description": "Setiap jawaban diperiksa aturan tanda bahaya sebelum LLM dipanggil. Bila cocok, sesi dihentikan (status dihentikan), perawat mendapat peringatan, dan pesan berisi arahan menemui perawat. Setelah 15 jawaban, atau saat jawaban sudah cukup, ringkasan dibuat otomatis (status selesai). Bila Groq tidak menjawab, respons 503 dan jawaban tetap tersimpan. Maksimal 20 pesan per menit per sesi.",
+        "operationId": "eir_kirim_pesan_eir_sesi__uuid_id_sesi__pesan_post",
+        "parameters": [
+          {
+            "name": "id_sesi",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Sesi",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PesanEirRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalasanEirResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak percobaan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Layanan pendukung sedang tidak tersedia",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "tokenEir": []
+          }
+        ]
+      }
+    },
+    "/api/v1/eir/sesi/{id_sesi}/suara": {
+      "post": {
+        "tags": [
+          "Eir"
+        ],
+        "summary": "Mengirim jawaban berupa rekaman suara (opsional)",
+        "description": "Rekaman webm, ogg, mp3, m4a, atau wav maksimal 5 MB diubah ke teks dengan Whisper melalui Groq, lalu diproses seperti POST /pesan. Rekaman tidak disimpan. Hasil ubah suara ke teks dikirim di transkripsi.",
+        "operationId": "eir_kirim_suara_eir_sesi__uuid_id_sesi__suara_post",
+        "parameters": [
+          {
+            "name": "id_sesi",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Sesi",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UnggahSuara"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalasanEirResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Isi permintaan terlalu besar",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Terlalu banyak percobaan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Layanan pendukung sedang tidak tersedia",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "tokenEir": []
+          }
+        ]
+      }
+    },
+    "/api/v1/eir/sesi/{id_sesi}/selesai": {
+      "post": {
+        "tags": [
+          "Eir"
+        ],
+        "summary": "Menyelesaikan sesi dan membuat ringkasan",
+        "description": "Boleh dipanggil setelah minimal tujuh jawaban. Ringkasan dibuat LLM dengan JSON Schema, divalidasi, lalu disimpan sebagai draf untuk perawat (GET /kunjungan/{id}/ringkasan-eir). Bila Groq tidak menjawab, respons 503 dan sesi tetap berjalan sehingga bisa dicoba lagi.",
+        "operationId": "eir_selesai_eir_sesi__uuid_id_sesi__selesai_post",
+        "parameters": [
+          {
+            "name": "id_sesi",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "title": "Id Sesi",
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "description": "Data tidak valid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalasanEirResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum masuk, token tidak valid, atau sesi berakhir",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data tidak ditemukan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Konflik dengan data yang sudah ada",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Layanan pendukung sedang tidak tersedia",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "tokenEir": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SesiResponse": {
+        "title": "SesiResponse",
+        "required": [
+          "pengguna"
+        ],
+        "type": "object",
+        "properties": {
+          "pengguna": {
+            "$ref": "#/components/schemas/PenggunaResponse"
+          },
+          "access_token": {
+            "title": "Access Token",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "token_type": {
+            "title": "Token Type",
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "Bearer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Umur access token dalam detik.",
+            "default": null
+          }
+        },
+        "description": "Respons login dan refresh. Token hanya diisi untuk klien mobile."
+      },
+      "PenggunaResponse": {
+        "title": "PenggunaResponse",
+        "required": [
+          "id_pengguna",
+          "nama",
+          "email",
+          "peran",
+          "is_active"
+        ],
+        "type": "object",
+        "properties": {
+          "id_pengguna": {
+            "title": "Id Pengguna",
+            "type": "string",
+            "format": "uuid"
+          },
+          "nama": {
+            "title": "Nama",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "peran": {
+            "$ref": "#/components/schemas/Peran"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          }
+        }
+      },
+      "Peran": {
+        "title": "Peran",
+        "enum": [
+          "perawat",
+          "dokter",
+          "admin"
+        ],
+        "type": "string"
+      },
+      "LoginRequest": {
+        "title": "LoginRequest",
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "maxLength": 150,
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GantiPasswordRequest": {
+        "title": "GantiPasswordRequest",
+        "required": [
+          "password_lama",
+          "password_baru"
+        ],
+        "type": "object",
+        "properties": {
+          "password_lama": {
+            "title": "Password Lama",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "password_baru": {
+            "title": "Password Baru",
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HealthResponse": {
+        "title": "HealthResponse",
+        "required": [
+          "status",
+          "komponen"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "title": "Status",
+            "enum": [
+              "ok",
+              "degraded",
+              "gagal"
+            ],
+            "type": "string"
+          },
+          "komponen": {
+            "title": "Komponen",
+            "type": "object",
+            "additionalProperties": {
+              "enum": [
+                "ok",
+                "gagal"
+              ],
+              "type": "string"
+            }
+          }
+        }
+      },
+      "KonfigurasiResponse": {
+        "title": "KonfigurasiResponse",
+        "required": [
+          "versi_model",
+          "ambang_kritis",
+          "ambang_tinggi",
+          "ambang_sedang",
+          "batas_tunggu_tinggi",
+          "batas_tunggu_sedang",
+          "batas_tunggu_rendah",
+          "ambang_keyakinan",
+          "versi_model_termuat"
+        ],
+        "type": "object",
+        "properties": {
+          "versi_model": {
+            "title": "Versi Model",
+            "type": "string"
+          },
+          "ambang_kritis": {
+            "title": "Ambang Kritis",
+            "type": "integer"
+          },
+          "ambang_tinggi": {
+            "title": "Ambang Tinggi",
+            "type": "integer"
+          },
+          "ambang_sedang": {
+            "title": "Ambang Sedang",
+            "type": "integer"
+          },
+          "batas_tunggu_tinggi": {
+            "title": "Batas Tunggu Tinggi",
+            "type": "integer"
+          },
+          "batas_tunggu_sedang": {
+            "title": "Batas Tunggu Sedang",
+            "type": "integer"
+          },
+          "batas_tunggu_rendah": {
+            "title": "Batas Tunggu Rendah",
+            "type": "integer"
+          },
+          "ambang_keyakinan": {
+            "title": "Ambang Keyakinan",
+            "type": "number"
+          },
+          "versi_model_termuat": {
+            "title": "Versi Model Termuat",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Versi bundle model yang sedang dimuat, null bila tidak ada."
+          }
+        }
+      },
+      "KonfigurasiPatch": {
+        "title": "KonfigurasiPatch",
+        "type": "object",
+        "properties": {
+          "versi_model": {
+            "title": "Versi Model",
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string",
+            "default": null
+          },
+          "ambang_kritis": {
+            "title": "Ambang Kritis",
+            "maximum": 18,
+            "minimum": 1.0,
+            "type": "integer",
+            "default": null
+          },
+          "ambang_tinggi": {
+            "title": "Ambang Tinggi",
+            "maximum": 18,
+            "minimum": 1.0,
+            "type": "integer",
+            "default": null
+          },
+          "ambang_sedang": {
+            "title": "Ambang Sedang",
+            "maximum": 18,
+            "minimum": 1.0,
+            "type": "integer",
+            "default": null
+          },
+          "batas_tunggu_tinggi": {
+            "title": "Batas Tunggu Tinggi",
+            "maximum": 1440,
+            "minimum": 1.0,
+            "type": "integer",
+            "description": "Dalam menit.",
+            "default": null
+          },
+          "batas_tunggu_sedang": {
+            "title": "Batas Tunggu Sedang",
+            "maximum": 1440,
+            "minimum": 1.0,
+            "type": "integer",
+            "description": "Dalam menit.",
+            "default": null
+          },
+          "batas_tunggu_rendah": {
+            "title": "Batas Tunggu Rendah",
+            "maximum": 1440,
+            "minimum": 1.0,
+            "type": "integer",
+            "description": "Dalam menit.",
+            "default": null
+          },
+          "ambang_keyakinan": {
+            "title": "Ambang Keyakinan",
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": null
+          }
+        },
+        "additionalProperties": false,
+        "description": "Perubahan sebagian. Urutan ambang dan batas tunggu diperiksa KonfigurasiService terhadap nilai tersimpan."
+      },
+      "DaftarStafResponse": {
+        "title": "DaftarStafResponse",
+        "required": [
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "title": "Items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StafResponse"
+            }
+          }
+        }
+      },
+      "StafResponse": {
+        "title": "StafResponse",
+        "required": [
+          "id_pengguna",
+          "nama",
+          "email",
+          "peran",
+          "is_active",
+          "created_at"
+        ],
+        "type": "object",
+        "properties": {
+          "id_pengguna": {
+            "title": "Id Pengguna",
+            "type": "string",
+            "format": "uuid"
+          },
+          "nama": {
+            "title": "Nama",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "peran": {
+            "$ref": "#/components/schemas/Peran"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "StafDisimpanResponse": {
+        "title": "StafDisimpanResponse",
+        "required": [
+          "staf",
+          "password_sementara"
+        ],
+        "type": "object",
+        "properties": {
+          "staf": {
+            "$ref": "#/components/schemas/StafResponse"
+          },
+          "password_sementara": {
+            "title": "Password Sementara",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hanya diisi saat staf dibuat atau password diatur ulang. Tidak bisa dilihat lagi."
+          }
+        }
+      },
+      "StafRequest": {
+        "title": "StafRequest",
+        "required": [
+          "nama",
+          "email",
+          "peran"
+        ],
+        "type": "object",
+        "properties": {
+          "nama": {
+            "title": "Nama",
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "maxLength": 150,
+            "type": "string"
+          },
+          "peran": {
+            "$ref": "#/components/schemas/Peran"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Desain Gambar 2.2. Password tidak dikirim admin; server membuat password sementara (K7)."
+      },
+      "StafPatch": {
+        "title": "StafPatch",
+        "type": "object",
+        "properties": {
+          "nama": {
+            "title": "Nama",
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string",
+            "default": null
+          },
+          "email": {
+            "title": "Email",
+            "maxLength": 150,
+            "type": "string",
+            "default": null
+          },
+          "peran": {
+            "$ref": "#/components/schemas/Peran",
+            "default": null
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean",
+            "default": null
+          },
+          "atur_ulang_password": {
+            "title": "Atur Ulang Password",
+            "type": "boolean",
+            "description": "true untuk membuat password sementara baru. Password dikirim sekali di respons.",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "DaftarPasienResponse": {
+        "title": "DaftarPasienResponse",
+        "required": [
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "title": "Items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PasienRingkas"
+            }
+          }
+        }
+      },
+      "JenisKelamin": {
+        "title": "JenisKelamin",
+        "enum": [
+          "laki_laki",
+          "perempuan"
+        ],
+        "type": "string"
+      },
+      "PasienRingkas": {
+        "title": "PasienRingkas",
+        "required": [
+          "id_pasien",
+          "nama",
+          "jenis_kelamin",
+          "tanggal_lahir",
+          "perkiraan_usia",
+          "usia",
+          "nik_tersamar",
+          "id_kunjungan_aktif"
+        ],
+        "type": "object",
+        "properties": {
+          "id_pasien": {
+            "title": "Id Pasien",
+            "type": "string",
+            "format": "uuid"
+          },
+          "nama": {
+            "title": "Nama",
+            "type": "string"
+          },
+          "jenis_kelamin": {
+            "$ref": "#/components/schemas/JenisKelamin"
+          },
+          "tanggal_lahir": {
+            "title": "Tanggal Lahir",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "perkiraan_usia": {
+            "title": "Perkiraan Usia",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "usia": {
+            "title": "Usia",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nik_tersamar": {
+            "title": "Nik Tersamar",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hanya empat digit terakhir NIK yang ditampilkan."
+          },
+          "id_kunjungan_aktif": {
+            "title": "Id Kunjungan Aktif",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Kunjungan yang masih menunggu atau sedang ditangani."
+          }
+        }
+      },
+      "KunjunganDibuatResponse": {
+        "title": "KunjunganDibuatResponse",
+        "required": [
+          "id_kunjungan",
+          "id_pasien",
+          "pasien_baru",
+          "status",
+          "waktu_datang"
+        ],
+        "type": "object",
+        "properties": {
+          "id_kunjungan": {
+            "title": "Id Kunjungan",
+            "type": "string",
+            "format": "uuid"
+          },
+          "id_pasien": {
+            "title": "Id Pasien",
+            "type": "string",
+            "format": "uuid"
+          },
+          "pasien_baru": {
+            "title": "Pasien Baru",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusKunjungan"
+          },
+          "waktu_datang": {
+            "title": "Waktu Datang",
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "StatusKunjungan": {
+        "title": "StatusKunjungan",
+        "enum": [
+          "menunggu",
+          "ditangani",
+          "selesai"
+        ],
+        "type": "string"
+      },
+      "RegistrasiRequest": {
+        "title": "RegistrasiRequest",
+        "type": "object",
+        "properties": {
+          "id_pasien": {
+            "title": "Id Pasien",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "nama": {
+            "title": "Nama",
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "tanggal_lahir": {
+            "title": "Tanggal Lahir",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "perkiraan_usia": {
+            "title": "Perkiraan Usia",
+            "anyOf": [
+              {
+                "maximum": 150,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "jenis_kelamin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JenisKelamin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "nik": {
+            "title": "Nik",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "no_telepon": {
+            "title": "No Telepon",
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "additionalProperties": false,
+        "description": "Registrasi singkat (Desain Gambar 2.5).\n\nBila id_pasien diisi, pasien lama dipakai dan isian identitas lain diabaikan tanpa divalidasi\n(keputusan K8), karena form bisa saja masih membawa isian dari pencarian sebelumnya. Bila tidak,\nnama, jenis kelamin, dan tanggal lahir atau perkiraan usia wajib diisi; pemeriksaan ini dilakukan\nKunjunganService supaya pesannya tetap per field."
+      },
+      "StatusKunjunganResponse": {
+        "title": "StatusKunjunganResponse",
+        "required": [
+          "id_kunjungan",
+          "status",
+          "waktu_ditangani"
+        ],
+        "type": "object",
+        "properties": {
+          "id_kunjungan": {
+            "title": "Id Kunjungan",
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusKunjungan"
+          },
+          "waktu_ditangani": {
+            "title": "Waktu Ditangani",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "StatusKunjunganRequest": {
+        "title": "StatusKunjunganRequest",
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "title": "Status",
+            "enum": [
+              "ditangani",
+              "selesai"
+            ],
+            "type": "string",
+            "description": "ditangani saat dokter mulai memeriksa, selesai saat pemeriksaan berakhir atau pasien batal."
+          }
+        },
+        "additionalProperties": false
+      },
+      "TautanEirResponse": {
+        "title": "TautanEirResponse",
+        "required": [
+          "token",
+          "url",
+          "kedaluwarsa"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string",
+            "description": "Dikirim lewat body POST /eir/sesi."
+          },
+          "url": {
+            "title": "Url",
+            "type": "string",
+            "description": "Alamat halaman Eir untuk kode QR. Token ada di fragmen (#t=), tidak tercatat di log."
+          },
+          "kedaluwarsa": {
+            "title": "Kedaluwarsa",
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RingkasanEirResponse": {
+        "title": "RingkasanEirResponse",
+        "required": [
+          "id_sesi",
+          "id_kunjungan",
+          "pengisi",
+          "status",
+          "waktu_persetujuan",
+          "waktu_selesai",
+          "tanda_bahaya",
+          "ringkasan",
+          "transkrip"
+        ],
+        "type": "object",
+        "properties": {
+          "id_sesi": {
+            "title": "Id Sesi",
+            "type": "string",
+            "format": "uuid"
+          },
+          "id_kunjungan": {
+            "title": "Id Kunjungan",
+            "type": "string",
+            "format": "uuid"
+          },
+          "pengisi": {
+            "$ref": "#/components/schemas/PengisiEir"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusSesiEir"
+          },
+          "waktu_persetujuan": {
+            "title": "Waktu Persetujuan",
+            "type": "string",
+            "format": "date-time"
+          },
+          "waktu_selesai": {
+            "title": "Waktu Selesai",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tanda_bahaya": {
+            "title": "Tanda Bahaya",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ringkasan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RingkasanTriase"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Draf form triase; wajib diperiksa perawat sebelum dipakai."
+          },
+          "transkrip": {
+            "title": "Transkrip",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemTranskrip"
+            }
+          }
+        }
+      },
+      "ItemTranskrip": {
+        "title": "ItemTranskrip",
+        "required": [
+          "peran",
+          "teks",
+          "waktu"
+        ],
+        "type": "object",
+        "properties": {
+          "peran": {
+            "title": "Peran",
+            "enum": [
+              "eir",
+              "pengisi"
+            ],
+            "type": "string"
+          },
+          "teks": {
+            "title": "Teks",
+            "type": "string"
+          },
+          "waktu": {
+            "title": "Waktu",
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "KategoriKeluhan": {
+        "title": "KategoriKeluhan",
+        "enum": [
+          "Penurunan kesadaran atau kejang",
+          "Nyeri dada",
+          "Sesak napas atau batuk",
+          "Perdarahan",
+          "Gangguan saraf",
+          "Nyeri perut",
+          "Demam",
+          "Pusing",
+          "Nyeri kepala",
+          "Mual, muntah, atau diare",
+          "Cedera atau luka",
+          "Jantung berdebar",
+          "Kulit atau alergi",
+          "Mata, telinga, hidung, atau tenggorokan",
+          "Nyeri punggung, pinggang, atau anggota gerak",
+          "Lemas atau kelemahan umum",
+          "Keluhan kemih atau kandungan",
+          "Lainnya"
+        ],
+        "type": "string",
+        "description": "18 kategori keluhan, sama persis dengan kategori saat model Random Forest dilatih."
+      },
+      "PengisiEir": {
+        "title": "PengisiEir",
+        "enum": [
+          "pasien",
+          "keluarga"
+        ],
+        "type": "string"
+      },
+      "RingkasanTriase": {
+        "title": "RingkasanTriase",
+        "required": [
+          "keluhan_utama",
+          "gejala",
+          "onset",
+          "kategori_keluhan"
+        ],
+        "type": "object",
+        "properties": {
+          "keluhan_utama": {
+            "title": "Keluhan Utama",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "gejala": {
+            "title": "Gejala",
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "onset": {
+            "title": "Onset",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kategori_keluhan": {
+            "$ref": "#/components/schemas/KategoriKeluhan"
+          }
+        },
+        "description": "Desain Gambar 2.23. Ringkasan dari LLM yang divalidasi sebelum menjadi draf form triase."
+      },
+      "StatusSesiEir": {
+        "title": "StatusSesiEir",
+        "enum": [
+          "berjalan",
+          "selesai",
+          "dihentikan"
+        ],
+        "type": "string"
+      },
+      "TriaseDetail": {
+        "title": "TriaseDetail",
+        "required": [
+          "id_triase",
+          "id_kunjungan",
+          "jenis",
+          "pasien",
+          "keluhan_utama",
+          "gejala",
+          "kategori_keluhan",
+          "skala_nyeri",
+          "tingkat_kesadaran",
+          "tanda_vital",
+          "sumber_tanda_vital",
+          "risk_level",
+          "sumber_rekomendasi",
+          "penjelasan_ai",
+          "status_validasi",
+          "dibuat_oleh",
+          "divalidasi_oleh",
+          "waktu_triase",
+          "peringatan",
+          "catatan_validasi_terakhir"
+        ],
+        "type": "object",
+        "properties": {
+          "id_triase": {
+            "title": "Id Triase",
+            "type": "string",
+            "format": "uuid"
+          },
+          "id_kunjungan": {
+            "title": "Id Kunjungan",
+            "type": "string",
+            "format": "uuid"
+          },
+          "jenis": {
+            "$ref": "#/components/schemas/JenisTriase"
+          },
+          "pasien": {
+            "$ref": "#/components/schemas/PasienTriase"
+          },
+          "keluhan_utama": {
+            "title": "Keluhan Utama",
+            "type": "string"
+          },
+          "gejala": {
+            "title": "Gejala",
+            "type": "string"
+          },
+          "kategori_keluhan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KategoriKeluhan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "skala_nyeri": {
+            "title": "Skala Nyeri",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tingkat_kesadaran": {
+            "$ref": "#/components/schemas/TingkatKesadaran"
+          },
+          "tanda_vital": {
+            "$ref": "#/components/schemas/TandaVitalResponse"
+          },
+          "sumber_tanda_vital": {
+            "$ref": "#/components/schemas/SumberTandaVital"
+          },
+          "risk_level": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "sumber_rekomendasi": {
+            "$ref": "#/components/schemas/SumberRekomendasi"
+          },
+          "penjelasan_ai": {
+            "$ref": "#/components/schemas/PenjelasanResponse"
+          },
+          "status_validasi": {
+            "$ref": "#/components/schemas/StatusValidasi"
+          },
+          "dibuat_oleh": {
+            "$ref": "#/components/schemas/PenggunaRingkas"
+          },
+          "divalidasi_oleh": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PenggunaRingkas"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waktu_triase": {
+            "title": "Waktu Triase",
+            "type": "string",
+            "format": "date-time"
+          },
+          "peringatan": {
+            "title": "Peringatan",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Peringatan"
+            }
+          },
+          "catatan_validasi_terakhir": {
+            "title": "Catatan Validasi Terakhir",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alasan koreksi atau ajuan review terakhir, bila ada."
+          }
+        },
+        "description": "Bentuk yang sama dipakai respons POST /kunjungan/{id}/triase dan GET /triase/{id}."
+      },
+      "FaktorResponse": {
+        "title": "FaktorResponse",
+        "required": [
+          "fitur",
+          "label",
+          "nilai",
+          "kontribusi",
+          "arah"
+        ],
+        "type": "object",
+        "properties": {
+          "fitur": {
+            "title": "Fitur",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "nilai": {
+            "title": "Nilai",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kontribusi": {
+            "title": "Kontribusi",
+            "type": "number",
+            "description": "Nilai SHAP untuk hasil model, atau poin aturan untuk aturan cadangan."
+          },
+          "arah": {
+            "title": "Arah",
+            "enum": [
+              "naik",
+              "turun",
+              "netral"
+            ],
+            "type": "string",
+            "description": "Untuk sumber model: naik berarti faktor ini mendukung level yang direkomendasikan, turun berarti melawannya. Untuk sumber aturan: naik berarti menambah poin risiko; netral bila tidak ada aturan yang terpicu."
+          }
+        }
+      },
+      "JenisTriase": {
+        "title": "JenisTriase",
+        "enum": [
+          "awal",
+          "ulang"
+        ],
+        "type": "string"
+      },
+      "PasienTriase": {
+        "title": "PasienTriase",
+        "required": [
+          "id_pasien",
+          "nama",
+          "usia",
+          "jenis_kelamin"
+        ],
+        "type": "object",
+        "properties": {
+          "id_pasien": {
+            "title": "Id Pasien",
+            "type": "string",
+            "format": "uuid"
+          },
+          "nama": {
+            "title": "Nama",
+            "type": "string"
+          },
+          "usia": {
+            "title": "Usia",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "jenis_kelamin": {
+            "$ref": "#/components/schemas/JenisKelamin"
+          }
+        }
+      },
+      "PenggunaRingkas": {
+        "title": "PenggunaRingkas",
+        "required": [
+          "id_pengguna",
+          "nama"
+        ],
+        "type": "object",
+        "properties": {
+          "id_pengguna": {
+            "title": "Id Pengguna",
+            "type": "string",
+            "format": "uuid"
+          },
+          "nama": {
+            "title": "Nama",
+            "type": "string"
+          }
+        }
+      },
+      "PenjelasanResponse": {
+        "title": "PenjelasanResponse",
+        "required": [
+          "versi_model",
+          "faktor",
+          "probabilitas"
+        ],
+        "type": "object",
+        "properties": {
+          "versi_model": {
+            "title": "Versi Model",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "faktor": {
+            "title": "Faktor",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FaktorResponse"
+            }
+          },
+          "probabilitas": {
+            "title": "Probabilitas",
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Peringatan": {
+        "title": "Peringatan",
+        "required": [
+          "field",
+          "pesan"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Path field yang bersangkutan, misalnya tanda_vital.saturasi."
+          },
+          "pesan": {
+            "title": "Pesan",
+            "type": "string"
+          }
+        },
+        "description": "Peringatan yang tidak menolak request, misalnya nilai tanda vital yang tidak wajar (Desain 2.3)."
+      },
+      "RiskLevel": {
+        "title": "RiskLevel",
+        "enum": [
+          "rendah",
+          "sedang",
+          "tinggi",
+          "kritis"
+        ],
+        "type": "string"
+      },
+      "StatusValidasi": {
+        "title": "StatusValidasi",
+        "enum": [
+          "menunggu",
+          "disetujui",
+          "menunggu_review_dokter",
+          "dikoreksi"
+        ],
+        "type": "string"
+      },
+      "SumberRekomendasi": {
+        "title": "SumberRekomendasi",
+        "enum": [
+          "model",
+          "aturan"
+        ],
+        "type": "string"
+      },
+      "SumberTandaVital": {
+        "title": "SumberTandaVital",
+        "enum": [
+          "manual",
+          "pemindaian",
+          "campuran"
+        ],
+        "type": "string"
+      },
+      "TandaVitalResponse": {
+        "title": "TandaVitalResponse",
+        "required": [
+          "td_sistolik",
+          "td_diastolik",
+          "nadi",
+          "laju_napas",
+          "suhu",
+          "saturasi"
+        ],
+        "type": "object",
+        "properties": {
+          "td_sistolik": {
+            "title": "Td Sistolik",
+            "type": "integer"
+          },
+          "td_diastolik": {
+            "title": "Td Diastolik",
+            "type": "integer"
+          },
+          "nadi": {
+            "title": "Nadi",
+            "type": "integer"
+          },
+          "laju_napas": {
+            "title": "Laju Napas",
+            "type": "integer"
+          },
+          "suhu": {
+            "title": "Suhu",
+            "type": "number"
+          },
+          "saturasi": {
+            "title": "Saturasi",
+            "type": "number"
+          }
+        }
+      },
+      "TingkatKesadaran": {
+        "title": "TingkatKesadaran",
+        "enum": [
+          "A",
+          "V",
+          "P",
+          "U"
+        ],
+        "type": "string",
+        "description": "Skala AVPU."
+      },
+      "TriaseInput": {
+        "title": "TriaseInput",
+        "required": [
+          "keluhan_utama",
+          "gejala",
+          "kategori_keluhan",
+          "skala_nyeri",
+          "tingkat_kesadaran",
+          "tanda_vital"
+        ],
+        "type": "object",
+        "properties": {
+          "keluhan_utama": {
+            "title": "Keluhan Utama",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "gejala": {
+            "title": "Gejala",
+            "maxLength": 2000,
+            "minLength": 10,
+            "type": "string"
+          },
+          "kategori_keluhan": {
+            "$ref": "#/components/schemas/KategoriKeluhan"
+          },
+          "skala_nyeri": {
+            "title": "Skala Nyeri",
+            "maximum": 10,
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "tingkat_kesadaran": {
+            "$ref": "#/components/schemas/TingkatKesadaran",
+            "description": "AVPU: A sadar penuh, V suara, P nyeri, U tidak respons."
+          },
+          "tanda_vital": {
+            "$ref": "#/components/schemas/TandaVital"
+          },
+          "id_pemindaian": {
+            "title": "Id Pemindaian",
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Hasil POST /pemindaian yang nilainya dipakai di form ini."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Isian form triase (Desain Gambar 2.8). Kategori keluhan dan skala nyeri wajib (keputusan K3)."
+      },
+      "TandaVital": {
+        "title": "TandaVital",
+        "required": [
+          "td_sistolik",
+          "td_diastolik",
+          "nadi",
+          "laju_napas",
+          "suhu",
+          "saturasi"
+        ],
+        "type": "object",
+        "properties": {
+          "td_sistolik": {
+            "title": "Td Sistolik",
+            "maximum": 320,
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "td_diastolik": {
+            "title": "Td Diastolik",
+            "maximum": 200,
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "nadi": {
+            "title": "Nadi",
+            "maximum": 300,
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "laju_napas": {
+            "title": "Laju Napas",
+            "maximum": 80,
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "suhu": {
+            "title": "Suhu",
+            "anyOf": [
+              {
+                "maximum": 45.0,
+                "minimum": 20.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "saturasi": {
+            "title": "Saturasi",
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "Batas di sini adalah nilai yang mungkin dicatat (sama dengan CHECK di basis data).\n\nNilai yang mungkin tetapi tidak wajar, misalnya saturasi 85%, tetap diterima lalu ditandai\nsebagai peringatan (Desain 2.3)."
+      },
+      "ValidasiRequest": {
+        "title": "ValidasiRequest",
+        "required": [
+          "aksi"
+        ],
+        "type": "object",
+        "properties": {
+          "aksi": {
+            "title": "Aksi",
+            "enum": [
+              "setujui",
+              "koreksi",
+              "ajukan_review"
+            ],
+            "type": "string"
+          },
+          "risk_level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskLevel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Level hasil koreksi. Hanya diisi untuk aksi koreksi.",
+            "default": null
+          },
+          "alasan": {
+            "title": "Alasan",
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 0,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wajib minimal 5 karakter untuk koreksi dan ajuan review. Boleh diisi saat menyetujui.",
+            "default": null
+          }
+        },
+        "additionalProperties": false,
+        "description": "Desain Gambar 2.17. Alasan wajib minimal lima karakter untuk koreksi dan ajuan review (NFR-06)."
+      },
+      "RiwayatResponse": {
+        "title": "RiwayatResponse",
+        "required": [
+          "pasien",
+          "items",
+          "kursor_berikutnya"
+        ],
+        "type": "object",
+        "properties": {
+          "pasien": {
+            "$ref": "#/components/schemas/PasienTriase"
+          },
+          "items": {
+            "title": "Items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRiwayat"
+            }
+          },
+          "kursor_berikutnya": {
+            "title": "Kursor Berikutnya",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null bila sudah halaman terakhir."
+          }
+        }
+      },
+      "ItemRiwayat": {
+        "title": "ItemRiwayat",
+        "required": [
+          "id_triase",
+          "jenis",
+          "waktu_triase",
+          "keluhan_utama",
+          "kategori_keluhan",
+          "risk_level",
+          "sumber_rekomendasi",
+          "status_validasi",
+          "tanda_vital",
+          "dibuat_oleh",
+          "divalidasi_oleh",
+          "kunjungan"
+        ],
+        "type": "object",
+        "properties": {
+          "id_triase": {
+            "title": "Id Triase",
+            "type": "string",
+            "format": "uuid"
+          },
+          "jenis": {
+            "$ref": "#/components/schemas/JenisTriase"
+          },
+          "waktu_triase": {
+            "title": "Waktu Triase",
+            "type": "string",
+            "format": "date-time"
+          },
+          "keluhan_utama": {
+            "title": "Keluhan Utama",
+            "type": "string"
+          },
+          "kategori_keluhan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KategoriKeluhan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "risk_level": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "sumber_rekomendasi": {
+            "$ref": "#/components/schemas/SumberRekomendasi"
+          },
+          "status_validasi": {
+            "$ref": "#/components/schemas/StatusValidasi"
+          },
+          "tanda_vital": {
+            "$ref": "#/components/schemas/TandaVitalResponse"
+          },
+          "dibuat_oleh": {
+            "$ref": "#/components/schemas/PenggunaRingkas"
+          },
+          "divalidasi_oleh": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PenggunaRingkas"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kunjungan": {
+            "$ref": "#/components/schemas/KunjunganRiwayat"
+          }
+        }
+      },
+      "KunjunganRiwayat": {
+        "title": "KunjunganRiwayat",
+        "required": [
+          "id_kunjungan",
+          "waktu_datang",
+          "waktu_ditangani",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "id_kunjungan": {
+            "title": "Id Kunjungan",
+            "type": "string",
+            "format": "uuid"
+          },
+          "waktu_datang": {
+            "title": "Waktu Datang",
+            "type": "string",
+            "format": "date-time"
+          },
+          "waktu_ditangani": {
+            "title": "Waktu Ditangani",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusKunjungan"
+          }
+        }
+      },
+      "HasilPemindaianResponse": {
+        "title": "HasilPemindaianResponse",
+        "required": [
+          "id_pemindaian",
+          "jenis_alat",
+          "nilai",
+          "keyakinan",
+          "kolom_kosong",
+          "pembaca_tersedia"
+        ],
+        "type": "object",
+        "properties": {
+          "id_pemindaian": {
+            "title": "Id Pemindaian",
+            "type": "string",
+            "description": "Dikirim lewat field id_pemindaian di form triase.",
+            "format": "uuid"
+          },
+          "jenis_alat": {
+            "$ref": "#/components/schemas/JenisAlat"
+          },
+          "nilai": {
+            "title": "Nilai",
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Nilai per kolom tanda vital. null berarti kolom dibiarkan kosong untuk diisi manual."
+          },
+          "keyakinan": {
+            "title": "Keyakinan",
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Keyakinan model per kolom, null bila tidak terbaca."
+          },
+          "kolom_kosong": {
+            "title": "Kolom Kosong",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pembaca_tersedia": {
+            "title": "Pembaca Tersedia",
+            "type": "boolean",
+            "description": "false bila model pembaca layar belum dimuat; semua kolom kosong."
+          }
+        }
+      },
+      "JenisAlat": {
+        "title": "JenisAlat",
+        "enum": [
+          "tensimeter",
+          "oksimeter",
+          "termometer",
+          "bedside_monitor"
+        ],
+        "type": "string"
+      },
+      "UnggahFoto": {
+        "title": "UnggahFoto",
+        "required": [
+          "jenis_alat",
+          "berkas"
+        ],
+        "type": "object",
+        "properties": {
+          "jenis_alat": {
+            "$ref": "#/components/schemas/JenisAlat"
+          },
+          "berkas": {
+            "title": "Berkas",
+            "type": "string",
+            "description": "Foto layar alat (JPEG atau PNG, maksimal 5 MB).",
+            "format": "binary"
+          }
+        },
+        "description": "Desain Gambar 2.11. Foto JPEG atau PNG maksimal 5 MB, diproses di memori lalu dibuang."
+      },
+      "DaftarTungguResponse": {
+        "title": "DaftarTungguResponse",
+        "required": [
+          "items",
+          "waktu_server"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "title": "Items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemDaftarTunggu"
+            }
+          },
+          "waktu_server": {
+            "title": "Waktu Server",
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ItemDaftarTunggu": {
+        "title": "ItemDaftarTunggu",
+        "required": [
+          "id_kunjungan",
+          "pasien",
+          "waktu_datang",
+          "triase_terakhir",
+          "lama_menunggu_menit",
+          "batas_tunggu_menit",
+          "status_tanda",
+          "menunggu_validasi",
+          "review_diajukan",
+          "ringkasan_eir_siap"
+        ],
+        "type": "object",
+        "properties": {
+          "id_kunjungan": {
+            "title": "Id Kunjungan",
+            "type": "string",
+            "format": "uuid"
+          },
+          "pasien": {
+            "$ref": "#/components/schemas/PasienTriase"
+          },
+          "waktu_datang": {
+            "title": "Waktu Datang",
+            "type": "string",
+            "format": "date-time"
+          },
+          "triase_terakhir": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TriaseTerakhir"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lama_menunggu_menit": {
+            "title": "Lama Menunggu Menit",
+            "type": "integer",
+            "description": "Sejak triase terakhir, atau sejak datang bila belum ditriase."
+          },
+          "batas_tunggu_menit": {
+            "title": "Batas Tunggu Menit",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Batas dari konfigurasi; null untuk kritis dan belum ditriase."
+          },
+          "status_tanda": {
+            "title": "Status Tanda",
+            "enum": [
+              "belum_ditriase",
+              "perlu_triase_ulang",
+              "normal"
+            ],
+            "type": "string"
+          },
+          "menunggu_validasi": {
+            "title": "Menunggu Validasi",
+            "type": "boolean"
+          },
+          "review_diajukan": {
+            "title": "Review Diajukan",
+            "type": "boolean"
+          },
+          "ringkasan_eir_siap": {
+            "title": "Ringkasan Eir Siap",
+            "type": "boolean",
+            "description": "Sesi Eir terakhir selesai dengan ringkasan yang belum dipakai untuk triase berikutnya."
+          }
+        }
+      },
+      "TriaseTerakhir": {
+        "title": "TriaseTerakhir",
+        "required": [
+          "id_triase",
+          "jenis",
+          "risk_level",
+          "status_validasi",
+          "keluhan_utama",
+          "waktu_triase"
+        ],
+        "type": "object",
+        "properties": {
+          "id_triase": {
+            "title": "Id Triase",
+            "type": "string",
+            "format": "uuid"
+          },
+          "jenis": {
+            "$ref": "#/components/schemas/JenisTriase"
+          },
+          "risk_level": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "status_validasi": {
+            "$ref": "#/components/schemas/StatusValidasi"
+          },
+          "keluhan_utama": {
+            "title": "Keluhan Utama",
+            "type": "string"
+          },
+          "waktu_triase": {
+            "title": "Waktu Triase",
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DaftarPeringatanResponse": {
+        "title": "DaftarPeringatanResponse",
+        "required": [
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "title": "Items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemPeringatan"
+            }
+          }
+        }
+      },
+      "ItemPeringatan": {
+        "title": "ItemPeringatan",
+        "required": [
+          "jenis",
+          "id_kunjungan",
+          "id_triase",
+          "id_sesi",
+          "pasien",
+          "risk_level",
+          "alasan",
+          "waktu"
+        ],
+        "type": "object",
+        "properties": {
+          "jenis": {
+            "title": "Jenis",
+            "enum": [
+              "kritis_belum_divalidasi",
+              "level_naik",
+              "tanda_bahaya_eir"
+            ],
+            "type": "string"
+          },
+          "id_kunjungan": {
+            "title": "Id Kunjungan",
+            "type": "string",
+            "format": "uuid"
+          },
+          "id_triase": {
+            "title": "Id Triase",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id_sesi": {
+            "title": "Id Sesi",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pasien": {
+            "$ref": "#/components/schemas/PasienPeringatan"
+          },
+          "risk_level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "alasan": {
+            "title": "Alasan",
+            "type": "string"
+          },
+          "waktu": {
+            "title": "Waktu",
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PasienPeringatan": {
+        "title": "PasienPeringatan",
+        "required": [
+          "id_pasien",
+          "nama"
+        ],
+        "type": "object",
+        "properties": {
+          "id_pasien": {
+            "title": "Id Pasien",
+            "type": "string",
+            "format": "uuid"
+          },
+          "nama": {
+            "title": "Nama",
+            "type": "string"
+          }
+        }
+      },
+      "RekapResponse": {
+        "title": "RekapResponse",
+        "required": [
+          "dari",
+          "sampai",
+          "total_triase",
+          "per_level",
+          "rata_tunggu_menit",
+          "persen_koreksi",
+          "triase_ulang",
+          "akurasi_pemindaian"
+        ],
+        "type": "object",
+        "properties": {
+          "dari": {
+            "title": "Dari",
+            "type": "string",
+            "format": "date"
+          },
+          "sampai": {
+            "title": "Sampai",
+            "type": "string",
+            "format": "date"
+          },
+          "total_triase": {
+            "title": "Total Triase",
+            "type": "integer"
+          },
+          "per_level": {
+            "title": "Per Level",
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "rata_tunggu_menit": {
+            "title": "Rata Tunggu Menit",
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Rata-rata menit dari datang sampai ditangani, menurut level triase terakhir kunjungan."
+          },
+          "persen_koreksi": {
+            "title": "Persen Koreksi",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Triase yang dikoreksi dokter dibagi semua triase, dalam persen."
+          },
+          "triase_ulang": {
+            "title": "Triase Ulang",
+            "type": "integer"
+          },
+          "akurasi_pemindaian": {
+            "title": "Akurasi Pemindaian",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Persen kolom hasil pemindaian yang sama dengan nilai konfirmasi perawat; null bila belum ada."
+          }
+        }
+      },
+      "LogAuditResponse": {
+        "title": "LogAuditResponse",
+        "required": [
+          "items",
+          "kursor_berikutnya"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "title": "Items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemLogAudit"
+            }
+          },
+          "kursor_berikutnya": {
+            "title": "Kursor Berikutnya",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AksiAudit": {
+        "title": "AksiAudit",
+        "enum": [
+          "setujui",
+          "koreksi",
+          "ajukan_review",
+          "ubah_konfigurasi",
+          "tambah_staf",
+          "ubah_staf",
+          "nonaktifkan_staf",
+          "aktifkan_staf",
+          "atur_ulang_password",
+          "registrasi_kunjungan"
+        ],
+        "type": "string"
+      },
+      "ItemLogAudit": {
+        "title": "ItemLogAudit",
+        "required": [
+          "id_log",
+          "waktu",
+          "aksi",
+          "aktor",
+          "id_triase",
+          "level_sebelum",
+          "level_sesudah",
+          "catatan"
+        ],
+        "type": "object",
+        "properties": {
+          "id_log": {
+            "title": "Id Log",
+            "type": "string",
+            "format": "uuid"
+          },
+          "waktu": {
+            "title": "Waktu",
+            "type": "string",
+            "format": "date-time"
+          },
+          "aksi": {
+            "$ref": "#/components/schemas/AksiAudit"
+          },
+          "aktor": {
+            "$ref": "#/components/schemas/PenggunaRingkas"
+          },
+          "id_triase": {
+            "title": "Id Triase",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "level_sebelum": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "level_sesudah": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "catatan": {
+            "title": "Catatan",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "SesiEirDibuatResponse": {
+        "title": "SesiEirDibuatResponse",
+        "required": [
+          "id_sesi",
+          "token_sesi",
+          "kedaluwarsa",
+          "pesan"
+        ],
+        "type": "object",
+        "properties": {
+          "id_sesi": {
+            "title": "Id Sesi",
+            "type": "string",
+            "format": "uuid"
+          },
+          "token_sesi": {
+            "title": "Token Sesi",
+            "type": "string",
+            "description": "Dikirim lewat header X-Token-Eir pada pesan berikutnya."
+          },
+          "kedaluwarsa": {
+            "title": "Kedaluwarsa",
+            "type": "string",
+            "format": "date-time"
+          },
+          "pesan": {
+            "title": "Pesan",
+            "type": "string",
+            "description": "Pertanyaan pertama Eir."
+          }
+        }
+      },
+      "BukaSesiEirRequest": {
+        "title": "BukaSesiEirRequest",
+        "required": [
+          "token",
+          "setuju",
+          "pengisi"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "title": "Token",
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "setuju": {
+            "title": "Setuju",
+            "type": "boolean"
+          },
+          "pengisi": {
+            "$ref": "#/components/schemas/PengisiEir"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BalasanEirResponse": {
+        "title": "BalasanEirResponse",
+        "required": [
+          "status",
+          "pesan",
+          "jumlah_jawaban",
+          "boleh_selesai"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/StatusSesiEir"
+          },
+          "pesan": {
+            "title": "Pesan",
+            "type": "string",
+            "description": "Pertanyaan berikutnya, penutup, atau arahan menemui perawat."
+          },
+          "jumlah_jawaban": {
+            "title": "Jumlah Jawaban",
+            "type": "integer"
+          },
+          "boleh_selesai": {
+            "title": "Boleh Selesai",
+            "type": "boolean",
+            "description": "true bila jawaban sudah cukup untuk menekan Selesai."
+          },
+          "transkripsi": {
+            "title": "Transkripsi",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hasil ubah suara ke teks (khusus mode suara).",
+            "default": null
+          }
+        }
+      },
+      "PesanEirRequest": {
+        "title": "PesanEirRequest",
+        "required": [
+          "teks"
+        ],
+        "type": "object",
+        "properties": {
+          "teks": {
+            "title": "Teks",
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UnggahSuara": {
+        "title": "UnggahSuara",
+        "required": [
+          "berkas"
+        ],
+        "type": "object",
+        "properties": {
+          "berkas": {
+            "title": "Berkas",
+            "type": "string",
+            "description": "Rekaman suara (webm, ogg, mp3, m4a, atau wav, maksimal 5 MB).",
+            "format": "binary"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "title": "ProblemDetails",
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "detail": {
+            "title": "Detail",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "instance": {
+            "title": "Instance",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "errors": {
+            "title": "Errors",
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FieldError"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "description": "Bentuk respons error untuk dokumentasi OpenAPI."
+      },
+      "FieldError": {
+        "title": "FieldError",
+        "required": [
+          "field",
+          "pesan"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "pesan": {
+            "title": "Pesan",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "cookieAccess": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access_token_cookie"
+      },
+      "cookieRefresh": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "refresh_token_cookie"
+      },
+      "tokenEir": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Token-Eir"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Autentikasi"
+    },
+    {
+      "name": "Sistem"
+    },
+    {
+      "name": "Admin"
+    },
+    {
+      "name": "Kunjungan"
+    },
+    {
+      "name": "Triase"
+    },
+    {
+      "name": "Pemindaian"
+    },
+    {
+      "name": "Antrean"
+    },
+    {
+      "name": "Rekap"
+    },
+    {
+      "name": "Eir"
+    }
+  ]
+}

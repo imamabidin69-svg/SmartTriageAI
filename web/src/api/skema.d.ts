@@ -386,7 +386,7 @@ export interface paths {
         };
         /**
          * Daftar tunggu pasien beserta penanda triase ulang
-         * @description Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu.
+         * @description Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu. ringkasan_eir_siap bernilai true bila sesi Eir terakhir selesai dengan ringkasan dan belum ada triase sesudahnya.
          */
         get: operations["antrean_daftar_tunggu_daftar_tunggu_get"];
         put?: never;
@@ -1341,6 +1341,11 @@ export interface components {
             menunggu_validasi: boolean;
             /** Review Diajukan */
             review_diajukan: boolean;
+            /**
+             * Ringkasan Eir Siap
+             * @description Sesi Eir terakhir selesai dengan ringkasan yang belum dipakai untuk triase berikutnya.
+             */
+            ringkasan_eir_siap: boolean;
         };
         /** TriaseTerakhir */
         TriaseTerakhir: {

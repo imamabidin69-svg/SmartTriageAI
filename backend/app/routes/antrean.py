@@ -47,6 +47,7 @@ def _item_respons(item: ItemDaftarTunggu) -> ItemDaftarTungguResponse:
         status_tanda=item.status_tanda,
         menunggu_validasi=item.menunggu_validasi,
         review_diajukan=item.review_diajukan,
+        ringkasan_eir_siap=item.ringkasan_eir_siap,
     )
 
 
@@ -56,7 +57,8 @@ def _item_respons(item: ItemDaftarTunggu) -> ItemDaftarTungguResponse:
     description=(
         "Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase "
         "terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. "
-        "Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu."
+        "Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu. ringkasan_eir_siap bernilai true "
+        "bila sesi Eir terakhir selesai dengan ringkasan dan belum ada triase sesudahnya."
     ),
     responses={200: DaftarTungguResponse, **respons_problem_doc(401, 403)},
 )

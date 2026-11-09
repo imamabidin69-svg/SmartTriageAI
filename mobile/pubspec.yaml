@@ -1,0 +1,54 @@
+name: smarttriage_mobile
+description: "Aplikasi SmartTriage AI untuk perawat dan dokter IGD"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.47.0"
+
+# Versi dikunci persis; pubspec.lock ikut di-commit supaya hasil build sama di setiap laptop.
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  dio: 5.11.1
+  flutter_riverpod: 3.4.3
+  flutter_secure_storage: 11.2.0
+  go_router: 18.1.0
+  image_picker: 1.2.4
+  intl: 0.20.3
+  json_annotation: 4.12.0
+  qr_flutter: 4.1.0
+  retrofit: 4.10.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: 2.16.2
+  flutter_lints: 6.0.0
+  json_serializable: 6.14.1
+  mocktail: 1.0.5
+  retrofit_generator: 10.2.12
+  # source_helper 1.4.0 bentrok dengan json_serializable 6.14.1, jadi dikunci ke versi sebelumnya.
+  source_helper: 1.3.13
+  swagger_parser: 1.45.0
+
+flutter:
+  uses-material-design: true
+
+# Klien Dart dibangkitkan dari spesifikasi OpenAPI backend (Desain v2.0 bagian 6, keputusan M2).
+# Endpoint admin, rekap, dan Eir tidak dipakai aplikasi perawat dan dokter, jadi tidak ikut dibangkitkan.
+swagger_parser:
+  schema_path: openapi.json
+  output_directory: lib/api/generated
+  language: dart
+  json_serializer: json_serializable
+  root_client: true
+  root_client_name: KlienApiDasar
+  put_clients_in_folder: true
+  exclude_tags:
+    - Admin
+    - Rekap
+    - Eir

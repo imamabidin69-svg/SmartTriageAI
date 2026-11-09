@@ -1,6 +1,7 @@
 """Daftar tunggu dan penanda triase ulang (FR-07, Desain 2.7 dan Gambar 2.19-2.21).
 
-Penanda dihitung saat request dibaca, jadi tidak ada penjadwal maupun pekerjaan latar.
+Penanda dihitung saat request dibaca, jadi tidak ada penjadwal maupun pekerjaan latar. Penanda "Ringkasan Eir
+siap" (mockup SKPL Gambar 7.1, keputusan M4) juga dihitung di sini.
 """
 
 from dataclasses import dataclass
@@ -10,8 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
 from app.extensions import db
-from app.models import Kunjungan, Pasien, Triase
-from app.models.enums import RiskLevel, StatusKunjungan, StatusValidasi
+from app.models import Kunjungan, Pasien, SesiEir, Triase
+from app.models.enums import RiskLevel, StatusKunjungan, StatusSesiEir, StatusValidasi
 from app.services.konfigurasi_service import NilaiKonfigurasi
 from app.utils.waktu import WIB, usia_pasien
 
@@ -28,6 +29,7 @@ class ItemDaftarTunggu:
     lama_menunggu: int
     batas_tunggu: int | None
     status_tanda: str
+    ringkasan_eir_siap: bool = False
 
     @property
     def menunggu_validasi(self) -> bool:
@@ -39,6 +41,24 @@ class ItemDaftarTunggu:
             self.triase_terakhir is not None
             and self.triase_terakhir.status_validasi == StatusValidasi.MENUNGGU_REVIEW_DOKTER
         )
+
+
+def sesi_eir_terakhir_per_kunjungan():
+    """Satu sesi Eir terbaru untuk setiap kunjungan, dengan urutan yang sama seperti GET /ringkasan-eir."""
+    return (
+        select(SesiEir)
+        .distinct(SesiEir.id_kunjungan)
+        .order_by(SesiEir.id_kunjungan, SesiEir.waktu_persetujuan.desc(), SesiEir.id_sesi.desc())
+        .subquery()
+    )
+
+
+def ringkasan_eir_siap(sesi: SesiEir | None, triase: Triase | None) -> bool:
+    """Sesi terakhir selesai dengan ringkasan dan belum ada triase sesudahnya. Setelah perawat melakukan triase
+    ulang, ringkasan itu dianggap sudah dipakai sehingga penandanya hilang."""
+    if sesi is None or sesi.status != StatusSesiEir.SELESAI or not sesi.ringkasan or sesi.waktu_selesai is None:
+        return False
+    return triase is None or sesi.waktu_selesai > triase.waktu_triase
 
 
 def triase_terakhir_per_kunjungan():
@@ -57,17 +77,30 @@ class DaftarTungguService:
 
     def susun(self, sekarang: datetime) -> list[ItemDaftarTunggu]:
         terakhir = aliased(Triase, triase_terakhir_per_kunjungan())
+        sesi_terakhir = aliased(SesiEir, sesi_eir_terakhir_per_kunjungan())
         baris = db.session.execute(
-            select(Kunjungan, Pasien, terakhir)
+            select(Kunjungan, Pasien, terakhir, sesi_terakhir)
             .join(Pasien, Pasien.id_pasien == Kunjungan.id_pasien)
             .outerjoin(terakhir, terakhir.id_kunjungan == Kunjungan.id_kunjungan)
+            .outerjoin(sesi_terakhir, sesi_terakhir.id_kunjungan == Kunjungan.id_kunjungan)
             .where(Kunjungan.status == StatusKunjungan.MENUNGGU)
         ).all()
         hari = sekarang.astimezone(WIB).date()
-        items = [self._item(kunjungan, pasien, triase, sekarang, hari) for kunjungan, pasien, triase in baris]
+        items = [
+            self._item(kunjungan, pasien, triase, sekarang, hari, ringkasan_eir_siap(sesi, triase))
+            for kunjungan, pasien, triase, sesi in baris
+        ]
         return sorted(items, key=self._kunci_urut)
 
-    def _item(self, kunjungan: Kunjungan, pasien: Pasien, triase: Triase | None, sekarang: datetime, hari):
+    def _item(
+        self,
+        kunjungan: Kunjungan,
+        pasien: Pasien,
+        triase: Triase | None,
+        sekarang: datetime,
+        hari,
+        eir_siap: bool = False,
+    ):
         acuan = kunjungan.waktu_datang if triase is None else triase.waktu_triase
         lama = max(0, int((sekarang - acuan).total_seconds() // 60))
         batas = None if triase is None else self.konfigurasi.batas_tunggu(triase.risk_level)
@@ -85,6 +118,7 @@ class DaftarTungguService:
             lama_menunggu=lama,
             batas_tunggu=batas,
             status_tanda=tanda,
+            ringkasan_eir_siap=eir_siap,
         )
 
     @staticmethod

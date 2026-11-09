@@ -13,6 +13,9 @@ Yang sudah dikerjakan:
 - Tahap 3: pemindaian layar alat (YOLO ONNX) dan skrip pelatihan di `ai_training/`.
 - Tahap 4: asisten anamnesis Eir.
 - Tahap 5: SpaRoute yang menyajikan aplikasi web admin dan halaman Eir dari folder `web/` di root repo.
+- Tahap 6: penanda `ringkasan_eir_siap` di daftar tunggu untuk aplikasi mobile Flutter di folder `mobile/`.
+
+Kumpulan perintah PowerShell untuk Windows ada di `PERINTAH-TERMINAL.md` di root repo.
 
 ## Kebutuhan
 
@@ -20,6 +23,8 @@ Yang sudah dikerjakan:
 - PostgreSQL 16 (paling mudah lewat Docker Compose di folder ini)
 
 ## Menjalankan di lokal
+
+Linux atau macOS:
 
 ```bash
 cd backend
@@ -33,6 +38,23 @@ python3.12 -m venv .venv
 .venv/bin/flask seed-demo       # akun demo admin, perawat, dan dokter
 .venv/bin/flask seed-demo --dengan-pasien   # opsional: pasien, kunjungan, dan triase simulasi
 .venv/bin/flask run --debug     # http://127.0.0.1:5000/api/v1/health
+```
+
+Windows (PowerShell di VS Code). Perintahnya sama, hanya cara memanggil venv yang berbeda. Memanggil lewat
+`python -m` menghindari error `'flask' is not recognized`:
+
+```powershell
+cd backend
+Copy-Item .env.example .env       # isi rahasia, password basis data, dan password akun demo
+docker compose up -d db           # Docker Desktop harus sudah menyala
+
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1      # bila ditolak: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+python -m pip install -r requirements-dev.txt
+
+python -m flask db upgrade
+python -m flask seed-demo
+python -m flask run --debug       # tambahkan --host 0.0.0.0 agar bisa dibuka dari HP di WiFi yang sama
 ```
 
 Dengan `APP_ENV=development`, dokumentasi API bisa dibuka di `http://127.0.0.1:5000/api/v1/openapi/swagger`.
@@ -73,7 +95,7 @@ check membalas 503.
 | `GET /api/v1/triase/{id}` | perawat, dokter | Detail triase dalam bentuk yang sama dengan respons POST |
 | `POST /api/v1/triase/{id}/validasi` | perawat, dokter | Setujui, koreksi, atau ajukan review; tercatat di log audit dalam transaksi yang sama |
 | `PATCH /api/v1/kunjungan/{id}/status` | dokter | Tandai pasien mulai ditangani atau selesai |
-| `GET /api/v1/daftar-tunggu` | perawat, dokter | Kunjungan yang masih menunggu beserta triase terakhir, lama menunggu, dan penanda triase ulang |
+| `GET /api/v1/daftar-tunggu` | perawat, dokter | Kunjungan yang masih menunggu beserta triase terakhir, lama menunggu, penanda triase ulang, dan `ringkasan_eir_siap` (sesi Eir terakhir selesai dan belum ada triase sesudahnya) |
 | `GET /api/v1/peringatan` | perawat, dokter | Triase kritis belum divalidasi, triase ulang yang levelnya naik, dan tanda bahaya Eir |
 | `GET /api/v1/pasien/{id}/riwayat` | perawat, dokter | Riwayat triase pasien dari semua kunjungan, dengan kursor halaman |
 | `GET /api/v1/admin/staf` | admin | Daftar staf, filter opsional `peran` dan `aktif` |
@@ -164,6 +186,11 @@ yang memprosesnya; worker Gunicorn lain menyesuaikan paling lambat 60 detik kemu
 | Perawat | perawat@smarttriage.demo   | `SEED_PASSWORD_PERAWAT` |
 | Dokter  | dokter@smarttriage.demo    | `SEED_PASSWORD_DOKTER`  |
 
+`seed-demo` hanya membuat akun yang belum ada; password akun yang sudah ada tidak diubah. Bila login ditolak padahal
+password sudah sesuai `.env`, berarti akun dibuat sebelum `.env` diisi. Samakan lewat `python -m flask shell`
+(perintah lengkapnya ada di `PERINTAH-TERMINAL.md`). Akun di README root milik prototipe Next.js lama dan tidak
+berlaku di backend ini.
+
 `flask seed-demo --dengan-pasien` menambahkan tujuh pasien simulasi (nama fiktif, tanpa NIK). Isinya mencakup satu
 pasien yang belum ditriase, satu ajuan review, dan satu triase ulang yang levelnya naik, sehingga daftar tunggu dan
 peringatan langsung bisa dicoba.
@@ -188,6 +215,8 @@ database harus berakhiran `_test` karena database itu dihapus dan dibuat ulang s
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
 ```
+
+Di Windows dengan venv aktif: `python -m pytest`, `ruff check .`, dan `ruff format --check .`.
 
 ## Dependensi
 

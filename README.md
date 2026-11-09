@@ -7,6 +7,13 @@ Proyek Tugas Akhir mata kuliah Pemrograman Web, D3 Teknik Informatika Kab. Madiu
 **Live:** https://smart-triage-ai-eta.vercel.app
 **Repo:** https://github.com/imamabidin69-svg/SmartTriageAI
 
+> **Catatan versi 3.0.** Isi README ini menjelaskan prototipe Next.js lama yang masih disimpan sebagai acuan
+> tampilan. Sistem versi 3.0 (SKPL v3.0, Desain Arsitektur Backend v2.0) ada di tiga folder:
+> [`backend/`](backend/README.md) untuk Flask dan REST API, [`web/`](web/README.md) untuk web admin dan halaman Eir,
+> serta [`mobile/`](mobile/README.md) untuk aplikasi Android perawat dan dokter. Akun demo di tabel bawah hanya
+> berlaku di prototipe; akun demo versi 3.0 ada di `backend/README.md`. Kumpulan perintah terminal untuk Windows
+> ada di [`PERINTAH-TERMINAL.md`](PERINTAH-TERMINAL.md).
+
 ## Peran Pengguna
 
 Ada tujuh peran, masing-masing dengan halaman dan wewenang sendiri: Perawat menginput triase dan mendaftarkan pasien darurat; DPJ memvalidasi dan mengoreksi kasus kritis; Petugas Pendaftaran mengurus identitas pasien; Admin Faskes mengelola akun staf dan melihat laporan fasilitasnya; Super Admin mengatur seluruh faskes serta konfigurasi model AI; Auditor melihat log aktivitas lintas-faskes; dan Dinas Kesehatan mengakses laporan regional secara read-only. Wewenang tiap peran ditegakkan di server (Route Handler), bukan cuma disembunyikan di tampilan — jadi tidak bisa dilewati dengan memanggil API langsung.
@@ -21,7 +28,8 @@ npm run dev                  # http://localhost:3000
 
 Untuk build produksi: `npm run build && npm start`.
 
-Login memakai email dan password sungguhan (di-hash dengan scrypt). Akun demo:
+Login memakai email dan password sungguhan (di-hash dengan scrypt). Akun demo khusus prototipe ini (tidak berlaku
+di backend Flask versi 3.0):
 
 | Peran | Email | Password | Faskes |
 |---|---|---|---|

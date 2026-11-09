@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- INTERNET dipakai alat Flutter untuk hot reload dan debugging. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Hanya build debug yang boleh memakai HTTP biasa, supaya emulator atau HP bisa memanggil Flask di laptop
+         (misalnya http://10.0.2.2:5000). Build rilis wajib HTTPS. -->
+    <application android:usesCleartextTraffic="true"/>
+</manifest>

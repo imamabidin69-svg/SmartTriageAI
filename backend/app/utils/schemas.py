@@ -476,6 +476,9 @@ class ItemDaftarTunggu(BaseModel):
     status_tanda: Literal["belum_ditriase", "perlu_triase_ulang", "normal"]
     menunggu_validasi: bool
     review_diajukan: bool
+    ringkasan_eir_siap: bool = Field(
+        description="Sesi Eir terakhir selesai dengan ringkasan yang belum dipakai untuk triase berikutnya."
+    )
 
 
 class DaftarTungguResponse(BaseModel):

@@ -5,9 +5,9 @@ from datetime import date, datetime, timedelta
 import pytest
 from sqlalchemy import update
 
-from app.models import Konfigurasi
-from app.models.enums import Peran, RiskLevel, StatusKunjungan, StatusValidasi
-from app.services.daftar_tunggu_service import DaftarTungguService
+from app.models import Konfigurasi, SesiEir
+from app.models.enums import PengisiEir, Peran, RiskLevel, StatusKunjungan, StatusSesiEir, StatusValidasi
+from app.services.daftar_tunggu_service import DaftarTungguService, ringkasan_eir_siap
 from app.services.konfigurasi_service import cache_konfigurasi
 from app.utils.waktu import sekarang
 
@@ -57,6 +57,7 @@ def test_isi_item_daftar_tunggu(client, perawat, buat_kunjungan, buat_triase):
     assert item["status_tanda"] == "normal"
     assert item["menunggu_validasi"] is True
     assert item["review_diajukan"] is False
+    assert item["ringkasan_eir_siap"] is False
 
 
 def test_pasien_belum_ditriase_dihitung_sejak_datang(client, perawat, buat_kunjungan):
@@ -167,3 +168,94 @@ def test_peran_daftar_tunggu(client, masuk, peran, status):
 
 def test_daftar_tunggu_tanpa_login(client):
     assert client.get(URL).status_code == 401
+
+
+# ---------------------------------------------------------------- penanda ringkasan Eir siap (keputusan M4)
+
+RINGKASAN = {
+    "keluhan_utama": "Pusing",
+    "gejala": "Pusing sejak pagi",
+    "onset": "pagi ini",
+    "kategori_keluhan": "Pusing",
+}
+
+
+def _sesi_eir(sesi_db, kunjungan, mulai, status=StatusSesiEir.SELESAI, ringkasan=RINGKASAN, selesai_menit=5):
+    sesi = SesiEir(
+        id_kunjungan=kunjungan.id_kunjungan,
+        pengisi=PengisiEir.KELUARGA,
+        waktu_persetujuan=mulai,
+        status=status,
+        ringkasan=ringkasan,
+        waktu_selesai=None if status == StatusSesiEir.BERJALAN else mulai + timedelta(minutes=selesai_menit),
+        transkrip=[],
+    )
+    sesi_db.add(sesi)
+    sesi_db.flush()
+    return sesi
+
+
+def test_ringkasan_eir_siap_setelah_sesi_selesai(client, perawat, buat_kunjungan, buat_triase, sesi_db):
+    waktu = sekarang()
+    kunjungan = buat_kunjungan("Dewi", _menit_lalu(waktu, 40))
+    buat_triase(kunjungan, RiskLevel.RENDAH, waktu=_menit_lalu(waktu, 30))
+    _sesi_eir(sesi_db, kunjungan, _menit_lalu(waktu, 20))
+    _, header = perawat
+    [item] = client.get(URL, headers=header).get_json()["items"]
+    assert item["ringkasan_eir_siap"] is True
+
+
+def test_ringkasan_eir_hilang_setelah_triase_ulang(app, buat_kunjungan, buat_triase, sesi_db):
+    waktu = sekarang()
+    kunjungan = buat_kunjungan("Dewi", _menit_lalu(waktu, 60))
+    buat_triase(kunjungan, RiskLevel.RENDAH, waktu=_menit_lalu(waktu, 50))
+    _sesi_eir(sesi_db, kunjungan, _menit_lalu(waktu, 40))
+    buat_triase(kunjungan, RiskLevel.SEDANG, waktu=_menit_lalu(waktu, 10))
+    [item] = _susun(app, waktu)
+    assert item.ringkasan_eir_siap is False
+
+
+@pytest.mark.parametrize(
+    ("status", "ringkasan"),
+    [
+        (StatusSesiEir.DIHENTIKAN, None),
+        (StatusSesiEir.BERJALAN, None),
+        (StatusSesiEir.SELESAI, None),
+    ],
+)
+def test_ringkasan_eir_tidak_siap(app, buat_kunjungan, buat_triase, sesi_db, status, ringkasan):
+    waktu = sekarang()
+    kunjungan = buat_kunjungan("Dewi", _menit_lalu(waktu, 40))
+    buat_triase(kunjungan, RiskLevel.RENDAH, waktu=_menit_lalu(waktu, 30))
+    _sesi_eir(sesi_db, kunjungan, _menit_lalu(waktu, 20), status=status, ringkasan=ringkasan)
+    [item] = _susun(app, waktu)
+    assert item.ringkasan_eir_siap is False
+
+
+def test_ringkasan_eir_mengikuti_sesi_terakhir(app, buat_kunjungan, buat_triase, sesi_db):
+    """Sama seperti GET /ringkasan-eir: sesi yang lebih baru (masih berjalan) menggantikan ringkasan lama."""
+    waktu = sekarang()
+    kunjungan = buat_kunjungan("Dewi", _menit_lalu(waktu, 60))
+    buat_triase(kunjungan, RiskLevel.RENDAH, waktu=_menit_lalu(waktu, 50))
+    _sesi_eir(sesi_db, kunjungan, _menit_lalu(waktu, 40))
+    _sesi_eir(sesi_db, kunjungan, _menit_lalu(waktu, 5), status=StatusSesiEir.BERJALAN, ringkasan=None)
+    [item] = _susun(app, waktu)
+    assert item.ringkasan_eir_siap is False
+
+
+def test_ringkasan_eir_tiap_kunjungan_terpisah(app, buat_kunjungan, buat_triase, sesi_db):
+    waktu = sekarang()
+    dengan_eir = buat_kunjungan("Dewi", _menit_lalu(waktu, 40))
+    tanpa_eir = buat_kunjungan("Agus", _menit_lalu(waktu, 40))
+    for kunjungan in (dengan_eir, tanpa_eir):
+        buat_triase(kunjungan, RiskLevel.RENDAH, waktu=_menit_lalu(waktu, 30))
+    _sesi_eir(sesi_db, dengan_eir, _menit_lalu(waktu, 20))
+    hasil = {item.pasien.nama: item.ringkasan_eir_siap for item in _susun(app, waktu)}
+    assert hasil == {"Dewi": True, "Agus": False}
+
+
+def test_ringkasan_eir_siap_tanpa_triase():
+    """Eir hanya dibuka untuk pasien yang sudah ditriase, tetapi fungsinya tetap aman bila triase belum ada."""
+    sesi = SesiEir(status=StatusSesiEir.SELESAI, ringkasan=RINGKASAN, waktu_selesai=sekarang())
+    assert ringkasan_eir_siap(sesi, None) is True
+    assert ringkasan_eir_siap(None, None) is False

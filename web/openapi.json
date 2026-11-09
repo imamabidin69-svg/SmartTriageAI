@@ -1671,7 +1671,7 @@
           "Antrean"
         ],
         "summary": "Daftar tunggu pasien beserta penanda triase ulang",
-        "description": "Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu.",
+        "description": "Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu. ringkasan_eir_siap bernilai true bila sesi Eir terakhir selesai dengan ringkasan dan belum ada triase sesudahnya.",
         "operationId": "antrean_daftar_tunggu_daftar_tunggu_get",
         "responses": {
           "200": {
@@ -4301,7 +4301,8 @@
           "batas_tunggu_menit",
           "status_tanda",
           "menunggu_validasi",
-          "review_diajukan"
+          "review_diajukan",
+          "ringkasan_eir_siap"
         ],
         "type": "object",
         "properties": {
@@ -4361,6 +4362,11 @@
           "review_diajukan": {
             "title": "Review Diajukan",
             "type": "boolean"
+          },
+          "ringkasan_eir_siap": {
+            "title": "Ringkasan Eir Siap",
+            "type": "boolean",
+            "description": "Sesi Eir terakhir selesai dengan ringkasan yang belum dipakai untuk triase berikutnya."
           }
         }
       },
