@@ -45,26 +45,25 @@ export function Persetujuan({ token, onMulai }: PersetujuanProps) {
   return (
     <form onSubmit={kirim} noValidate className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Halo, saya Eir</h1>
-        <p className="mt-3 text-base leading-relaxed text-slate-700">
+        <h1 className="text-[26px] font-bold text-teks">Halo, saya Eir</h1>
+        <p className="mt-3 text-base leading-relaxed text-teks">
           Sambil menunggu dipanggil, saya akan menanyakan beberapa hal tentang keluhan. Jawaban Anda membantu perawat
           dan dokter memahami kondisi pasien lebih cepat.
         </p>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed text-slate-700">
+      {/* Peringatan penting diberi garis tepi, bukan kotak berwarna, supaya terbaca tanpa terasa menakutkan. */}
+      <div className="border-l-4 border-navy bg-latar px-4 py-3 text-[15px] leading-relaxed text-teks">
         Saya bukan dokter dan tidak memberi diagnosis. Bila keluhan memburuk, langsung temui perawat. Nama dan NIK tidak
         dikirim ke layanan AI.
       </div>
       <fieldset>
-        <legend className="mb-2 text-sm font-semibold text-slate-800">Siapa yang mengisi?</legend>
+        <legend className="mb-2 text-sm font-bold text-teks">Siapa yang mengisi?</legend>
         <div className="grid grid-cols-2 gap-3">
           {PILIHAN.map((pilihan) => (
             <label
               key={pilihan.nilai}
-              className={`flex h-12 cursor-pointer items-center justify-center rounded-lg border text-sm font-semibold has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-500 ${
-                pengisi === pilihan.nilai
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                  : "border-slate-300 text-slate-800"
+              className={`flex h-[52px] cursor-pointer items-center gap-2.5 rounded-md px-3 text-[15px] font-bold text-teks has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-biru ${
+                pengisi === pilihan.nilai ? "border-2 border-biru bg-biru-muda" : "border border-garis-isian"
               }`}
             >
               <input
@@ -75,23 +74,29 @@ export function Persetujuan({ token, onMulai }: PersetujuanProps) {
                 onChange={() => setPengisi(pilihan.nilai)}
                 className="sr-only"
               />
+              <span
+                aria-hidden
+                className={`size-5 shrink-0 rounded-full ${
+                  pengisi === pilihan.nilai ? "border-[6px] border-biru" : "border-2 border-garis-isian"
+                }`}
+              />
               {pilihan.label}
             </label>
           ))}
         </div>
-        {galatField.pengisi ? <p className="mt-1 text-xs text-red-700">{galatField.pengisi}</p> : null}
+        {galatField.pengisi ? <p className="mt-1 text-[13px] font-bold text-galat">{galatField.pengisi}</p> : null}
       </fieldset>
       <div>
-        <label className="flex items-start gap-3 text-sm text-slate-700">
+        <label className="flex items-start gap-3 text-[15px] leading-relaxed text-teks">
           <input
             type="checkbox"
             checked={setuju}
             onChange={(e) => setSetuju(e.target.checked)}
-            className="mt-0.5 size-5 shrink-0 accent-blue-600"
+            className="mt-0.5 size-5 shrink-0 accent-biru"
           />
           Saya mengerti penjelasan di atas dan setuju percakapan ini dicatat untuk perawat.
         </label>
-        {galatField.setuju ? <p className="mt-1 text-xs text-red-700">{galatField.setuju}</p> : null}
+        {galatField.setuju ? <p className="mt-1 text-[13px] font-bold text-galat">{galatField.setuju}</p> : null}
       </div>
       {galat ? <Alert jenis="galat">{galat}</Alert> : null}
       <Button type="submit" size="lg" className="w-full" disabled={mengirim}>

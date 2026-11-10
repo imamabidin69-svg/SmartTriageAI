@@ -14,6 +14,7 @@ import '../api/generated/models/status_kunjungan.dart';
 import '../api/generated/models/status_kunjungan_request_status.dart';
 import '../api/generated/models/status_validasi.dart';
 import '../api/generated/models/sumber_rekomendasi.dart';
+import '../api/generated/models/tanda_vital_response.dart';
 import '../api/generated/models/triase_detail.dart';
 import '../api/generated/models/validasi_request.dart';
 import '../api/generated/models/validasi_request_aksi.dart';
@@ -145,6 +146,7 @@ class _HalamanHasilState extends ConsumerState<HalamanHasil> {
   Widget build(BuildContext context) {
     final detail = _detail;
     final galat = _galatMuat;
+    final keputusan = detail == null ? const <Widget>[] : _tombolKeputusan(detail, ref.watch(peranProvider));
     return Scaffold(
       appBar: AppBar(title: const Text('Hasil Triase')),
       body: detail != null
@@ -152,81 +154,89 @@ class _HalamanHasilState extends ConsumerState<HalamanHasil> {
           : galat != null
           ? TampilanGalat(galat, cobaLagi: _muat)
           : const TampilanMemuat(pesan: 'Memuat hasil triase...'),
+      // Tombol keputusan selalu terlihat di bawah, jadi dokter tidak perlu menggulir sampai akhir halaman.
+      bottomNavigationBar: keputusan.isEmpty ? null : BilahBawah(tombol: keputusan),
     );
+  }
+
+  /// Setujui, koreksi, atau ajukan review: hanya selama hasil belum diputuskan.
+  List<Widget> _tombolKeputusan(TriaseDetail detail, Peran? peran) {
+    final status = detail.statusValidasi;
+    final belumDiputuskan = status == StatusValidasi.menunggu || status == StatusValidasi.menungguReviewDokter;
+    Widget setujui(bool dokter) =>
+        TombolProses(label: 'Setujui', ikon: Icons.check, sibuk: _sibuk, onPressed: () => _setujui(dokter));
+    if (peran == Peran.perawat && status == StatusValidasi.menunggu) {
+      return [
+        OutlinedButton(
+          onPressed: _sibuk ? null : _ajukanReview,
+          child: const Text('Ajukan review dokter', textAlign: TextAlign.center),
+        ),
+        if (detail.riskLevel != RiskLevel.kritis) setujui(false),
+      ];
+    }
+    if (peran == Peran.dokter && belumDiputuskan) {
+      return [
+        OutlinedButton(
+          onPressed: _sibuk ? null : () => _koreksi(detail.riskLevel),
+          child: const Text('Koreksi risk level', textAlign: TextAlign.center),
+        ),
+        setujui(true),
+      ];
+    }
+    return const [];
   }
 
   Widget _isi(TriaseDetail detail) {
     final peran = ref.watch(peranProvider);
     final pasien = detail.pasien;
     final faktor = detail.penjelasanAi.faktor.take(3).toList();
-    final tv = detail.tandaVital;
+    final kontribusiMaks = faktor.map((f) => f.kontribusi.abs().toDouble()).fold(0.0, (a, b) => a > b ? a : b);
+    final aksi = _aksi(detail, peran);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 24),
       children: [
-        Text(
-          '${labelJenisTriase(detail.jenis)} · ${tanggalJamWib(detail.waktuTriase)}',
-          style: const TextStyle(color: Warna.teksRedup),
-        ),
-        Text(pasien.nama, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-        Text(
-          [if (pasien.usia != null) '${pasien.usia} th', labelKelamin(pasien.jenisKelamin)].join(' · '),
-          style: const TextStyle(color: Warna.teksRedup, fontSize: 16),
-        ),
-        const SizedBox(height: 16),
-        KartuBagian(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Rekomendasi risk level', style: TextStyle(color: Warna.teksRedup)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  LencanaRisiko(detail.riskLevel, besar: true),
-                  const SizedBox(width: 12),
-                  Expanded(child: _TandaStatus(detail.statusValidasi)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Sumber: ${labelSumberRekomendasi(detail.sumberRekomendasi)}'
-                '${detail.penjelasanAi.versiModel == null ? '' : ' (${detail.penjelasanAi.versiModel})'}',
-              ),
-              if (detail.sumberRekomendasi == SumberRekomendasi.aturan)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: KotakPesan(
-                    'Model AI sedang tidak tersedia, jadi rekomendasi dihitung dengan aturan cadangan dari ambang '
-                    'yang diatur admin.',
-                    jenis: JenisPesan.peringatan,
-                  ),
-                ),
-              const SizedBox(height: 8),
-              const Text(
-                'Hasil ini rekomendasi. Keputusan akhir tetap di tangan perawat dan dokter.',
-                style: TextStyle(color: Warna.teksRedup, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
+        _BlokIdentitas(pasien, keterangan: '${labelJenisTriase(detail.jenis)} · ${tanggalJamWib(detail.waktuTriase)}'),
+        _PanelLevel(detail),
+        const SizedBox(height: 10),
         KartuBagian(
           judul: 'Faktor yang paling berpengaruh',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: faktor.isEmpty
                 ? [const Text('Tidak ada faktor penjelas.', style: TextStyle(color: Warna.teksRedup))]
-                : [for (final f in faktor) _BarisFaktor(f, model: detail.sumberRekomendasi == SumberRekomendasi.model)],
+                : [
+                    for (final (i, f) in faktor.indexed)
+                      _BarisFaktor(
+                        f,
+                        model: detail.sumberRekomendasi == SumberRekomendasi.model,
+                        porsi: kontribusiMaks == 0 ? 0.0 : f.kontribusi.abs() / kontribusiMaks,
+                        pertama: i == 0,
+                      ),
+                  ],
           ),
         ),
-        if (detail.peringatan.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          KotakPesan(
-            detail.peringatan.map((p) => '• ${p.pesan}').join('\n'),
-            judul: 'Nilai yang perlu diperhatikan',
-            jenis: JenisPesan.peringatan,
+        if (detail.peringatan.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: KotakPesan(
+              detail.peringatan.map((p) => '• ${p.pesan}').join('\n'),
+              judul: 'Nilai yang perlu diperhatikan',
+              jenis: JenisPesan.peringatan,
+            ),
           ),
-        ],
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
+        KartuBagian(
+          judul: 'Tanda vital',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _KisiTandaVital(detail.tandaVital, skalaNyeri: detail.skalaNyeri),
+              const SizedBox(height: 8),
+              _BarisData('Sumber tanda vital', labelSumberTandaVital(detail.sumberTandaVital)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
         KartuBagian(
           judul: 'Data triase',
           child: Column(
@@ -236,64 +246,40 @@ class _HalamanHasilState extends ConsumerState<HalamanHasil> {
               _BarisData('Gejala', detail.gejala),
               if (detail.kategoriKeluhan != null) _BarisData('Kategori', detail.kategoriKeluhan!.json ?? '-'),
               _BarisData('Kesadaran', labelKesadaran(detail.tingkatKesadaran)),
-              if (detail.skalaNyeri != null) _BarisData('Skala nyeri', '${detail.skalaNyeri}/10'),
-              _BarisData(
-                'Tanda vital',
-                'TD ${tv.tdSistolik}/${tv.tdDiastolik} · nadi ${tv.nadi} · napas ${tv.lajuNapas} · '
-                    'suhu ${angka(tv.suhu)} °C · SpO₂ ${angka(tv.saturasi)}%',
-              ),
-              _BarisData('Sumber tanda vital', labelSumberTandaVital(detail.sumberTandaVital)),
               _BarisData('Diinput oleh', detail.dibuatOleh.nama),
               if (detail.divalidasiOleh != null) _BarisData('Divalidasi oleh', detail.divalidasiOleh!.nama),
               if (detail.catatanValidasiTerakhir != null) _BarisData('Catatan', detail.catatanValidasiTerakhir!),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        ..._aksi(detail, peran),
-        const SizedBox(height: 24),
+        if (aksi.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: aksi),
+          ),
+        ],
       ],
     );
   }
 
+  /// Pesan status dan tindakan lain di bawah data triase. Tombol keputusan ada di [_tombolKeputusan].
   List<Widget> _aksi(TriaseDetail detail, Peran? peran) {
     final status = detail.statusValidasi;
-    final belumDiputuskan = status == StatusValidasi.menunggu || status == StatusValidasi.menungguReviewDokter;
     final statusKunjungan = _statusKunjungan;
     final masihMenunggu = statusKunjungan == StatusKunjungan.menunggu;
     final aksi = <Widget>[];
     void tambah(Widget tombol) => aksi.addAll([tombol, const SizedBox(height: 10)]);
 
-    if (peran == Peran.perawat && status == StatusValidasi.menunggu) {
-      if (detail.riskLevel != RiskLevel.kritis) {
-        tambah(TombolProses(label: 'Setujui', ikon: Icons.check, sibuk: _sibuk, onPressed: () => _setujui(false)));
-      } else {
-        tambah(
-          const KotakPesan(
-            'Hasil kritis harus divalidasi dokter. Segera sampaikan ke dokter, atau ajukan review.',
-            jenis: JenisPesan.galat,
-          ),
-        );
-      }
+    if (peran == Peran.perawat && status == StatusValidasi.menunggu && detail.riskLevel == RiskLevel.kritis) {
       tambah(
-        OutlinedButton.icon(
-          onPressed: _sibuk ? null : _ajukanReview,
-          icon: const Icon(Icons.forward_to_inbox_outlined),
-          label: const Text('Ajukan review dokter'),
+        const KotakPesan(
+          'Hasil kritis harus divalidasi dokter. Segera sampaikan ke dokter, atau ajukan review.',
+          jenis: JenisPesan.galat,
         ),
       );
     } else if (peran == Peran.perawat && status == StatusValidasi.menungguReviewDokter) {
       tambah(const KotakPesan('Menunggu review dokter.', jenis: JenisPesan.info));
-    }
-    if (peran == Peran.dokter && belumDiputuskan) {
-      tambah(TombolProses(label: 'Setujui', ikon: Icons.check, sibuk: _sibuk, onPressed: () => _setujui(true)));
-      tambah(
-        OutlinedButton.icon(
-          onPressed: _sibuk ? null : () => _koreksi(detail.riskLevel),
-          icon: const Icon(Icons.edit_outlined),
-          label: const Text('Koreksi risk level'),
-        ),
-      );
     }
     if (peran == Peran.dokter && statusKunjungan != null && statusKunjungan != StatusKunjungan.selesai) {
       final mulai = statusKunjungan == StatusKunjungan.menunggu;
@@ -342,6 +328,172 @@ class _HalamanHasilState extends ConsumerState<HalamanHasil> {
   }
 }
 
+/// Nama pasien dan keterangan singkat di bagian atas halaman, blok putih selebar layar.
+class _BlokIdentitas extends StatelessWidget {
+  const _BlokIdentitas(this.pasien, {this.keterangan});
+
+  final PasienTriase pasien;
+  final String? keterangan;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Warna.garis)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(pasien.nama, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(
+              [if (pasien.usia != null) '${pasien.usia} th', labelKelamin(pasien.jenisKelamin)].join(' · '),
+              style: const TextStyle(color: Warna.teksRedup, fontSize: 15),
+            ),
+            if (keterangan != null) ...[
+              const SizedBox(height: 2),
+              Text(keterangan!, style: const TextStyle(color: Warna.teksSamar, fontSize: 14)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Rekomendasi risk level dengan garis warna level di kiri, status validasi, dan sumber rekomendasi.
+class _PanelLevel extends StatelessWidget {
+  const _PanelLevel(this.detail);
+
+  final TriaseDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          left: BorderSide(color: Warna.level(detail.riskLevel), width: 6),
+          bottom: const BorderSide(color: Warna.garis),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Rekomendasi risk level',
+            style: TextStyle(color: Warna.teksRedup, fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          LencanaRisiko(detail.riskLevel, besar: true),
+          const SizedBox(height: 10),
+          const Divider(color: Warna.garisLembut),
+          const SizedBox(height: 10),
+          _TandaStatus(detail.statusValidasi),
+          const SizedBox(height: 6),
+          Text(
+            'Sumber: ${labelSumberRekomendasi(detail.sumberRekomendasi)}'
+            '${detail.penjelasanAi.versiModel == null ? '' : ' (${detail.penjelasanAi.versiModel})'}',
+            style: const TextStyle(color: Warna.teksRedup, fontSize: 14),
+          ),
+          if (detail.sumberRekomendasi == SumberRekomendasi.aturan)
+            const Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: KotakPesan(
+                'Model AI sedang tidak tersedia, jadi rekomendasi dihitung dengan aturan cadangan dari ambang '
+                'yang diatur admin.',
+                jenis: JenisPesan.peringatan,
+              ),
+            ),
+          const SizedBox(height: 8),
+          const Text(
+            'Hasil ini rekomendasi. Keputusan akhir tetap di tangan perawat dan dokter.',
+            style: TextStyle(color: Warna.teksSamar, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Enam tanda vital dalam kisi tiga kolom, angka besar dan satuan kecil.
+class _KisiTandaVital extends StatelessWidget {
+  const _KisiTandaVital(this.tv, {required this.skalaNyeri});
+
+  final TandaVitalResponse tv;
+  final int? skalaNyeri;
+
+  @override
+  Widget build(BuildContext context) {
+    final sel = [
+      ('Tekanan darah', '${tv.tdSistolik}/${tv.tdDiastolik}', 'mmHg'),
+      ('Nadi', '${tv.nadi}', 'x/mnt'),
+      ('Napas', '${tv.lajuNapas}', 'x/mnt'),
+      ('Suhu', angka(tv.suhu), '°C'),
+      ('SpO₂', angka(tv.saturasi), '%'),
+      ('Nyeri', skalaNyeri == null ? '-' : '$skalaNyeri', skalaNyeri == null ? '' : '/10'),
+    ];
+    Widget kotak((String, String, String) isi, {required bool kanan, required bool bawah}) {
+      final (label, nilai, satuan) = isi;
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 9, 8, 10),
+          decoration: BoxDecoration(
+            border: Border(
+              right: kanan ? const BorderSide(color: Warna.garisLembut) : BorderSide.none,
+              bottom: bawah ? const BorderSide(color: Warna.garisLembut) : BorderSide.none,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: Warna.teksRedup, fontSize: 13)),
+              const SizedBox(height: 2),
+              Text.rich(
+                TextSpan(
+                  text: nilai,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  children: [
+                    if (satuan.isNotEmpty)
+                      TextSpan(
+                        text: ' $satuan',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Warna.teksSamar),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Warna.garis),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        children: [
+          for (final baris in [0, 1])
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final kolom in [0, 1, 2]) kotak(sel[baris * 3 + kolom], kanan: kolom < 2, bawah: baris == 0),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TandaStatus extends StatelessWidget {
   const _TandaStatus(this.status);
 
@@ -349,53 +501,88 @@ class _TandaStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (warna, latar) = switch (status) {
-      StatusValidasi.disetujui => (Warna.sukses, Warna.suksesMuda),
-      StatusValidasi.dikoreksi => (const Color(0xFF1D4ED8), Warna.infoMuda),
-      StatusValidasi.menungguReviewDokter => (Warna.galat, Warna.galatMuda),
-      _ => (Warna.peringatan, Warna.peringatanMuda),
+    final (warna, ikon) = switch (status) {
+      StatusValidasi.disetujui => (Warna.kepala, Icons.verified_outlined),
+      StatusValidasi.dikoreksi => (Warna.utama, Icons.edit_outlined),
+      StatusValidasi.menungguReviewDokter => (Warna.waspada, Icons.rate_review_outlined),
+      _ => (Warna.waspada, Icons.pending_actions),
     };
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Tanda(labelStatusValidasi(status), warna: warna, latar: latar),
-    );
+    return Tanda(labelStatusValidasi(status), warna: warna, ikon: ikon);
   }
 }
 
+/// Satu faktor penjelas: nama dan nilainya, arah pengaruh, dan batang sepanjang besar pengaruh dibanding faktor
+/// terbesar. Warnanya netral karena warna merah sampai hijau khusus untuk level risiko.
 class _BarisFaktor extends StatelessWidget {
-  const _BarisFaktor(this.faktor, {required this.model});
+  const _BarisFaktor(this.faktor, {required this.model, required this.porsi, required this.pertama});
 
   final FaktorResponse faktor;
   final bool model;
+  final double porsi;
+  final bool pertama;
 
   @override
   Widget build(BuildContext context) {
     final nilai = faktor.nilai;
-    final teksNilai = nilai == null ? '' : ': ${nilai is num ? angka(nilai) : nilai}';
-    final (ikon, warna, keterangan) = switch (faktor.arah) {
-      FaktorResponseArah.naik => (
-        Icons.arrow_upward,
-        Warna.galat,
-        model ? 'mendukung level ini' : 'menambah poin risiko',
-      ),
-      FaktorResponseArah.turun => (Icons.arrow_downward, Warna.sukses, 'menurunkan risiko'),
-      _ => (Icons.remove, Warna.teksRedup, 'tidak ada aturan yang terpicu'),
+    final (ikon, keterangan) = switch (faktor.arah) {
+      FaktorResponseArah.naik => (Icons.arrow_upward, model ? 'mendukung level ini' : 'menambah poin risiko'),
+      FaktorResponseArah.turun => (Icons.arrow_downward, 'menurunkan risiko'),
+      _ => (Icons.remove, 'tidak ada aturan yang terpicu'),
     };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final naik = faktor.arah == FaktorResponseArah.naik;
+    return Container(
+      padding: EdgeInsets.only(top: pertama ? 0 : 10, bottom: 10),
+      decoration: BoxDecoration(
+        border: pertama ? null : const Border(top: BorderSide(color: Warna.garisLembut)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(ikon, color: warna, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Text.rich(
+            TextSpan(
+              text: faktor.label,
               children: [
-                Text('${faktor.label}$teksNilai', style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text(keterangan, style: const TextStyle(color: Warna.teksRedup, fontSize: 13)),
+                if (nilai != null) ...[
+                  const TextSpan(text: ': '),
+                  TextSpan(
+                    text: nilai is num ? angka(nilai) : '$nilai',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
               ],
             ),
+            style: const TextStyle(fontSize: 15),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Row(
+                  children: [
+                    Icon(ikon, size: 16, color: Warna.teksSamar),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(keterangan, style: const TextStyle(color: Warna.teksSamar, fontSize: 13)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: porsi.clamp(0.0, 1.0),
+                    minHeight: 6,
+                    backgroundColor: Warna.garisLembut,
+                    color: naik ? Warna.kepala : const Color(0xFF8FA3BD),
+                    semanticsLabel: 'Besar pengaruh',
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -412,11 +599,12 @@ class _BarisData extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(color: Warna.teksRedup, fontSize: 13)),
+          const SizedBox(height: 1),
           Text(isi, style: const TextStyle(fontSize: 15)),
         ],
       ),
@@ -530,7 +718,10 @@ class _DialogKoreksiState extends State<DialogKoreksi> {
                 ),
               ),
               if (_dicoba && _level == null)
-                const Text('Pilih level hasil koreksi.', style: TextStyle(color: Warna.galat, fontSize: 12)),
+                const Text(
+                  'Pilih level hasil koreksi.',
+                  style: TextStyle(color: Warna.galat, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _alasan,
@@ -566,16 +757,5 @@ class IdentitasPasien extends StatelessWidget {
   final PasienTriase pasien;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(pasien.nama, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-        Text(
-          [if (pasien.usia != null) '${pasien.usia} th', labelKelamin(pasien.jenisKelamin)].join(' · '),
-          style: const TextStyle(color: Warna.teksRedup),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => _BlokIdentitas(pasien);
 }

@@ -79,6 +79,15 @@ String labelKesadaran(TingkatKesadaran tingkat) => switch (tingkat) {
   TingkatKesadaran.$unknown => '-',
 };
 
+/// Keterangan pendek di bawah huruf AVPU pada tombol pilihan kesadaran.
+String singkatanKesadaran(TingkatKesadaran tingkat) => switch (tingkat) {
+  TingkatKesadaran.a => 'sadar',
+  TingkatKesadaran.v => 'suara',
+  TingkatKesadaran.p => 'nyeri',
+  TingkatKesadaran.u => 'tak respons',
+  TingkatKesadaran.$unknown => '-',
+};
+
 String labelAlat(JenisAlat alat) => switch (alat) {
   JenisAlat.tensimeter => 'Tensimeter',
   JenisAlat.oksimeter => 'Oksimeter',
@@ -94,7 +103,7 @@ String labelJenisPeringatan(ItemPeringatanJenis jenis) => switch (jenis) {
   ItemPeringatanJenis.$unknown => 'Peringatan',
 };
 
-/// Nama kolom tanda vital, dipakai di form, hasil pemindaian, dan pesan error server.
+/// Nama kolom tanda vital lengkap dengan satuan, dipakai di hasil pemindaian dan pesan error server.
 const labelTandaVital = {
   'td_sistolik': 'TD sistolik',
   'td_diastolik': 'TD diastolik',
@@ -102,6 +111,25 @@ const labelTandaVital = {
   'saturasi': 'Saturasi O₂ (%)',
   'suhu': 'Suhu (°C)',
   'laju_napas': 'Laju napas (x/mnt)',
+};
+
+/// Nama pendek dan satuan untuk kotak isian di Form Triase; satuannya ditulis di dalam kotak.
+const labelPendekTandaVital = {
+  'td_sistolik': 'Sistolik',
+  'td_diastolik': 'Diastolik',
+  'nadi': 'Nadi',
+  'saturasi': 'SpO₂',
+  'suhu': 'Suhu',
+  'laju_napas': 'Laju napas',
+};
+
+const satuanTandaVital = {
+  'td_sistolik': 'mmHg',
+  'td_diastolik': 'mmHg',
+  'nadi': 'x/mnt',
+  'saturasi': '%',
+  'suhu': '°C',
+  'laju_napas': 'x/mnt',
 };
 
 /// Urutan kolom tanda vital seperti di mockup Gambar 7.1.

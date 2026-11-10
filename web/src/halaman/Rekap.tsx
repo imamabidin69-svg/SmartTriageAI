@@ -21,13 +21,14 @@ export function periksaRentang(dari: string, sampai: string): string | undefined
   return undefined;
 }
 
+/** Satu angka ringkasan. Empat angka dijajarkan dalam satu kotak bersekat, bukan empat kartu terpisah. */
 function Angka({ label, nilai, keterangan }: { label: string; nilai: string; keterangan?: string }) {
   return (
-    <Card>
-      <p className="text-sm text-slate-600">{label}</p>
-      <p className="mt-1 text-3xl font-semibold text-slate-900">{nilai}</p>
-      {keterangan ? <p className="mt-1 text-xs text-slate-500">{keterangan}</p> : null}
-    </Card>
+    <div className="px-5 py-4">
+      <p className="text-[15px] font-bold text-teks-2">{label}</p>
+      <p className="mt-1.5 text-[32px] leading-tight font-bold text-teks">{nilai}</p>
+      {keterangan ? <p className="mt-1 text-[13px] text-teks-3">{keterangan}</p> : null}
+    </div>
   );
 }
 
@@ -63,8 +64,8 @@ export function HalamanRekap() {
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Rekap</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <h1 className="text-[26px] font-bold text-teks">Rekap</h1>
+          <p className="mt-1 text-[15px] text-teks-2">
             Ringkasan triase, koreksi dokter, triase ulang, dan akurasi pemindaian. Tanggal mengikuti WIB.
           </p>
         </div>
@@ -100,10 +101,10 @@ export function HalamanRekap() {
       {rekap.isError ? <Alert jenis="galat">{pesanError(rekap.error)}</Alert> : null}
       {data ? (
         <div className="space-y-6">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-teks-2">
             Periode {tanggal(data.dari)} sampai {tanggal(data.sampai)}
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="grid divide-y divide-garis-2 p-0 lg:grid-cols-4 lg:divide-x lg:divide-y-0">
             <Angka label="Triase tercatat" nilai={angka(data.total_triase)} />
             <Angka label="Dikoreksi dokter" nilai={persen(data.persen_koreksi)} keterangan="Dari semua triase" />
             <Angka label="Triase ulang" nilai={angka(data.triase_ulang)} />
@@ -112,27 +113,27 @@ export function HalamanRekap() {
               nilai={persen(data.akurasi_pemindaian)}
               keterangan={data.akurasi_pemindaian === null ? "Belum ada pemindaian yang dikonfirmasi" : undefined}
             />
-          </div>
+          </Card>
           <Card className="overflow-x-auto">
             <JudulKartu
               judul="Per risk level"
               keterangan="Rata-rata tunggu dihitung dari datang sampai ditangani dokter, menurut level triase terakhir."
             />
-            <table className="w-full min-w-[420px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-xs text-slate-600 uppercase">
+            <table className="w-full min-w-[420px] text-left text-[15px]">
+              <thead className="border-b border-garis text-sm text-teks-2">
                 <tr>
-                  <th scope="col" className="py-2 font-semibold">
+                  <th scope="col" className="py-2 font-bold">
                     Risk level
                   </th>
-                  <th scope="col" className="py-2 text-right font-semibold">
+                  <th scope="col" className="py-2 text-right font-bold">
                     Jumlah triase
                   </th>
-                  <th scope="col" className="py-2 text-right font-semibold">
+                  <th scope="col" className="py-2 text-right font-bold">
                     Rata-rata tunggu
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-garis-2">
                 {URUTAN_LEVEL.map((level) => {
                   const tunggu = data.rata_tunggu_menit[level];
                   return (
@@ -140,8 +141,8 @@ export function HalamanRekap() {
                       <td className="py-3">
                         <RiskBadge level={level} />
                       </td>
-                      <td className="py-3 text-right text-slate-900">{angka(data.per_level[level] ?? 0)}</td>
-                      <td className="py-3 text-right text-slate-900">
+                      <td className="py-3 text-right text-teks">{angka(data.per_level[level] ?? 0)}</td>
+                      <td className="py-3 text-right text-teks">
                         {tunggu === null || tunggu === undefined ? "-" : `${angka(tunggu, 1)} menit`}
                       </td>
                     </tr>

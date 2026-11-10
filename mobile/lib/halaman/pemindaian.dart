@@ -91,7 +91,7 @@ class _HalamanPemindaianState extends ConsumerState<HalamanPemindaian> {
     return Scaffold(
       appBar: AppBar(title: const Text('Pindai Layar Alat')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.only(top: 12, bottom: 24),
         children: [
           KartuBagian(
             judul: 'Jenis alat',
@@ -108,24 +108,31 @@ class _HalamanPemindaianState extends ConsumerState<HalamanPemindaian> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          const KotakPesan(
-            'Foto layar alat dari depan, tidak silau, dan semua angka terlihat. Foto tidak disimpan di galeri '
-            'maupun di server.',
-            jenis: JenisPesan.info,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const KotakPesan(
+                  'Foto layar alat dari depan, tidak silau, dan semua angka terlihat. Foto tidak disimpan di galeri '
+                  'maupun di server.',
+                  jenis: JenisPesan.info,
+                ),
+                const SizedBox(height: 16),
+                TombolProses(
+                  label: hasil == null ? 'Ambil foto' : 'Foto ulang',
+                  ikon: Icons.photo_camera_outlined,
+                  sibuk: _sibuk,
+                  onPressed: _ambilFoto,
+                ),
+                if (_sibuk) ...[
+                  const SizedBox(height: 12),
+                  const Text('Membaca angka dari foto...', textAlign: TextAlign.center),
+                ],
+                if (galat != null) ...[const SizedBox(height: 16), KotakPesan(galat.field('berkas') ?? galat.pesan)],
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          TombolProses(
-            label: hasil == null ? 'Ambil foto' : 'Foto ulang',
-            ikon: Icons.photo_camera_outlined,
-            sibuk: _sibuk,
-            onPressed: _ambilFoto,
-          ),
-          if (_sibuk) ...[
-            const SizedBox(height: 12),
-            const Text('Membaca angka dari foto...', textAlign: TextAlign.center),
-          ],
-          if (galat != null) ...[const SizedBox(height: 16), KotakPesan(galat.field('berkas') ?? galat.pesan)],
           if (hasil != null) ...[const SizedBox(height: 16), _HasilBaca(hasil, onPakai: () => _pakai(hasil))],
         ],
       ),
@@ -142,9 +149,12 @@ class _HasilBaca extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!hasil.pembacaTersedia) {
-      return const KotakPesan(
-        'Pembaca layar belum tersedia di server. Isi tanda vital secara manual.',
-        jenis: JenisPesan.peringatan,
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: KotakPesan(
+          'Pembaca layar belum tersedia di server. Isi tanda vital secara manual.',
+          jenis: JenisPesan.peringatan,
+        ),
       );
     }
     final kolom = [
@@ -189,8 +199,11 @@ class _BarisNilai extends StatelessWidget {
   Widget build(BuildContext context) {
     final angkaNilai = nilai is num ? angka(nilai! as num) : null;
     final persenYakin = keyakinan is num ? '${((keyakinan! as num) * 100).round()}% yakin' : null;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Warna.garisLembut)),
+      ),
       child: Row(
         children: [
           Expanded(child: Text(label)),
@@ -204,7 +217,7 @@ class _BarisNilai extends StatelessWidget {
           ),
           if (persenYakin != null) ...[
             const SizedBox(width: 8),
-            Text(persenYakin, style: const TextStyle(color: Warna.teksRedup, fontSize: 12)),
+            Text(persenYakin, style: const TextStyle(color: Warna.teksSamar, fontSize: 13)),
           ],
         ],
       ),

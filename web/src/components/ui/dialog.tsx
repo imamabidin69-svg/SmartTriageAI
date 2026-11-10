@@ -28,11 +28,11 @@ export function Dialog({ terbuka, judul, onTutup, children }: DialogProps) {
         event.preventDefault();
         onTutup();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-lg"
+      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-md border border-garis bg-white p-6 shadow-xl"
     >
       {terbuka ? (
         <>
-          <h2 id={idJudul} className="mb-4 text-lg font-semibold text-slate-900">
+          <h2 id={idJudul} className="mb-4 text-xl font-bold text-teks">
             {judul}
           </h2>
           {children}

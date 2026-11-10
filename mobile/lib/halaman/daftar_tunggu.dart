@@ -17,7 +17,7 @@ import '../util/format.dart';
 import '../util/label.dart';
 
 /// Daftar Tunggu (SKPL Tabel 7.1 no. 2): pasien non-merah yang menunggu dokter, lama menunggu dibanding batas,
-/// penanda triase ulang, dan panel peringatan.
+/// penanda triase ulang, dan panel peringatan. Tampilannya rapat seperti papan pantau pasien di IGD.
 class HalamanDaftarTunggu extends ConsumerWidget {
   const HalamanDaftarTunggu({super.key});
 
@@ -38,13 +38,13 @@ class HalamanDaftarTunggu extends ConsumerWidget {
   }
 }
 
-class _IsiDaftar extends ConsumerWidget {
+class _IsiDaftar extends StatelessWidget {
   const _IsiDaftar(this.data);
 
   final DataAntrean data;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final items = data.daftar.items;
     final galat = data.galatMuatUlang;
     final jumlah = <RiskLevel, int>{};
@@ -58,77 +58,135 @@ class _IsiDaftar extends ConsumerWidget {
       }
     }
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 24),
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        if (galat != null) ...[
-          KotakPesan(
-            '${galat.pesan} Daftar di bawah adalah data terakhir yang berhasil dimuat.',
-            jenis: JenisPesan.peringatan,
+        _Sensus(jumlah: jumlah, belumDitriase: belumDitriase),
+        _BarisKeterangan(jumlahPasien: items.length, waktuMuat: data.waktuMuat),
+        if (galat != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: KotakPesan(
+              '${galat.pesan} Daftar di bawah adalah data terakhir yang berhasil dimuat.',
+              jenis: JenisPesan.peringatan,
+            ),
           ),
-          const SizedBox(height: 12),
-        ],
         if (data.peringatan.isNotEmpty) ...[PanelPeringatan(data.peringatan), const SizedBox(height: 12)],
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final level in const [RiskLevel.kritis, RiskLevel.tinggi, RiskLevel.sedang, RiskLevel.rendah])
-              _RingkasanLevel(LencanaRisiko(level), jumlah[level] ?? 0),
-            if (belumDitriase > 0)
-              _RingkasanLevel(
-                const Tanda('Belum ditriase', warna: Warna.peringatan, latar: Warna.peringatanMuda),
-                belumDitriase,
-              ),
-          ],
-        ),
-        const SizedBox(height: 16),
         if (items.isEmpty)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 48),
+            padding: EdgeInsets.symmetric(vertical: 48, horizontal: 16),
             child: Text(
               'Tidak ada pasien yang menunggu dokter.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Warna.teksRedup),
             ),
           )
-        else
-          for (final item in items) ...[KartuPasienTunggu(item), const SizedBox(height: 12)],
+        else ...[
+          const Divider(),
+          for (final item in items) BarisPasienTunggu(item),
+        ],
       ],
     );
   }
 }
 
-class _RingkasanLevel extends StatelessWidget {
-  const _RingkasanLevel(this.label, this.jumlah);
+/// Ringkasan jumlah pasien per level dalam satu baris angka, seperti kepala papan pantau IGD.
+class _Sensus extends StatelessWidget {
+  const _Sensus({required this.jumlah, required this.belumDitriase});
 
-  final Widget label;
-  final int jumlah;
+  final Map<RiskLevel, int> jumlah;
+  final int belumDitriase;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 6, 14, 6),
-      decoration: BoxDecoration(
+    final sel = [
+      for (final level in const [RiskLevel.kritis, RiskLevel.tinggi, RiskLevel.sedang, RiskLevel.rendah])
+        (labelLevel(level), Warna.level(level), jumlah[level] ?? 0, '${labelLevel(level)}: ${jumlah[level] ?? 0}'),
+      ('Belum', Warna.belum, belumDitriase, 'Belum ditriase: $belumDitriase'),
+    ];
+    return DecoratedBox(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Warna.garis),
+        border: Border(bottom: BorderSide(color: Warna.garis)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          label,
-          const SizedBox(width: 8),
-          Text('$jumlah', style: const TextStyle(fontSize: 16)),
+          for (final (i, (label, warna, n, bacaan)) in sel.indexed)
+            Expanded(
+              child: Semantics(
+                container: true,
+                label: '$bacaan pasien',
+                excludeSemantics: true,
+                child: Container(
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: warna, width: 4),
+                      left: i == 0 ? BorderSide.none : const BorderSide(color: Warna.garisLembut),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '$n',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                          color: n == 0 ? Warna.nol : Warna.teks,
+                        ),
+                      ),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: Warna.teksRedup),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-/// Satu kartu pasien di daftar tunggu.
-class KartuPasienTunggu extends ConsumerWidget {
-  const KartuPasienTunggu(this.item, {super.key});
+class _BarisKeterangan extends StatelessWidget {
+  const _BarisKeterangan({required this.jumlahPasien, required this.waktuMuat});
+
+  final int jumlahPasien;
+  final DateTime waktuMuat;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        spacing: 12,
+        runSpacing: 4,
+        children: [
+          Text('$jumlahPasien pasien menunggu', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.sync, size: 16, color: Warna.teksSamar),
+              const SizedBox(width: 4),
+              Text('Diperbarui ${jamWib(waktuMuat)}', style: const TextStyle(fontSize: 14, color: Warna.teksSamar)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Satu baris pasien di daftar tunggu: garis warna level di kiri, nama dan level, keluhan, lama tunggu, penanda,
+/// dan tombol aksi untuk perawat.
+class BarisPasienTunggu extends ConsumerWidget {
+  const BarisPasienTunggu(this.item, {super.key});
 
   final ItemDaftarTunggu item;
 
@@ -145,51 +203,77 @@ class KartuPasienTunggu extends ConsumerWidget {
       'datang ${jamWib(item.waktuDatang)}',
     ].join(' · ');
 
-    final tanda = <Widget>[
-      if (triase == null) const Tanda('Belum ditriase', warna: Warna.peringatan, latar: Warna.peringatanMuda),
-      if (lewat) const Tanda('Perlu triase ulang', warna: Color(0xFF92400E), latar: Warna.peringatanMuda),
-      if (item.reviewDiajukan)
-        const Tanda('Menunggu review dokter', warna: Warna.galat, latar: Warna.galatMuda)
-      else if (kritis && item.menungguValidasi)
-        const Tanda('Menunggu dokter', warna: Warna.galat, latar: Warna.galatMuda),
-      if (item.ringkasanEirSiap) const Tanda('Ringkasan Eir siap', warna: Color(0xFF1D4ED8), latar: Warna.infoMuda),
-    ];
-    final lama = durasiMenit(item.lamaMenungguMenit);
     final batas = item.batasTungguMenit;
-    final teksWaktu = triase == null
-        ? '$lama sejak datang'
-        : kritis
-        ? '$lama · segera'
-        : batas == null
-        ? lama
-        : '$lama / batas $batas';
+    final waktu = <Widget>[
+      Text('Tunggu ${durasiMenit(item.lamaMenungguMenit)}'),
+      if (triase != null && kritis)
+        const Text(
+          'segera',
+          style: TextStyle(color: Warna.galat, fontWeight: FontWeight.w700),
+        )
+      else if (triase != null && lewat && batas != null)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.schedule, size: 16, color: Warna.galat),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                'lewat batas $batas mnt',
+                style: const TextStyle(color: Warna.galat, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        )
+      else if (triase != null && batas != null)
+        Text('batas $batas mnt'),
+    ];
+
+    final tanda = <Widget>[
+      if (lewat) const Tanda('Perlu triase ulang', warna: Warna.waspada, ikon: Icons.update),
+      if (item.reviewDiajukan)
+        const Tanda('Menunggu review dokter', warna: Warna.waspada, ikon: Icons.rate_review_outlined)
+      else if (kritis && item.menungguValidasi)
+        const Tanda('Menunggu dokter', warna: Warna.galat, ikon: Icons.priority_high),
+      if (item.ringkasanEirSiap)
+        const Tanda('Ringkasan Eir siap', warna: Warna.utama, ikon: Icons.description_outlined),
+    ];
 
     final perawat = peran == Peran.perawat;
+    final gayaAksi = OutlinedButton.styleFrom(
+      minimumSize: const Size(48, 40),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      textStyle: const TextStyle(fontFamily: hurufAplikasi, fontSize: 14, fontWeight: FontWeight.w700),
+    );
     final aksi = <Widget>[
       if (perawat && (triase == null || lewat))
-        TextButton.icon(
+        OutlinedButton.icon(
+          style: gayaAksi,
           onPressed: () => _bukaForm(context, ulang: triase != null),
-          icon: const Icon(Icons.edit_note),
+          icon: const Icon(Icons.edit_note, size: 20),
           label: Text(triase == null ? 'Isi triase' : 'Triase ulang'),
         ),
       if (perawat && triase?.riskLevel == RiskLevel.rendah)
-        TextButton.icon(
+        OutlinedButton.icon(
+          style: gayaAksi,
           onPressed: () => context.push(Rute.kodeQrEir(item.idKunjungan), extra: pasien),
-          icon: const Icon(Icons.qr_code_2),
+          icon: const Icon(Icons.qr_code_2, size: 20),
           label: const Text('Kode QR Eir'),
         ),
     ];
 
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: kritis ? const Color(0xFFFCA5A5) : Warna.garis, width: kritis ? 1.5 : 1),
-      ),
-      clipBehavior: Clip.antiAlias,
+    return Material(
+      color: Colors.white,
       child: InkWell(
         onTap: () => _buka(context, peran),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: triase == null ? Warna.belum : Warna.level(triase.riskLevel), width: 5),
+              bottom: const BorderSide(color: Warna.garis),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -197,40 +281,37 @@ class KartuPasienTunggu extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(pasien.nama, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 2),
-                        Text(identitas, style: const TextStyle(color: Warna.teksRedup)),
-                      ],
-                    ),
+                    child: Text(pasien.nama, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                   ),
-                  if (triase != null) LencanaRisiko(triase.riskLevel),
-                ],
-              ),
-              if (triase != null) ...[
-                const SizedBox(height: 8),
-                Text(triase.keluhanUtama, style: const TextStyle(fontSize: 16)),
-              ],
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: tanda)),
                   const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      teksWaktu,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        color: lewat ? Warna.galat : Warna.teksRedup,
-                        fontWeight: lewat ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ),
+                  if (triase != null) LencanaRisiko(triase.riskLevel) else const LencanaBelumTriase(),
                 ],
               ),
-              if (aksi.isNotEmpty) ...[const SizedBox(height: 4), Wrap(spacing: 4, children: aksi)],
+              const SizedBox(height: 2),
+              Text(identitas, style: const TextStyle(color: Warna.teksRedup, fontSize: 14)),
+              if (triase != null) ...[
+                const SizedBox(height: 5),
+                Text(triase.keluhanUtama, style: const TextStyle(fontSize: 15)),
+              ],
+              const SizedBox(height: 6),
+              DefaultTextStyle.merge(
+                style: const TextStyle(color: Warna.teksRedup, fontSize: 14),
+                child: Wrap(spacing: 12, runSpacing: 2, children: waktu),
+              ),
+              if (tanda.isNotEmpty || aksi.isNotEmpty) const SizedBox(height: 8),
+              if (tanda.isEmpty && aksi.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(spacing: 8, runSpacing: 8, children: aksi),
+                )
+              else if (tanda.isNotEmpty)
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [...tanda, ...aksi],
+                ),
             ],
           ),
         ),

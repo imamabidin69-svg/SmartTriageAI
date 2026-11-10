@@ -54,23 +54,35 @@ void main() {
       ],
       daftarPeringatan: [peringatan()],
     );
+    final semantik = tester.ensureSemantics();
     await jalankanAplikasi(tester, repo);
+
+    // Ringkasan level dalam satu baris angka, jumlah pasien, dan jam terakhir diperbarui.
+    for (final label in ['Kritis: 1', 'Tinggi: 1', 'Sedang: 1', 'Rendah: 1', 'Belum ditriase: 1']) {
+      expect(find.bySemanticsLabel('$label pasien'), findsOneWidget, reason: label);
+    }
+    expect(find.text('5 pasien menunggu'), findsOneWidget);
+    expect(find.textContaining('Diperbarui '), findsOneWidget);
 
     expect(find.text('Peringatan'), findsWidgets);
     expect(find.text('Sri Wahyuni: risk level kritis (SpO2 88%)'), findsOneWidget);
-    expect(find.text('3 mnt · segera'), findsOneWidget);
+    expect(find.text('Tunggu 3 mnt'), findsOneWidget);
+    expect(find.text('segera'), findsOneWidget);
     expect(find.text('Menunggu dokter'), findsOneWidget);
     expect(find.text('Perlu triase ulang'), findsOneWidget);
-    expect(find.text('12 mnt / batas 10'), findsOneWidget);
+    expect(find.text('Tunggu 12 mnt'), findsOneWidget);
+    expect(find.text('lewat batas 10 mnt'), findsOneWidget);
     expect(find.text('45 th · L · datang 08.42'), findsWidgets);
     await tester.scrollUntilVisible(find.text('Hartini'), 200);
     expect(find.text('Ringkasan Eir siap'), findsOneWidget);
-    expect(find.text('Belum ditriase'), findsWidgets);
-    expect(find.text('1 jam 15 mnt sejak datang'), findsOneWidget);
+    expect(find.text('batas 30 mnt'), findsOneWidget);
+    expect(find.text('Belum ditriase'), findsOneWidget);
+    expect(find.text('Tunggu 1 jam 15 mnt'), findsOneWidget);
     expect(find.text('Menunggu review dokter'), findsOneWidget);
     // Badge jumlah peringatan di kepala halaman.
     expect(find.byTooltip('1 peringatan'), findsOneWidget);
     await tutupAplikasi(tester);
+    semantik.dispose();
   });
 
   testWidgets('daftar kosong dan error saat memuat pertama kali', (tester) async {

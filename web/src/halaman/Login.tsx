@@ -1,3 +1,4 @@
+import { LockSimple } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
@@ -7,6 +8,7 @@ import { ProblemError, pesanError } from "@/api/klien";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Isian } from "@/components/ui/isian";
+import { LogoAplikasi } from "@/components/ui/logo";
 import { PESAN_BUKAN_ADMIN } from "@/layout/PenjagaAdmin";
 import { galatZod } from "@/lib/validasi";
 
@@ -63,38 +65,43 @@ export function HalamanLogin() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center justify-center gap-3 text-xl font-semibold text-slate-900">
-          <span aria-hidden className="size-8 rounded-md bg-blue-600" />
-          SmartTriage AI
+    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="w-full max-w-[400px] rounded-md border border-garis bg-white px-7 pt-7 pb-6">
+        <div className="flex items-center gap-3">
+          <LogoAplikasi ukuran={44} />
+          <div className="leading-tight">
+            <p className="text-[17px] font-bold">SmartTriage AI</p>
+            <p className="text-sm text-teks-2">Instalasi Gawat Darurat</p>
+          </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-lg font-semibold text-slate-900">Masuk admin IGD</h1>
-          <p className="mt-1 mb-5 text-sm text-slate-600">Gunakan akun admin yang terdaftar.</p>
-          <form onSubmit={kirim} noValidate className="space-y-4">
-            {galat ? <Alert jenis="galat">{galat}</Alert> : null}
-            <Isian
-              label="Email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              galat={galatField.email}
-            />
-            <Isian
-              label="Password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              galat={galatField.password}
-            />
-            <Button type="submit" className="w-full" disabled={mengirim}>
-              {mengirim ? "Memeriksa..." : "Masuk"}
-            </Button>
-          </form>
-        </div>
+        <h1 className="mt-8 text-2xl font-bold">Masuk admin IGD</h1>
+        <p className="mt-1 mb-6 text-[15px] text-teks-2">Gunakan akun admin yang terdaftar.</p>
+        <form onSubmit={kirim} noValidate className="space-y-4">
+          {galat ? <Alert jenis="galat">{galat}</Alert> : null}
+          <Isian
+            label="Email"
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            galat={galatField.email}
+          />
+          <Isian
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            galat={galatField.password}
+          />
+          <Button type="submit" size="lg" className="w-full" disabled={mengirim}>
+            {mengirim ? "Memeriksa..." : "Masuk"}
+          </Button>
+        </form>
+        <p className="mt-6 flex gap-2 border-t border-garis-2 pt-4 text-[13px] leading-relaxed text-teks-3">
+          <LockSimple size={16} className="mt-0.5 shrink-0" aria-hidden />
+          Data pasien bersifat rahasia. Jangan bagikan akun Anda kepada siapa pun.
+        </p>
       </div>
     </div>
   );

@@ -7,7 +7,7 @@ memakai REST API backend Flask yang sama dengan aplikasi web, dengan token Beare
 | Halaman (Tabel 7.1) | Isi |
 |---|---|
 | Login | Email dan password. Gagal 5 kali dalam 15 menit dibatasi server |
-| Daftar Tunggu | Ringkasan per risk level, kartu pasien, lama menunggu dibanding batas, penanda "Perlu triase ulang" dan "Ringkasan Eir siap", panel peringatan, badge, dan toast. Dimuat ulang tiap 15 detik selama aplikasi dibuka |
+| Daftar Tunggu | Jumlah pasien per risk level dalam satu baris, baris pasien bergaris warna level, jam terakhir diperbarui, lama menunggu dibanding batas, penanda "Perlu triase ulang" dan "Ringkasan Eir siap", panel peringatan, badge, dan toast. Dimuat ulang tiap 15 detik selama aplikasi dibuka |
 | Registrasi Pasien Singkat | Tab Triase Baru, khusus perawat: cari pasien lama atau isi identitas pasien baru |
 | Form Triase | Enam tanda vital, AVPU, skala nyeri, kategori keluhan, keluhan utama, gejala, tombol Pindai layar alat, dan Isi dari ringkasan Eir |
 | Kamera Pemindaian | Pilih jenis alat, ambil foto dengan kamera bawaan HP, lalu periksa angka terbaca sebelum dipakai. Foto dihapus setelah dikirim |
@@ -21,6 +21,21 @@ memakai REST API backend Flask yang sama dengan aplikasi web, dengan token Beare
 Flutter 3.47 (Dart 3.13), Riverpod 3, go_router 18, dio 5, flutter_secure_storage 11, image_picker, qr_flutter.
 Klien API dibangkitkan dari spesifikasi OpenAPI backend dengan swagger_parser, json_serializable, dan retrofit.
 Semua versi dikunci persis di `pubspec.yaml` dan `pubspec.lock`.
+
+## Tampilan
+
+Aturan tampilan (panduan gaya tahap 6D) sama dengan aplikasi web dan ditulis di `lib/tema.dart`:
+
+- Biru tua `#0F2A4F` dari logo untuk header dan pilihan aktif. Merah, oranye, kuning, dan hijau hanya untuk level
+  risiko, mengikuti urutan Manchester Triage System. Hanya Kritis yang berlatar merah penuh; level lain ditandai
+  kotak kecil berwarna dan teks, jadi tetap terbaca oleh perawat yang buta warna.
+- Daftar dibuat rapat seperti papan pantau IGD: blok putih selebar layar dengan garis tipis, sudut kecil, tanpa
+  bayangan dan gradasi. Tombol keputusan di Hasil Triase dan tombol Hitung rekomendasi selalu terlihat di bawah.
+- Huruf Atkinson Hyperlegible Next (Braille Institute, lisensi SIL OFL, lihat `assets/fonts/OFL.txt`) disimpan di
+  aplikasi, jadi tidak diunduh saat dipakai. Angka memakai angka rata supaya jam dan tanda vital sejajar.
+- Logo ada di `assets/logo/logo.png`. Ikon launcher Android ada di `android/app/src/main/res/mipmap-*`, termasuk
+  ikon adaptif (`mipmap-anydpi-v26/ic_launcher.xml`) dengan latar putih. Bila ikon lama masih tampil di HP, copot
+  aplikasinya dulu lalu jalankan `flutter run` lagi, karena launcher kadang menyimpan ikon lama.
 
 ## Persiapan di laptop (sekali saja)
 
@@ -118,11 +133,13 @@ dibangkitkan karena tidak dipakai aplikasi ini.
 ## Struktur
 
 ```
+assets/         logo dan font Atkinson Hyperlegible Next beserta lisensinya
 lib/
+  tema.dart     warna, huruf, dan gaya komponen (panduan gaya tahap 6D)
   api/          klien HTTP (token, refresh), repository, error Problem Details, kode hasil generate
   state/        sesi login, daftar tunggu dan peringatan, penyedia Riverpod
   halaman/      login, daftar tunggu, registrasi, form triase, pemindaian, hasil, riwayat, Eir, profil
-  komponen/     badge risk level, kotak pesan, panel dan lembar peringatan
+  komponen/     penanda risk level, kotak pesan, blok, bilah tombol bawah, panel dan lembar peringatan
   util/         format waktu WIB, label, validasi isian
 test/           unit dan widget test
 test_backend/   uji kontrak dengan backend yang menyala

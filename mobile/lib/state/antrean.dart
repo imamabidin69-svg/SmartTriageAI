@@ -13,12 +13,16 @@ class DataAntrean {
   const DataAntrean({
     required this.daftar,
     required this.peringatan,
+    required this.waktuMuat,
     this.peringatanBaru = const [],
     this.galatMuatUlang,
   });
 
   final DaftarTungguResponse daftar;
   final List<ItemPeringatan> peringatan;
+
+  /// Kapan data ini terakhir berhasil dimuat, ditampilkan sebagai "Diperbarui" di daftar tunggu.
+  final DateTime waktuMuat;
 
   /// Peringatan yang belum pernah muncul sebelumnya, untuk ditampilkan sebagai toast (FR-07).
   final List<ItemPeringatan> peringatanBaru;
@@ -68,7 +72,7 @@ class Antrean extends AsyncNotifier<DataAntrean> {
         ? <ItemPeringatan>[]
         : peringatan.where((p) => !lama.contains(kunciPeringatan(p))).toList();
     _sudahTerlihat = {...?lama, ...kunci};
-    return DataAntrean(daftar: daftar, peringatan: peringatan, peringatanBaru: baru);
+    return DataAntrean(daftar: daftar, peringatan: peringatan, waktuMuat: DateTime.now(), peringatanBaru: baru);
   }
 
   /// Memuat ulang tanpa mengosongkan daftar yang sedang tampil.
@@ -83,7 +87,14 @@ class Antrean extends AsyncNotifier<DataAntrean> {
       if (!ref.mounted) return;
       state = lama == null
           ? AsyncError(galat, StackTrace.current)
-          : AsyncData(DataAntrean(daftar: lama.daftar, peringatan: lama.peringatan, galatMuatUlang: galat));
+          : AsyncData(
+              DataAntrean(
+                daftar: lama.daftar,
+                peringatan: lama.peringatan,
+                waktuMuat: lama.waktuMuat,
+                galatMuatUlang: galat,
+              ),
+            );
     } finally {
       _memuat = false;
     }

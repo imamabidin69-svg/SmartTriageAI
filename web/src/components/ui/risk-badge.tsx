@@ -1,19 +1,25 @@
-import { cva } from "class-variance-authority";
 import type { RiskLevel } from "@/api/tipe";
 import { LABEL_LEVEL } from "@/lib/label";
 
-// Warna level dari prototipe (components/ui/risk-badge.tsx). Kritis berisi penuh supaya paling tegas.
-const varian = cva("inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset", {
-  variants: {
-    level: {
-      rendah: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-      sedang: "bg-amber-50 text-amber-700 ring-amber-600/20",
-      tinggi: "bg-orange-50 text-orange-700 ring-orange-600/20",
-      kritis: "bg-red-700 text-white ring-red-700",
-    },
-  },
-});
+// Hanya Kritis yang berlatar merah penuh. Level lain cukup kotak kecil berwarna dan teks tebal, jadi level
+// tetap terbaca tanpa mengandalkan warna (sama dengan aplikasi mobile).
+const WARNA_KOTAK: Record<RiskLevel, string> = {
+  kritis: "bg-white",
+  tinggi: "bg-tinggi",
+  sedang: "bg-sedang",
+  rendah: "bg-rendah",
+};
 
 export function RiskBadge({ level }: { level: RiskLevel }) {
-  return <span className={varian({ level })}>{LABEL_LEVEL[level]}</span>;
+  const kritis = level === "kritis";
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-sm font-bold ${
+        kritis ? "rounded bg-kritis px-2 py-0.5 text-white" : "text-teks"
+      }`}
+    >
+      <span aria-hidden className={`rounded-[2px] ${kritis ? "size-1.5" : "size-2.5"} ${WARNA_KOTAK[level]}`} />
+      {LABEL_LEVEL[level]}
+    </span>
+  );
 }

@@ -36,12 +36,7 @@ class TombolPeringatan extends ConsumerWidget {
         showDragHandle: true,
         builder: (_) => const LembarPeringatan(),
       ),
-      icon: Badge(
-        isLabelVisible: jumlah > 0,
-        backgroundColor: Warna.galat,
-        label: Text('$jumlah'),
-        child: const Icon(Icons.notifications_outlined),
-      ),
+      icon: Badge(isLabelVisible: jumlah > 0, label: Text('$jumlah'), child: const Icon(Icons.notifications_outlined)),
     );
   }
 }
@@ -60,12 +55,13 @@ class LembarPeringatan extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: Text('Peringatan', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             ),
+            const Divider(),
             if (daftar.isEmpty)
               const Padding(
-                padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
                 child: Text('Tidak ada peringatan.', style: TextStyle(color: Warna.teksRedup)),
               )
             else
@@ -73,13 +69,14 @@ class LembarPeringatan extends ConsumerWidget {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: daftar.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(),
                   itemBuilder: (context, i) {
                     final item = daftar[i];
                     return ListTile(
-                      leading: const Icon(Icons.warning_amber_rounded, color: Warna.galat),
+                      leading: const Icon(Icons.warning_amber_rounded, color: Warna.kritis),
                       title: Text('${item.pasien.nama}: ${labelJenisPeringatan(item.jenis)}'),
                       subtitle: Text('${item.alasan} · ${jamWib(item.waktu)}'),
+                      trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         Navigator.of(context).pop();
                         bukaPeringatan(context, item);
@@ -95,7 +92,7 @@ class LembarPeringatan extends ConsumerWidget {
   }
 }
 
-/// Panel merah di atas daftar tunggu, seperti di mockup Gambar 7.1.
+/// Panel peringatan di atas daftar tunggu: blok putih dengan garis merah di kiri, tiap baris bisa diketuk.
 class PanelPeringatan extends StatelessWidget {
   const PanelPeringatan(this.daftar, {super.key});
 
@@ -104,26 +101,42 @@ class PanelPeringatan extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Warna.galatMuda,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFCA5A5)),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          left: BorderSide(color: Warna.kritis, width: 4),
+          top: BorderSide(color: Warna.garis),
+          bottom: BorderSide(color: Warna.garis),
+        ),
       ),
+      padding: const EdgeInsets.only(top: 12, bottom: 6),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Peringatan',
-            style: TextStyle(color: Color(0xFF991B1B), fontWeight: FontWeight.w700),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 0, 16, 4),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Warna.kritis, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Peringatan',
+                  style: TextStyle(color: Warna.galat, fontWeight: FontWeight.w700, fontSize: 16),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 4),
           for (final item in daftar)
             InkWell(
               onTap: () => bukaPeringatan(context, item),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Text('${item.pasien.nama}: ${item.alasan}', style: const TextStyle(color: Warna.galat)),
+                padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(child: Text('${item.pasien.nama}: ${item.alasan}')),
+                    const Icon(Icons.chevron_right, color: Warna.teksSamar),
+                  ],
+                ),
               ),
             ),
         ],

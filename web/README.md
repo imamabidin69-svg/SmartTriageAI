@@ -7,8 +7,17 @@ Aplikasi React untuk dua kelompok pengguna, sesuai SKPL v3.0 Tabel 7.2 dan 7.3:
 - **Pasien zona hijau atau keluarganya**: halaman Eir di `/eir`, dibuka dari kode QR yang dibuat perawat, tanpa akun.
   Jawaban bisa diketik atau direkam suara.
 
-Hasil build disajikan Flask (SpaRoute) dari origin yang sama dengan API, lalu bisa dipasang sebagai PWA. Tampilan
-mengikuti prototipe Next.js di root repo (token warna, tombol, kartu, dan badge risk level) dan mockup SKPL.
+Hasil build disajikan Flask (SpaRoute) dari origin yang sama dengan API, lalu bisa dipasang sebagai PWA.
+
+Tampilan mengikuti panduan gaya tahap 6D, sama dengan aplikasi mobile, dengan struktur mockup SKPL Gambar 7.2 dan
+7.3 (header gelap berisi menu dan nama pengguna):
+
+- Biru tua `#0F2A4F` diambil dari logo. Merah, oranye, kuning, dan hijau hanya dipakai untuk level risiko, dan hanya
+  Kritis yang berlatar penuh. Token warnanya ada di `src/index.css`.
+- Huruf Atkinson Hyperlegible Next (Braille Institute, lisensi SIL OFL) dari `@fontsource`, ikut dibundel Vite
+  sehingga tetap lolos CSP `font-src 'self'`. Angka memakai angka rata (tabular).
+- Logo dan ikon ada di `public/`: `favicon.ico`, `ikon-192.png`, `ikon-512.png`, `ikon-maskable-512.png`, dan
+  `apple-touch-icon.png`. Komponen `LogoAplikasi` memakai `ikon-192.png`.
 
 ## Teknologi
 

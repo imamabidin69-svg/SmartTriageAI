@@ -94,23 +94,23 @@ function KartuRekap() {
       {rekap.data ? (
         <dl className="space-y-4">
           <div>
-            <dt className="text-sm text-slate-600">Triase tercatat</dt>
-            <dd className="text-3xl font-semibold text-slate-900">{angka(rekap.data.total_triase)}</dd>
+            <dt className="text-sm text-teks-2">Triase tercatat</dt>
+            <dd className="text-3xl font-bold text-teks">{angka(rekap.data.total_triase)}</dd>
           </div>
           <div>
-            <dt className="text-sm text-slate-600">Dikoreksi dokter</dt>
-            <dd className="text-3xl font-semibold text-slate-900">
+            <dt className="text-sm text-teks-2">Dikoreksi dokter</dt>
+            <dd className="text-3xl font-bold text-teks">
               {angka(Math.round(((rekap.data.persen_koreksi ?? 0) * rekap.data.total_triase) / 100))}{" "}
-              <span className="text-sm font-medium text-slate-500">({persen(rekap.data.persen_koreksi)})</span>
+              <span className="text-sm font-medium text-teks-3">({persen(rekap.data.persen_koreksi)})</span>
             </dd>
           </div>
           <div>
-            <dt className="text-sm text-slate-600">Akurasi pemindaian layar</dt>
-            <dd className="text-3xl font-semibold text-slate-900">{persen(rekap.data.akurasi_pemindaian)}</dd>
+            <dt className="text-sm text-teks-2">Akurasi pemindaian layar</dt>
+            <dd className="text-3xl font-bold text-teks">{persen(rekap.data.akurasi_pemindaian)}</dd>
           </div>
           <div>
-            <dt className="text-sm text-slate-600">Triase ulang dipicu</dt>
-            <dd className="text-3xl font-semibold text-slate-900">{angka(rekap.data.triase_ulang)}</dd>
+            <dt className="text-sm text-teks-2">Triase ulang dipicu</dt>
+            <dd className="text-3xl font-bold text-teks">{angka(rekap.data.triase_ulang)}</dd>
           </div>
         </dl>
       ) : null}
@@ -177,8 +177,8 @@ export function HalamanPengaturan() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Pengaturan Triase</h1>
-      <p className="mt-1 mb-6 text-sm text-slate-600">
+      <h1 className="text-[26px] font-bold text-teks">Pengaturan Triase</h1>
+      <p className="mt-1 mb-6 text-sm text-teks-2">
         Perubahan berlaku untuk triase berikutnya dan tercatat di log audit.
       </p>
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">

@@ -180,31 +180,94 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
         autovalidateMode: _sudahDicoba ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
         child: ListView(
           controller: _gulir,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.only(bottom: 24),
           children: [
-            Text(
-              info?.triaseUlang == true ? 'Triase ulang' : 'Triase',
-              style: const TextStyle(color: Warna.teksRedup, fontSize: 15),
-            ),
-            if (pasien != null) ...[
-              Text(pasien.nama, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-              Text(
-                [
-                  if (pasien.usia != null) '${pasien.usia} th',
-                  labelKelamin(pasien.jenisKelamin),
-                  if (waktuDatang != null) 'datang ${jamWib(waktuDatang)}',
-                ].join(' · '),
-                style: const TextStyle(color: Warna.teksRedup, fontSize: 16),
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Warna.garis)),
               ),
-            ],
-            const SizedBox(height: 16),
-            if (pesanUmum != null) ...[KotakPesan(pesanUmum), const SizedBox(height: 12)],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 13),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      info?.triaseUlang == true ? 'Triase ulang' : 'Triase',
+                      style: const TextStyle(color: Warna.teksRedup, fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                    if (pasien != null) ...[
+                      Text(pasien.nama, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                      Text(
+                        [
+                          if (pasien.usia != null) '${pasien.usia} th',
+                          labelKelamin(pasien.jenisKelamin),
+                          if (waktuDatang != null) 'datang ${jamWib(waktuDatang)}',
+                        ].join(' · '),
+                        style: const TextStyle(color: Warna.teksRedup, fontSize: 15),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (widget.info?.ringkasanEirSiap == true && _sumberEir == null) _barisEir(),
+            if (pesanUmum != null)
+              Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: KotakPesan(pesanUmum)),
+            const SizedBox(height: 12),
             _kartuTandaVital(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            _kartuKesadaran(),
+            const SizedBox(height: 12),
             _kartuKeluhan(),
-            const SizedBox(height: 20),
-            TombolProses(label: 'Hitung rekomendasi', sibuk: _sibuk, onPressed: _hitung),
-            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+      // Tombol simpan selalu terlihat, jadi perawat tidak perlu menggulir ke akhir form.
+      bottomNavigationBar: BilahBawah(
+        tombol: [TombolProses(label: 'Hitung rekomendasi', sibuk: _sibuk, onPressed: _hitung)],
+      ),
+    );
+  }
+
+  /// Pemberitahuan bahwa pasien sudah menjawab Eir, dengan tombol untuk mengisi keluhan dari ringkasannya.
+  Widget _barisEir() {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Warna.garis)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.description_outlined, color: Warna.utama),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Ringkasan Eir sudah masuk', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                        'Jawaban pasien bisa dipakai untuk mengisi keluhan.',
+                        style: TextStyle(color: Warna.teksRedup, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _memuatEir ? null : _isiDariEir,
+                child: Text(_memuatEir ? 'Memuat ringkasan Eir...' : 'Isi dari ringkasan Eir'),
+              ),
+            ),
           ],
         ),
       ),
@@ -215,25 +278,29 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
     final jumlahFoto = _dariFoto.length;
     return KartuBagian(
       judul: 'Tanda vital',
-      aksi: FilledButton.icon(
-        style: FilledButton.styleFrom(minimumSize: const Size(48, 44)),
+      aksi: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          textStyle: const TextStyle(fontFamily: hurufAplikasi, fontSize: 14, fontWeight: FontWeight.w700),
+        ),
         onPressed: _sibuk ? null : _pindai,
-        icon: const Icon(Icons.photo_camera_outlined),
+        icon: const Icon(Icons.photo_camera_outlined, size: 20),
         label: const Text('Pindai layar alat'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (jumlahFoto > 0) ...[
-            KotakPesan('$jumlahFoto nilai dibaca dari foto. Periksa sebelum menyimpan.', jenis: JenisPesan.peringatan),
-            const SizedBox(height: 12),
+            KotakPesan('$jumlahFoto nilai dibaca dari foto. Periksa sebelum menyimpan.', jenis: JenisPesan.info),
+            const SizedBox(height: 14),
           ],
           LayoutBuilder(
             builder: (context, batas) {
               final lebar = (batas.maxWidth - 12) / 2;
               return Wrap(
                 spacing: 12,
-                runSpacing: 4,
+                runSpacing: 6,
                 children: [
                   for (final kolom in urutanTandaVital) SizedBox(width: lebar, child: _kolomTandaVital(kolom)),
                 ],
@@ -248,10 +315,11 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
   Widget _kolomTandaVital(String kolom) {
     final asal = _dariFoto[kolom];
     final desimal = kolomDesimal.contains(kolom);
-    final kuning = asal != null
+    // Nilai dari foto diberi latar biru muda dan keterangan alatnya, sampai perawat mengubah angkanya.
+    final biru = asal != null
         ? OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFF59E0B), width: 1.5),
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: Warna.utamaGaris, width: 1.5),
           )
         : null;
     return TextFormField(
@@ -260,49 +328,57 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
       keyboardType: TextInputType.numberWithOptions(decimal: desimal),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(desimal ? r'[0-9.,]' : r'[0-9]'))],
       textInputAction: TextInputAction.next,
+      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
-        labelText: labelTandaVital[kolom],
-        hintText: 'isi manual',
-        filled: true,
-        fillColor: asal != null ? const Color(0xFFFFFBEB) : Colors.white,
-        enabledBorder: kuning,
+        labelText: labelPendekTandaVital[kolom],
+        suffixText: satuanTandaVital[kolom],
+        fillColor: asal != null ? Warna.utamaMuda : Colors.white,
+        enabledBorder: biru,
         helperText: asal == null ? ' ' : 'dari ${labelAlat(asal.$1).toLowerCase()}',
-        helperStyle: const TextStyle(color: Warna.peringatan),
+        helperStyle: const TextStyle(color: Warna.utama, fontWeight: FontWeight.w700),
         errorText: _galat?.field('tanda_vital.$kolom'),
+        errorMaxLines: 2,
       ),
       validator: (teks) => periksaTandaVital(kolom, teks ?? ''),
     );
   }
 
-  Widget _kartuKeluhan() {
+  Widget _kartuKesadaran() {
     final galat = _galat;
     final kesadaranKosong = _sudahDicoba && _kesadaran == null;
-    final kategoriKosong = _sudahDicoba && _kategori == null;
     return KartuBagian(
+      judul: 'Kesadaran dan nyeri',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (widget.info?.ringkasanEirSiap == true || _sumberEir != null) ...[
-            if (_sumberEir == null)
-              OutlinedButton.icon(
-                onPressed: _memuatEir ? null : _isiDariEir,
-                icon: const Icon(Icons.chat_outlined),
-                label: Text(_memuatEir ? 'Memuat ringkasan Eir...' : 'Isi dari ringkasan Eir'),
-              )
-            else
-              KotakPesan(
-                'Keluhan dan gejala diisi dari ringkasan Eir yang dijawab $_sumberEir. Periksa dan lengkapi sebelum '
-                'menghitung rekomendasi.',
-                jenis: JenisPesan.info,
-              ),
-            const SizedBox(height: 16),
-          ],
-          const Text('Kesadaran (AVPU)', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text('Tingkat kesadaran (AVPU)', style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           SegmentedButton<TingkatKesadaran>(
+            style: const ButtonStyle(
+              minimumSize: WidgetStatePropertyAll(Size(48, 56)),
+              padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
+            ),
             segments: [
               for (final tingkat in TingkatKesadaran.$valuesDefined)
-                ButtonSegment(value: tingkat, label: Text(tingkat.json!), tooltip: labelKesadaran(tingkat)),
+                ButtonSegment(
+                  value: tingkat,
+                  tooltip: labelKesadaran(tingkat),
+                  label: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(tingkat.json!),
+                      // Satu baris untuk semua pilihan; teks terpanjang diperkecil sedikit bila tidak muat.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          singkatanKesadaran(tingkat),
+                          maxLines: 1,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
             selected: {?_kesadaran},
             emptySelectionAllowed: true,
@@ -314,23 +390,51 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 galat?.field('tingkat_kesadaran') ?? 'Pilih tingkat kesadaran.',
-                style: const TextStyle(color: Warna.galat, fontSize: 12),
+                style: const TextStyle(color: Warna.galat, fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           TextFormField(
             key: const ValueKey('skala-nyeri'),
             controller: _nyeri,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(labelText: 'Skala nyeri (0-10)', errorText: galat?.field('skala_nyeri')),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              labelText: 'Skala nyeri (0-10)',
+              suffixText: '/10',
+              errorText: galat?.field('skala_nyeri'),
+            ),
             validator: (teks) => periksaSkalaNyeri(teks ?? ''),
           ),
-          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _kartuKeluhan() {
+    final galat = _galat;
+    final kategoriKosong = _sudahDicoba && _kategori == null;
+    return KartuBagian(
+      judul: 'Keluhan',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_sumberEir != null) ...[
+            KotakPesan(
+              'Keluhan dan gejala diisi dari ringkasan Eir yang dijawab $_sumberEir. Periksa dan lengkapi sebelum '
+              'menghitung rekomendasi.',
+              jenis: JenisPesan.info,
+            ),
+            const SizedBox(height: 16),
+          ],
           DropdownButtonFormField<KategoriKeluhan>(
             key: const ValueKey('kategori-keluhan'),
             initialValue: _kategori,
             isExpanded: true,
+            // Bawaan dropdown memakai titleMedium (tebal); disamakan dengan isian lain.
+            style: Theme.of(context).textTheme.bodyLarge,
+            hint: const Text('Pilih kategori', style: TextStyle(color: Warna.teksSamar)),
             decoration: InputDecoration(
               labelText: 'Kategori keluhan',
               errorText: galat?.field('kategori_keluhan') ?? (kategoriKosong ? 'Pilih kategori keluhan.' : null),
@@ -344,7 +448,7 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
             ],
             onChanged: (kategori) => setState(() => _kategori = kategori),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           TextFormField(
             key: const ValueKey('keluhan-utama'),
             controller: _keluhan,
@@ -352,7 +456,7 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
             decoration: InputDecoration(labelText: 'Keluhan utama', errorText: galat?.field('keluhan_utama')),
             validator: (teks) => periksaPanjang(teks ?? '', min: 1, maks: 200, nama: 'Keluhan utama'),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           TextFormField(
             key: const ValueKey('gejala'),
             controller: _gejala,

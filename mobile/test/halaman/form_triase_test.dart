@@ -70,9 +70,11 @@ void main() {
     expect(find.text('Budi Santoso'), findsOneWidget);
     expect(find.text('45 th · Laki-laki · datang 08.42'), findsOneWidget);
 
+    // Tombol Hitung rekomendasi menempel di bawah layar, jadi pesan di blok Keluhan perlu digulir dulu.
     await ketuk(tester, find.text('Hitung rekomendasi'));
     expect(find.text('Wajib diisi.'), findsWidgets);
     expect(find.text('Pilih tingkat kesadaran.'), findsOneWidget);
+    await gulirSampaiAda(tester, find.text('Pilih kategori keluhan.'));
     expect(find.text('Pilih kategori keluhan.'), findsOneWidget);
 
     await isi(tester, _kolom('saturasi'), '120');
@@ -132,6 +134,7 @@ void main() {
     await ketuk(tester, find.text('Hitung rekomendasi'));
     expect(find.text('Periksa kembali kolom yang ditandai merah.'), findsOneWidget);
     expect(find.text('Suhu harus antara 20 dan 45.'), findsOneWidget);
+    await gulirSampaiAda(tester, find.text('Gejala terlalu pendek.'));
     expect(find.text('Gejala terlalu pendek.'), findsOneWidget);
 
     when(() => repo.buatTriase(any(), any())).thenThrow(

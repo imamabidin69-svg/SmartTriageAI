@@ -200,7 +200,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
     return Scaffold(
       appBar: AppBar(title: const Text('Triase Baru')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.only(top: 12, bottom: 24),
         children: [
           KartuBagian(
             judul: 'Pasien lama',
@@ -230,6 +230,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
                     for (final pasien in hasilCari)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
+                        shape: const Border(bottom: BorderSide(color: Warna.garisLembut)),
                         title: Text(pasien.nama),
                         subtitle: Text(
                           [
@@ -247,7 +248,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           KartuBagian(
             judul: 'Pasien baru',
             child: Form(
@@ -267,8 +268,8 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
                     decoration: InputDecoration(labelText: 'Nama', errorText: galat?.field('nama')),
                     validator: (teks) => periksaPanjang(teks ?? '', min: 1, maks: 120, nama: 'Nama'),
                   ),
-                  const SizedBox(height: 16),
-                  const Text('Jenis kelamin', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 18),
+                  const Text('Jenis kelamin', style: TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   SegmentedButton<JenisKelamin>(
                     segments: const [
@@ -285,7 +286,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
                         galat?.field('jenis_kelamin') ?? 'Pilih jenis kelamin.',
-                        style: const TextStyle(color: Warna.galat, fontSize: 12),
+                        style: const TextStyle(color: Warna.galat, fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ),
                   const SizedBox(height: 8),
@@ -327,7 +328,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
                       ),
                       validator: (teks) => periksaUsia(teks ?? ''),
                     ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   TextFormField(
                     key: const ValueKey('nik'),
                     controller: _nik,
@@ -336,7 +337,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
                     decoration: InputDecoration(labelText: 'NIK (opsional)', errorText: galat?.field('nik')),
                     validator: (teks) => periksaNik(teks ?? ''),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   TextFormField(
                     key: const ValueKey('telepon'),
                     controller: _telepon,
@@ -353,7 +354,6 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );

@@ -51,8 +51,11 @@ void main() {
     // Hanya tiga faktor teratas yang ditampilkan.
     expect(find.textContaining('Suhu: 37,2'), findsNothing);
     await gulirSampaiAda(tester, find.text('• Tekanan sistolik 158 di atas normal.'));
-    await gulirSampaiAda(tester, find.textContaining('TD 158/96'));
-    expect(find.text('TD 158/96 · nadi 104 · napas 22 · suhu 37,2 °C · SpO₂ 95%'), findsOneWidget);
+    // Tanda vital tampil sebagai kisi: angka besar dengan satuan kecil.
+    await gulirSampaiAda(tester, find.text('158/96 mmHg'));
+    for (final nilai in ['104 x/mnt', '22 x/mnt', '37,2 °C', '95 %', '7 /10']) {
+      expect(find.text(nilai), findsOneWidget, reason: nilai);
+    }
     expect(find.text('Sebagian dibaca dari foto'), findsOneWidget);
     await tutupAplikasi(tester);
   });

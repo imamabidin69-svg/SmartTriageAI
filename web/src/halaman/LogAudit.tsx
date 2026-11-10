@@ -50,8 +50,8 @@ export function HalamanLogAudit() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Log Audit</h1>
-      <p className="mt-1 mb-6 text-sm text-slate-600">
+      <h1 className="text-[26px] font-bold text-teks">Log Audit</h1>
+      <p className="mt-1 mb-6 text-sm text-teks-2">
         Jejak validasi, koreksi, perubahan pengaturan, dan pengelolaan staf. Log tidak bisa diubah atau dihapus.
       </p>
 
@@ -111,37 +111,37 @@ export function HalamanLogAudit() {
           </div>
         ) : null}
         {log.data && !baris.length ? (
-          <p className="p-8 text-center text-sm text-slate-600">
+          <p className="p-8 text-center text-sm text-teks-2">
             Tidak ada catatan untuk filter ini. Ubah atau reset filter.
           </p>
         ) : null}
         {baris.length ? (
           <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-600 uppercase">
+            <thead className="border-b border-garis bg-[#f7f8fa] text-sm text-teks-2">
               <tr>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-bold">
                   Waktu
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-bold">
                   Aksi
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-bold">
                   Pelaku
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-bold">
                   Perubahan level
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-4 py-3 font-bold">
                   Catatan
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-garis-2">
               {baris.map((item) => (
                 <tr key={item.id_log} className="align-top">
-                  <td className="px-4 py-3 whitespace-nowrap text-slate-700">{waktuWib(item.waktu)}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">{LABEL_AKSI[item.aksi]}</td>
-                  <td className="px-4 py-3 text-slate-700">{item.aktor.nama}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-teks">{waktuWib(item.waktu)}</td>
+                  <td className="px-4 py-3 font-bold text-teks">{LABEL_AKSI[item.aksi]}</td>
+                  <td className="px-4 py-3 text-teks">{item.aktor.nama}</td>
                   <td className="px-4 py-3">
                     {item.level_sebelum && item.level_sesudah ? (
                       <span className="inline-flex items-center gap-2">
@@ -150,10 +150,10 @@ export function HalamanLogAudit() {
                         <RiskBadge level={item.level_sesudah} />
                       </span>
                     ) : (
-                      <span className="text-slate-400">-</span>
+                      <span className="text-teks-3">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{item.catatan ?? "-"}</td>
+                  <td className="px-4 py-3 text-teks">{item.catatan ?? "-"}</td>
                 </tr>
               ))}
             </tbody>

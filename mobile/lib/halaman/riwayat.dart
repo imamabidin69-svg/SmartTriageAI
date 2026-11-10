@@ -84,10 +84,12 @@ class _HalamanCariRiwayatState extends ConsumerState<HalamanCariRiwayat> {
             const Text('Pasien tidak ditemukan.', style: TextStyle(color: Warna.teksRedup))
           else if (hasil != null)
             Card(
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  for (final pasien in hasil)
+                  for (final (i, pasien) in hasil.indexed)
                     ListTile(
+                      shape: i == hasil.length - 1 ? null : const Border(bottom: BorderSide(color: Warna.garisLembut)),
                       title: Text(pasien.nama),
                       subtitle: Text(
                         [
@@ -182,17 +184,28 @@ class _HalamanRiwayatPasienState extends ConsumerState<HalamanRiwayatPasien> {
           : RefreshIndicator(
               onRefresh: _muat,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.only(bottom: 24),
                 children: [
-                  if (pasien != null) ...[IdentitasPasien(pasien), const SizedBox(height: 16)],
+                  if (pasien != null) IdentitasPasien(pasien),
+                  const SizedBox(height: 12),
                   if (_items.isEmpty)
-                    const Text('Pasien ini belum pernah ditriase.', style: TextStyle(color: Warna.teksRedup)),
-                  for (final item in _items) ...[_KartuRiwayat(item), const SizedBox(height: 12)],
-                  if (galat != null) ...[KotakPesan(galat.pesan), const SizedBox(height: 12)],
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Pasien ini belum pernah ditriase.', style: TextStyle(color: Warna.teksRedup)),
+                    )
+                  else ...[
+                    const Divider(),
+                    for (final item in _items) _KartuRiwayat(item),
+                  ],
+                  if (galat != null)
+                    Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: KotakPesan(galat.pesan)),
                   if (_kursor != null)
-                    OutlinedButton(
-                      onPressed: _memuat ? null : () => _muat(lanjutan: true),
-                      child: Text(_memuat ? 'Memuat...' : 'Muat lebih banyak'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: OutlinedButton(
+                        onPressed: _memuat ? null : () => _muat(lanjutan: true),
+                        child: Text(_memuat ? 'Memuat...' : 'Muat lebih banyak'),
+                      ),
                     ),
                 ],
               ),
@@ -201,6 +214,7 @@ class _HalamanRiwayatPasienState extends ConsumerState<HalamanRiwayatPasien> {
   }
 }
 
+/// Satu triase di riwayat pasien: baris putih dengan garis warna level di kiri, seperti di daftar tunggu.
 class _KartuRiwayat extends StatelessWidget {
   const _KartuRiwayat(this.item);
 
@@ -209,42 +223,50 @@ class _KartuRiwayat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tv = item.tandaVital;
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    return Material(
+      color: Colors.white,
       child: InkWell(
         onTap: () => context.push(Rute.hasil(item.idTriase), extra: InfoHasil(statusKunjungan: item.kunjungan.status)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: Warna.level(item.riskLevel), width: 5),
+              bottom: const BorderSide(color: Warna.garis),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
                       '${labelJenisTriase(item.jenis)} · ${tanggalJamWib(item.waktuTriase)}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: Warna.teksRedup, fontSize: 14),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   LencanaRisiko(item.riskLevel),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text(item.keluhanUtama, style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 4),
+              Text(item.keluhanUtama, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               Text(
                 'TD ${tv.tdSistolik}/${tv.tdDiastolik} · nadi ${tv.nadi} · SpO₂ ${angka(tv.saturasi)}% · '
                 'suhu ${angka(tv.suhu)} °C',
-                style: const TextStyle(color: Warna.teksRedup),
+                style: const TextStyle(color: Warna.teksRedup, fontSize: 14),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 [
                   labelStatusValidasi(item.statusValidasi),
                   'oleh ${item.dibuatOleh.nama}',
                   labelStatusKunjungan(item.kunjungan.status),
                 ].join(' · '),
-                style: const TextStyle(color: Warna.teksRedup, fontSize: 13),
+                style: const TextStyle(color: Warna.teksSamar, fontSize: 13),
               ),
             ],
           ),

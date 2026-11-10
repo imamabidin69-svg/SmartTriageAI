@@ -67,8 +67,8 @@ export function HalamanGantiPassword() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-semibold text-slate-900">Ganti password</h1>
-      <p className="mt-1 mb-6 text-sm text-slate-600">Password baru berlaku untuk login berikutnya.</p>
+      <h1 className="text-[26px] font-bold text-teks">Ganti password</h1>
+      <p className="mt-1 mb-6 text-sm text-teks-2">Password baru berlaku untuk login berikutnya.</p>
       <Card>
         <form onSubmit={kirim} noValidate className="space-y-4">
           {galat ? <Alert jenis="galat">{galat}</Alert> : null}

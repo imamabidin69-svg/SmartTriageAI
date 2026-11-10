@@ -1,11 +1,12 @@
 import { type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, useId } from "react";
 
+// Batas isian #7D8896 (kontras 3,6:1 terhadap putih), fokus berupa garis biru tebal tanpa bayangan.
 const kelasKontrol =
-  "block w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-500 ";
+  "block h-10 w-full rounded-md border bg-white px-3 text-[15px] text-teks " +
+  "focus:border-biru focus:outline-none focus:ring-1 focus:ring-biru disabled:bg-latar disabled:text-teks-3 ";
 
 function kelasGaris(galat?: string) {
-  return galat ? "border-red-400" : "border-slate-300";
+  return galat ? "border-galat ring-1 ring-galat" : "border-garis-isian";
 }
 
 interface PropsDasar {
@@ -17,17 +18,17 @@ interface PropsDasar {
 function Bingkai({ id, label, galat, petunjuk, children }: PropsDasar & { id: string; children: ReactNode }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-slate-800">
+      <label htmlFor={id} className="mb-1.5 block text-sm font-bold text-teks">
         {label}
       </label>
       {children}
       {petunjuk && !galat ? (
-        <p id={`${id}-petunjuk`} className="mt-1 text-xs text-slate-500">
+        <p id={`${id}-petunjuk`} className="mt-1 text-[13px] text-teks-3">
           {petunjuk}
         </p>
       ) : null}
       {galat ? (
-        <p id={`${id}-galat`} className="mt-1 text-xs text-red-700">
+        <p id={`${id}-galat`} className="mt-1 text-[13px] font-bold text-galat">
           {galat}
         </p>
       ) : null}

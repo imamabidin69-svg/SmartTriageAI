@@ -16,7 +16,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       // registerSW.js berupa berkas terpisah, bukan skrip inline, supaya lolos CSP script-src 'self'.
       injectRegister: "script",
-      includeAssets: ["apple-touch-icon.png"],
+      includeAssets: ["apple-touch-icon.png", "favicon.ico"],
       manifest: {
         name: "SmartTriage AI Admin",
         short_name: "SmartTriage",
@@ -25,8 +25,8 @@ export default defineConfig({
         start_url: "/staf",
         scope: "/",
         display: "standalone",
-        background_color: "#f8fafc",
-        theme_color: "#1e293b",
+        background_color: "#f2f4f6",
+        theme_color: "#0f2a4f",
         icons: [
           { src: "/ikon-192.png", sizes: "192x192", type: "image/png" },
           { src: "/ikon-512.png", sizes: "512x512", type: "image/png" },

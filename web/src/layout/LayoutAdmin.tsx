@@ -3,6 +3,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import { useKeluar } from "@/api/admin";
 import type { Pengguna } from "@/api/tipe";
+import { LogoAplikasi } from "@/components/ui/logo";
 import { DaftarNotifikasi } from "@/components/ui/notifikasi";
 
 const MENU = [
@@ -12,9 +13,19 @@ const MENU = [
   { ke: "/log-audit", label: "Log Audit" },
 ];
 
+/** Menu di header: halaman aktif ditandai garis putih di bawah, bukan latar berbentuk pil. */
 function kelasMenu({ isActive }: { isActive: boolean }) {
-  return `block rounded-lg px-3 py-2 text-sm font-medium ${
-    isActive ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700/60 hover:text-white"
+  return `relative flex h-full items-center px-3 text-[15px] font-bold ${
+    isActive
+      ? "text-white after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-t-sm after:bg-white"
+      : "text-navy-teks hover:text-white"
+  }`;
+}
+
+/** Menu di layar sempit: daftar bertumpuk dengan garis kiri untuk halaman aktif. */
+function kelasMenuPonsel({ isActive }: { isActive: boolean }) {
+  return `block border-l-[3px] px-3 py-2.5 text-[15px] font-bold ${
+    isActive ? "border-white text-white" : "border-transparent text-navy-teks hover:text-white"
   }`;
 }
 
@@ -35,16 +46,19 @@ export function LayoutAdmin({ pengguna }: { pengguna: Pengguna }) {
       >
         Lewati ke isi
       </a>
-      <header className="bg-slate-800 text-white">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4">
-          <div className="flex items-center gap-3 font-semibold">
-            <span aria-hidden className="size-7 rounded-md bg-blue-600" />
+      <header className="bg-navy text-white">
+        <div className="mx-auto flex h-14 max-w-7xl items-stretch gap-7 px-4 md:px-8">
+          <div className="flex items-center gap-2.5 text-base font-bold">
+            <LogoAplikasi />
             SmartTriage AI
+            <span className="ml-1 hidden border-l border-navy-garis pl-3 font-normal text-navy-teks sm:inline">
+              Admin IGD
+            </span>
           </div>
           <nav aria-label="Menu utama" className="hidden flex-1 md:block">
-            <ul className="flex gap-1">
+            <ul className="flex h-full gap-0.5">
               {MENU.map((item) => (
-                <li key={item.ke}>
+                <li key={item.ke} className="h-full">
                   <NavLink to={item.ke} className={kelasMenu}>
                     {item.label}
                   </NavLink>
@@ -52,21 +66,21 @@ export function LayoutAdmin({ pengguna }: { pengguna: Pengguna }) {
               ))}
             </ul>
           </nav>
-          <div className="ml-auto hidden items-center gap-3 text-sm md:flex">
-            <NavLink to="/akun/password" className="text-slate-300 hover:text-white">
+          <div className="ml-auto hidden items-center gap-4 text-[15px] md:flex">
+            <NavLink to="/akun/password" className="font-bold text-white hover:underline" title="Ganti password">
               {pengguna.nama} · Admin IGD
             </NavLink>
             <button
               type="button"
               onClick={prosesKeluar}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-slate-300 hover:bg-slate-700 hover:text-white"
+              className="inline-flex items-center gap-1.5 border-l border-navy-garis pl-4 font-bold text-white hover:underline"
             >
               <SignOut size={18} aria-hidden /> Keluar
             </button>
           </div>
           <button
             type="button"
-            className="ml-auto rounded-lg p-2 md:hidden"
+            className="ml-auto self-center rounded-md p-2 md:hidden"
             aria-expanded={menuTerbuka}
             aria-controls="menu-ponsel"
             aria-label={menuTerbuka ? "Tutup menu" : "Buka menu"}
@@ -76,17 +90,21 @@ export function LayoutAdmin({ pengguna }: { pengguna: Pengguna }) {
           </button>
         </div>
         {menuTerbuka ? (
-          <nav id="menu-ponsel" aria-label="Menu utama" className="border-t border-slate-700 px-4 pb-4 md:hidden">
-            <ul className="mt-2 space-y-1">
+          <nav id="menu-ponsel" aria-label="Menu utama" className="border-t border-navy-garis px-4 pb-4 md:hidden">
+            <ul className="mt-2 space-y-0.5">
               {[...MENU, { ke: "/akun/password", label: "Ganti password" }].map((item) => (
                 <li key={item.ke}>
-                  <NavLink to={item.ke} className={kelasMenu} onClick={tutupMenu}>
+                  <NavLink to={item.ke} className={kelasMenuPonsel} onClick={tutupMenu}>
                     {item.label}
                   </NavLink>
                 </li>
               ))}
               <li>
-                <button type="button" onClick={prosesKeluar} className={kelasMenu({ isActive: false })}>
+                <button
+                  type="button"
+                  onClick={prosesKeluar}
+                  className={`${kelasMenuPonsel({ isActive: false })} w-full text-left`}
+                >
                   Keluar
                 </button>
               </li>
@@ -94,7 +112,7 @@ export function LayoutAdmin({ pengguna }: { pengguna: Pengguna }) {
           </nav>
         ) : null}
       </header>
-      <main id="isi" className="mx-auto max-w-7xl px-4 py-8">
+      <main id="isi" className="mx-auto max-w-7xl px-4 py-7 md:px-8">
         <Outlet />
       </main>
       <DaftarNotifikasi />

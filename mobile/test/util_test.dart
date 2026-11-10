@@ -42,6 +42,9 @@ void main() {
       expect(durasiMenit(12), '12 mnt');
       expect(durasiMenit(60), '1 jam');
       expect(durasiMenit(75), '1 jam 15 mnt');
+      // Data simulasi lama bisa menunggu ratusan jam, jadi ditulis dalam hari.
+      expect(durasiMenit(24 * 60), '1 hari');
+      expect(durasiMenit(26 * 24 * 60 + 16 * 60 + 34), '26 hari 16 jam');
     });
   });
 
@@ -87,11 +90,14 @@ void main() {
       ...JenisTriase.values.map(labelJenisTriase),
       ...StatusKunjungan.values.map(labelStatusKunjungan),
       ...TingkatKesadaran.values.map(labelKesadaran),
+      ...TingkatKesadaran.values.map(singkatanKesadaran),
       ...JenisAlat.values.map(labelAlat),
       ...ItemPeringatanJenis.values.map(labelJenisPeringatan),
     ];
     expect(semua.every((label) => label.isNotEmpty), isTrue);
     expect(urutanTandaVital.every(labelTandaVital.containsKey), isTrue);
+    expect(urutanTandaVital.every(labelPendekTandaVital.containsKey), isTrue);
+    expect(urutanTandaVital.every(satuanTandaVital.containsKey), isTrue);
     expect(RiskLevel.values.map(Warna.level).toSet(), hasLength(4));
     expect(temaAplikasi().scaffoldBackgroundColor, Warna.latar);
   });

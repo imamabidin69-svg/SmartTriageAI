@@ -1,29 +1,58 @@
 @import "tailwindcss";
 
-/* Token warna mengikuti prototipe (app/globals.css). Web admin hanya memakai tema terang (keputusan W7). */
+/*
+ * Token warna dan huruf mengikuti panduan gaya tahap 6D, sama dengan aplikasi mobile (lib/tema.dart).
+ * Biru tua diambil dari perisai di logo. Merah, oranye, kuning, dan hijau hanya untuk level risiko
+ * (urutan Manchester Triage System); elemen lain memakai warna netral. Web admin hanya memakai tema terang (W7).
+ */
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
+
+  --color-navy: #0f2a4f;
+  --color-navy-garis: #2b4770;
+  --color-navy-teks: #b9c7da;
+  --color-biru: #1c58b0;
+  --color-biru-tua: #174a96;
+  --color-biru-garis: #5d84c2;
+  --color-biru-muda: #e9f0fa;
+  --color-teks: #18212c;
+  --color-teks-2: #4b5765;
+  --color-teks-3: #5f6b79;
+  --color-garis: #d3dae1;
+  --color-garis-2: #e6eaee;
+  --color-garis-isian: #7d8896;
+  --color-latar: #f2f4f6;
+  --color-galat: #b42318;
+  --color-galat-garis: #d9867f;
+  --color-waspada: #8a4b00;
+  --color-waspada-garis: #e0a100;
+
+  --color-kritis: #c62828;
+  --color-tinggi: #e8590c;
+  --color-sedang: #e0a100;
+  --color-rendah: #2f8f4e;
+  --color-belum: #8c97a4;
 }
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
   color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-latar);
+  color: var(--color-teks);
+  /* Angka rata supaya jam, tanggal, dan jumlah di tabel sejajar. */
+  font-variant-numeric: tabular-nums;
 }
 
 @layer base {
-  /* Placeholder bawaan Tailwind v4 hanya sekitar 3,4:1; dinaikkan ke AA seperti di prototipe. */
+  /* Placeholder bawaan Tailwind v4 hanya sekitar 3,4:1; dinaikkan ke AA. */
   input::placeholder,
   textarea::placeholder {
-    color: var(--color-slate-500);
+    color: var(--color-teks-3);
   }
 
   dialog::backdrop {
-    background: rgb(15 23 42 / 0.5);
+    background: rgb(15 42 79 / 0.45);
   }
 }

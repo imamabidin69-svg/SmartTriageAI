@@ -42,9 +42,14 @@ num? bacaAngka(String teks) {
   return num.tryParse(rapi);
 }
 
-/// "12 mnt", atau "1 jam 5 mnt" untuk tunggu yang lama.
+/// "12 mnt", "1 jam 5 mnt", atau "2 hari 3 jam" untuk tunggu yang sangat lama (misalnya data simulasi lama).
 String durasiMenit(int menit) {
   if (menit < 60) return '$menit mnt';
-  final sisa = menit % 60;
-  return sisa == 0 ? '${menit ~/ 60} jam' : '${menit ~/ 60} jam $sisa mnt';
+  if (menit < 24 * 60) {
+    final sisa = menit % 60;
+    return sisa == 0 ? '${menit ~/ 60} jam' : '${menit ~/ 60} jam $sisa mnt';
+  }
+  final hari = menit ~/ (24 * 60);
+  final jam = (menit % (24 * 60)) ~/ 60;
+  return jam == 0 ? '$hari hari' : '$hari hari $jam jam';
 }

@@ -21,34 +21,47 @@ class HalamanProfil extends ConsumerWidget {
       body: pengguna == null
           ? const SizedBox.shrink()
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(bottom: 24),
               children: [
-                KartuBagian(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(pengguna.nama, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text(pengguna.email, style: const TextStyle(color: Warna.teksRedup)),
-                      const SizedBox(height: 8),
-                      Tanda(labelPeran(pengguna.peran), warna: Warna.utama, latar: Warna.infoMuda),
-                    ],
+                DecoratedBox(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(bottom: BorderSide(color: Warna.garis)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(pengguna.nama, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 2),
+                        Text(pengguna.email, style: const TextStyle(color: Warna.teksRedup)),
+                        const SizedBox(height: 10),
+                        Tanda(labelPeran(pengguna.peran), warna: Warna.kepala, ikon: Icons.badge_outlined),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 const KartuBagian(judul: 'Ganti password', child: FormGantiPassword()),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: Warna.galat),
-                  onPressed: () => _keluar(context, ref),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Keluar'),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Warna.galat,
+                      side: const BorderSide(color: Color(0xFFD9867F)),
+                    ),
+                    onPressed: () => _keluar(context, ref),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Keluar'),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
                   'Server: $alamatApi',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Warna.teksRedup, fontSize: 12),
+                  style: TextStyle(color: Warna.teksSamar, fontSize: 12),
                 ),
               ],
             ),
@@ -131,7 +144,7 @@ class _FormGantiPasswordState extends ConsumerState<FormGantiPassword> {
             decoration: InputDecoration(labelText: 'Password lama', errorText: galat?.field('password_lama')),
             validator: (nilai) => (nilai ?? '').isEmpty ? 'Password lama wajib diisi.' : null,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
           TextFormField(
             controller: _baru,
             obscureText: true,
@@ -147,14 +160,14 @@ class _FormGantiPasswordState extends ConsumerState<FormGantiPassword> {
               return null;
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
           TextFormField(
             controller: _ulang,
             obscureText: true,
             decoration: const InputDecoration(labelText: 'Ulangi password baru'),
             validator: (nilai) => nilai != _baru.text ? 'Ulangan password tidak sama.' : null,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           TombolProses(label: 'Simpan password', sibuk: _sibuk, onPressed: _simpan),
         ],
       ),

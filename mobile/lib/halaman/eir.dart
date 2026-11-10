@@ -62,54 +62,84 @@ class _HalamanKodeQrEirState extends ConsumerState<HalamanKodeQrEir> {
     return Scaffold(
       appBar: AppBar(title: const Text('Kode QR Eir')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.only(bottom: 24),
         children: [
-          if (pasien != null) ...[IdentitasPasien(pasien), const SizedBox(height: 16)],
+          if (pasien != null) IdentitasPasien(pasien),
+          const SizedBox(height: 12),
           if (_memuat)
             const Padding(
               padding: EdgeInsets.all(48),
               child: TampilanMemuat(pesan: 'Membuat kode QR...'),
             )
-          else if (galat != null) ...[
-            KotakPesan(galat.pesan),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(onPressed: _buat, icon: const Icon(Icons.refresh), label: const Text('Coba lagi')),
-          ] else if (tautan != null) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Semantics(
-                      label: 'Kode QR tautan Eir',
-                      child: QrImageView(data: tautan.url, size: 260, backgroundColor: Colors.white),
+          else if (galat != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  KotakPesan(galat.pesan),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _buat,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Coba lagi'),
+                  ),
+                ],
+              ),
+            )
+          else if (tautan != null) ...[
+            KartuBagian(
+              child: Column(
+                children: [
+                  Semantics(
+                    label: 'Kode QR tautan Eir',
+                    child: QrImageView(
+                      data: tautan.url,
+                      size: 248,
+                      backgroundColor: Colors.white,
+                      eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Warna.kepala),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: Warna.kepala,
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Berlaku sampai ${jamWib(tautan.kedaluwarsa)} WIB',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Berlaku sampai ${jamWib(tautan.kedaluwarsa)} WIB',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            const KotakPesan(
-              'Minta pasien atau keluarga memindai kode ini dengan kamera ponsel, lalu menjawab pertanyaan Eir '
-              'sambil menunggu. Ringkasannya akan muncul di daftar tunggu sebagai "Ringkasan Eir siap".',
-              jenis: JenisPesan.info,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const KotakPesan(
+                    'Minta pasien atau keluarga memindai kode ini dengan kamera ponsel, lalu menjawab pertanyaan Eir '
+                    'sambil menunggu. Ringkasannya akan muncul di daftar tunggu sebagai "Ringkasan Eir siap".',
+                    jenis: JenisPesan.info,
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: tautan.url));
+                      tampilkanPesan(context, 'Tautan Eir disalin.');
+                    },
+                    icon: const Icon(Icons.copy),
+                    label: const Text('Salin tautan'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _buat,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Buat kode baru'),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: tautan.url));
-                tampilkanPesan(context, 'Tautan Eir disalin.');
-              },
-              icon: const Icon(Icons.copy),
-              label: const Text('Salin tautan'),
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(onPressed: _buat, icon: const Icon(Icons.refresh), label: const Text('Buat kode baru')),
           ],
         ],
       ),
@@ -172,21 +202,36 @@ class _HalamanRingkasanEirState extends ConsumerState<HalamanRingkasanEir> {
       StatusSesiEir.$unknown => '-',
     };
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 24),
       children: [
-        if (widget.namaPasien != null)
-          Text(widget.namaPasien!, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-        Text(
-          '$status · dijawab ${data.pengisi == PengisiEir.keluarga ? 'keluarga' : 'pasien'} · '
-          'mulai ${jamWib(data.waktuPersetujuan)}',
-          style: const TextStyle(color: Warna.teksRedup),
+        DecoratedBox(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Warna.garis)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.namaPasien != null)
+                  Text(widget.namaPasien!, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                Text(
+                  '$status · dijawab ${data.pengisi == PengisiEir.keluarga ? 'keluarga' : 'pasien'} · '
+                  'mulai ${jamWib(data.waktuPersetujuan)}',
+                  style: const TextStyle(color: Warna.teksRedup, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 16),
-        if (tandaBahaya != null) ...[
-          KotakPesan(tandaBahaya, judul: 'Tanda bahaya', jenis: JenisPesan.galat),
-          const SizedBox(height: 12),
-        ],
+        if (tandaBahaya != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: KotakPesan(tandaBahaya, judul: 'Tanda bahaya', jenis: JenisPesan.galat),
+          ),
         if (ringkasan != null) ...[
+          const SizedBox(height: 12),
           KartuBagian(
             judul: 'Ringkasan untuk perawat',
             child: Column(
@@ -202,29 +247,66 @@ class _HalamanRingkasanEirState extends ConsumerState<HalamanRingkasanEir> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
         ],
-        const Text('Transkrip', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        if (data.transkrip.isEmpty) const Text('Belum ada pesan.', style: TextStyle(color: Warna.teksRedup)),
-        for (final pesan in data.transkrip)
-          Align(
-            alignment: pesan.peran == ItemTranskripPeran.eir ? Alignment.centerLeft : Alignment.centerRight,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.8),
-              decoration: BoxDecoration(
-                color: pesan.peran == ItemTranskripPeran.eir ? const Color(0xFFF1F5F9) : Warna.utama,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                pesan.teks,
-                style: TextStyle(color: pesan.peran == ItemTranskripPeran.eir ? Warna.teks : Colors.white),
-              ),
-            ),
+        const SizedBox(height: 12),
+        KartuBagian(
+          judul: 'Transkrip',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (data.transkrip.isEmpty) const Text('Belum ada pesan.', style: TextStyle(color: Warna.teksRedup)),
+              for (final pesan in data.transkrip)
+                _GelembungTranskrip(pesan.teks, dariEir: pesan.peran == ItemTranskripPeran.eir),
+            ],
           ),
+        ),
       ],
+    );
+  }
+}
+
+/// Pesan di transkrip Eir: pertanyaan Eir di kiri berlabel nama, jawaban pasien di kanan berwarna biru tua.
+class _GelembungTranskrip extends StatelessWidget {
+  const _GelembungTranskrip(this.teks, {required this.dariEir});
+
+  final String teks;
+  final bool dariEir;
+
+  @override
+  Widget build(BuildContext context) {
+    final lebarMaks = MediaQuery.sizeOf(context).width * 0.8;
+    return Align(
+      alignment: dariEir ? Alignment.centerLeft : Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Column(
+          crossAxisAlignment: dariEir ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+          children: [
+            if (dariEir)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 3),
+                child: Text(
+                  'Eir',
+                  style: TextStyle(color: Warna.teksSamar, fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+              constraints: BoxConstraints(maxWidth: lebarMaks),
+              decoration: BoxDecoration(
+                color: dariEir ? Warna.latar : Warna.kepala,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(dariEir ? 2 : 12),
+                  topRight: Radius.circular(dariEir ? 12 : 2),
+                  bottomLeft: const Radius.circular(12),
+                  bottomRight: const Radius.circular(12),
+                ),
+              ),
+              child: Text(teks, style: TextStyle(color: dariEir ? Warna.teks : Colors.white, height: 1.45)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

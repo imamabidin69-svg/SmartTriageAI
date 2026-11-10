@@ -23,6 +23,13 @@ python -m flask run --debug
 ```
 
 Backend berjalan di http://127.0.0.1:5000. Biarkan terminal ini terbuka. Untuk menghentikan: **Ctrl + C**.
+Perintah Flask harus dijalankan dari folder `backend`; dari folder lain muncul `Could not locate a Flask application`.
+
+Untuk memastikan backend hidup, jalankan di terminal lain (jangan lewat browser, lihat bagian 7):
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:5000/api/v1/health    # status harus "ok"
+```
 
 Bila aplikasi mobile dijalankan di HP sungguhan (bukan emulator), ganti baris terakhir dengan:
 
@@ -178,6 +185,24 @@ flutter doctor --android-licenses       # jawab y untuk semua
 flutter doctor
 ```
 
+### Memasang NDK dan CMake (sekali saja)
+
+Build Android butuh **NDK 28.2.13676358** dan **CMake 3.22.1**, karena salah satu dependensi (paket `jni` yang dipakai
+`path_provider_android`) mengompilasi kode native. Flutter mencoba memasangnya otomatis, tapi di laptop ini gagal
+dengan pesan `Package ndk not found`, jadi pasang lewat Android Studio:
+
+1. Settings > Languages & Frameworks > Android SDK > tab **SDK Tools**.
+2. Centang **Show Package Details** di kanan bawah.
+3. Di bawah **NDK (Side by side)** centang `28.2.13676358`, di bawah **CMake** centang `3.22.1`.
+4. Klik **Apply** dan tunggu unduhan selesai, lalu jalankan `flutter run` lagi.
+
+### Kompilasi Kotlin dan beda drive
+
+Proyek ada di drive F: sedangkan cache pub Flutter ada di drive C:. Kompilasi Kotlin inkremental tidak bisa menangani
+berkas di dua drive berbeda dan gagal dengan pesan `this and base files have different roots`. Karena itu
+`android\gradle.properties` berisi `kotlin.incremental=false`; jangan dihapus. Build sedikit lebih lama, tapi stabil.
+Langkah bila pesan itu masih muncul ada di bagian 7.
+
 ### Perintah umum
 
 ```powershell
@@ -196,8 +221,12 @@ flutter devices             # melihat emulator atau HP yang terhubung
 $adb = "$env:ANDROID_HOME\platform-tools\adb.exe"
 & $adb devices                          # HP harus tampil dengan status "device"
 & $adb reverse tcp:5000 tcp:5000
+& $adb reverse --list                   # harus tampil baris tcp:5000 tcp:5000
 flutter run --dart-define=API_BASE_URL=http://127.0.0.1:5000
 ```
+
+Pemetaan `adb reverse` juga hilang setiap kali adb dinyalakan ulang, misalnya setelah muncul tulisan
+`daemon not running; starting now`. Bila `& $adb reverse --list` kosong, jalankan lagi `& $adb reverse tcp:5000 tcp:5000`.
 
 ### Menjalankan di emulator
 
@@ -285,15 +314,22 @@ Sebelum `git add`, pastikan `git status` tidak menampilkan `.env`, `.venv`, `nod
 | Gejala | Penyebab dan solusi |
 |---|---|
 | `flask : The term 'flask' is not recognized` | Venv belum aktif atau beda venv. Jalankan `.\.venv\Scripts\Activate.ps1` di folder `backend`, lalu pakai `python -m flask ...` |
+| `Error: Could not locate a Flask application` | Flask dijalankan dari folder lain, misalnya `mobile`. Pindah dulu ke folder `backend`, aktifkan venv, lalu `python -m flask run --debug` |
+| Membuka alamat backend di browser malah menampilkan halaman masuk, bukan teks JSON | Bukan tanda backend mati. Alamat yang bukan `/api/...` dijawab aplikasi web, dan browser bisa memakai salinan dari cache PWA. Cek backend dengan `Invoke-RestMethod http://127.0.0.1:5000/api/v1/health` |
+| Tampilan web masih tampilan lama setelah `npm run build` | Cache PWA. Tekan Ctrl+Shift+R, atau tutup tab lalu buka lagi |
 | Tes backend gagal dengan `ConnectionTimeout` atau `connection refused` | Docker belum menyala. Buka Docker Desktop, lalu `docker compose up -d db` |
 | Login web atau mobile ditolak dengan password dari `.env` | Lihat "Menyamakan password akun demo" di bagian 2. Pastikan juga emailnya `@smarttriage.demo` tanpa angka |
 | "Terlalu banyak percobaan" saat login | Gagal 5 kali dalam 15 menit. Tunggu 15 menit, atau matikan lalu nyalakan lagi Flask |
 | `Address already in use` / port 5000 terpakai | Flask lama masih jalan. Tutup terminalnya, atau `Get-Process python \| Stop-Process` |
 | Halaman `/staf` di port 5000 menampilkan "Aplikasi web belum dibangun" | Jalankan `npm run build` di folder `web` |
 | Aplikasi mobile: "Tidak dapat terhubung ke server" | Emulator: pastikan Flask menyala. HP: Flask pakai `--host 0.0.0.0`, alamat IP benar, satu WiFi, dan izinkan Python di Windows Defender Firewall untuk jaringan privat |
-| `flutter` tidak dikenali | Folder `C:\flutter\bin` belum ada di Path. Tambahkan lewat Environment Variables, lalu buka ulang VS Code |
+| `flutter` tidak dikenali | Folder `bin` Flutter belum ada di Path. Lihat "Menambahkan Flutter ke Path" di bagian 4, lalu tutup dan buka ulang VS Code |
 | `Unable to locate Android SDK` | Flutter belum tahu lokasi SDK. Lihat "Memberi tahu lokasi Android SDK" di bagian 4 |
 | `flutter doctor` minta lisensi Android | `flutter doctor --android-licenses`, lalu tekan `y` untuk semua |
 | `flutter devices` tidak menampilkan HP | Aktifkan Opsi pengembang dan Debugging USB di HP, terima pertanyaan "Izinkan debugging USB?", pilih mode USB "Transfer file", coba kabel data lain. Bila masih tidak muncul, pasang Google USB Driver lewat SDK Manager di Android Studio, atau driver USB dari merek HP |
-| Aplikasi di HP lewat USB tidak bisa login, "Tidak dapat terhubung ke server" | Kabel sempat dicabut. Jalankan lagi `& $adb reverse tcp:5000 tcp:5000` dan pastikan Flask menyala |
+| Aplikasi di HP lewat USB tidak bisa login, "Tidak dapat terhubung ke server" | Kabel sempat dicabut atau adb dinyalakan ulang. Cek `& $adb reverse --list`; bila kosong, jalankan lagi `& $adb reverse tcp:5000 tcp:5000` dan pastikan Flask menyala |
 | Build pertama sangat lama atau laptop macet | Normal untuk build pertama (Gradle mengunduh sekitar 1 GB sekali saja). Tutup peramban dan Android Studio selama build |
+| Build gagal: `Package ndk not found`, `NDK is not installed`, atau menyebut CMake | Pasang NDK 28.2.13676358 dan CMake 3.22.1 lewat SDK Manager. Lihat "Memasang NDK dan CMake" di bagian 4 |
+| Build gagal: `this and base files have different roots` | Pastikan `kotlin.incremental=false` masih ada di `android\gradle.properties`. Lalu di folder `mobile`: `cd android`, `.\gradlew.bat --stop`, `cd ..`, `Remove-Item -Recurse -Force build\image_picker_android\kotlin`, dan `flutter run` lagi |
+| Error "different roots" tetap muncul | Pindahkan cache pub ke drive yang sama dengan proyek: `[Environment]::SetEnvironmentVariable("PUB_CACHE", "F:\pub-cache", "User")`, tutup dan buka ulang VS Code, lalu `flutter pub get` |
+| Ikon aplikasi di HP masih ikon lama | Launcher menyimpan ikon lama. Copot aplikasi dengan `& $adb uninstall id.smarttriage.mobile`, lalu `flutter run` lagi (perlu login ulang) |

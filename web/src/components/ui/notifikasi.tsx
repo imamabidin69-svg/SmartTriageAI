@@ -10,12 +10,10 @@ function ItemNotifikasi({ item }: { item: Notifikasi }) {
     const waktu = setTimeout(() => tutup(item.id), LAMA_TAMPIL_MS);
     return () => clearTimeout(waktu);
   }, [item.id, tutup]);
-  const warna =
-    item.jenis === "sukses"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-      : "border-red-200 bg-red-50 text-red-900";
+  // Seperti snackbar di aplikasi mobile: gelap untuk keberhasilan, merah untuk galat.
+  const warna = item.jenis === "sukses" ? "bg-teks" : "bg-galat";
   return (
-    <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-md ${warna}`}>
+    <div className={`flex items-start gap-3 rounded-md px-4 py-3 text-[15px] text-white shadow-lg ${warna}`}>
       <p className="flex-1">{item.pesan}</p>
       <button type="button" onClick={() => tutup(item.id)} aria-label="Tutup notifikasi" className="text-current">
         <X size={16} aria-hidden />

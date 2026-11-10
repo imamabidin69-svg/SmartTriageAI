@@ -111,11 +111,11 @@ function PasswordSementara({ staf, password, onTutup }: { staf: Staf; password: 
   }
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-700">
+      <p className="text-sm text-teks">
         Berikan password sementara ini kepada <strong>{staf.nama}</strong>. Staf diminta menggantinya setelah masuk.
       </p>
-      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-        <code className="flex-1 font-mono text-base tracking-wide text-slate-900">{password}</code>
+      <div className="flex items-center gap-2 rounded-md border border-garis bg-latar px-3 py-2">
+        <code className="flex-1 font-mono text-base tracking-wide text-teks">{password}</code>
         <Button variant="outline" size="sm" onClick={salin}>
           <Copy size={16} aria-hidden /> {tersalin ? "Tersalin" : "Salin"}
         </Button>
@@ -212,8 +212,8 @@ export function HalamanStaf() {
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Kelola Staf</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <h1 className="text-[26px] font-bold text-teks">Kelola Staf</h1>
+          <p className="mt-1 text-[15px] text-teks-2">
             Tambah, ubah, dan nonaktifkan akun staf, serta atur ulang password.
           </p>
         </div>
@@ -222,29 +222,30 @@ export function HalamanStaf() {
         </Button>
       </div>
 
-      <Card className="mb-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:w-2/3">
-          <Pilihan label="Peran" value={filterPeran} onChange={(e) => setFilterPeran(e.target.value as "" | Peran)}>
-            <option value="">Semua peran</option>
-            {DAFTAR_PERAN.map((peran) => (
-              <option key={peran} value={peran}>
-                {LABEL_PERAN[peran]}
-              </option>
-            ))}
-          </Pilihan>
-          <Pilihan
-            label="Status"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as "" | "aktif" | "nonaktif")}
-          >
-            <option value="">Semua status</option>
-            <option value="aktif">Aktif</option>
-            <option value="nonaktif">Nonaktif</option>
-          </Pilihan>
-        </div>
-      </Card>
-
+      {/* Filter dan tabel dalam satu kotak, seperti daftar di aplikasi rumah sakit. */}
       <Card className="overflow-x-auto p-0">
+        <div className="flex flex-wrap items-end gap-4 border-b border-garis px-4 py-3.5">
+          <div className="grid w-full gap-4 sm:w-auto sm:grid-cols-[13rem_13rem]">
+            <Pilihan label="Peran" value={filterPeran} onChange={(e) => setFilterPeran(e.target.value as "" | Peran)}>
+              <option value="">Semua peran</option>
+              {DAFTAR_PERAN.map((peran) => (
+                <option key={peran} value={peran}>
+                  {LABEL_PERAN[peran]}
+                </option>
+              ))}
+            </Pilihan>
+            <Pilihan
+              label="Status"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as "" | "aktif" | "nonaktif")}
+            >
+              <option value="">Semua status</option>
+              <option value="aktif">Aktif</option>
+              <option value="nonaktif">Nonaktif</option>
+            </Pilihan>
+          </div>
+          {daftar.data ? <p className="ml-auto self-center text-sm text-teks-3">{terlihat.length} staf</p> : null}
+        </div>
         {daftar.isPending ? <Memuat /> : null}
         {daftar.isError ? (
           <div className="p-5">
@@ -253,52 +254,56 @@ export function HalamanStaf() {
         ) : null}
         {daftar.data ? (
           terlihat.length ? (
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-600 uppercase">
+            <table className="w-full min-w-[720px] text-left text-[15px]">
+              <thead className="border-b border-garis bg-[#f7f8fa] text-sm text-teks-2">
                 <tr>
-                  <th scope="col" className="px-4 py-3 font-semibold">
+                  <th scope="col" className="px-4 py-3 font-bold">
                     Nama
                   </th>
-                  <th scope="col" className="px-4 py-3 font-semibold">
+                  <th scope="col" className="px-4 py-3 font-bold">
                     Email
                   </th>
-                  <th scope="col" className="px-4 py-3 font-semibold">
+                  <th scope="col" className="px-4 py-3 font-bold">
                     Peran
                   </th>
-                  <th scope="col" className="px-4 py-3 font-semibold">
+                  <th scope="col" className="px-4 py-3 font-bold">
                     Status
                   </th>
-                  <th scope="col" className="px-4 py-3 font-semibold">
+                  <th scope="col" className="px-4 py-3 font-bold">
                     Dibuat
                   </th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">
+                  <th scope="col" className="px-4 py-3 text-right font-bold">
                     Aksi
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-garis-2">
                 {terlihat.map((staf) => {
                   const diriSendiri = staf.id_pengguna === saya.data?.id_pengguna;
                   return (
                     <tr key={staf.id_pengguna}>
-                      <td className="px-4 py-3 font-medium text-slate-900">
+                      <td className="px-4 py-3 font-bold text-teks">
                         {staf.nama}
-                        {diriSendiri ? <span className="ml-2 text-xs text-slate-500">(Anda)</span> : null}
+                        {diriSendiri ? <span className="ml-2 text-xs text-teks-3">(Anda)</span> : null}
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{staf.email}</td>
-                      <td className="px-4 py-3 text-slate-700">{LABEL_PERAN[staf.peran]}</td>
+                      <td className="px-4 py-3 text-teks">{staf.email}</td>
+                      <td className="px-4 py-3 text-teks">{LABEL_PERAN[staf.peran]}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            staf.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
-                          }`}
+                          className={`inline-flex items-center gap-2 ${staf.is_active ? "text-teks" : "text-teks-3"}`}
                         >
+                          <span
+                            aria-hidden
+                            className={`size-2 rounded-full ${
+                              staf.is_active ? "bg-rendah" : "border-[1.5px] border-belum bg-transparent"
+                            }`}
+                          />
                           {staf.is_active ? "Aktif" : "Nonaktif"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{tanggal(staf.created_at)}</td>
+                      <td className="px-4 py-3 text-teks">{tanggal(staf.created_at)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
+                        <div className="flex justify-end gap-0.5">
                           <Button variant="ghost" size="sm" onClick={() => setAksi({ jenis: "ubah", staf })}>
                             Ubah
                           </Button>
@@ -318,7 +323,7 @@ export function HalamanStaf() {
               </tbody>
             </table>
           ) : (
-            <p className="p-8 text-center text-sm text-slate-600">
+            <p className="p-8 text-center text-sm text-teks-2">
               Tidak ada staf yang cocok dengan filter. Ubah filter peran atau status.
             </p>
           )
@@ -356,7 +361,7 @@ export function HalamanStaf() {
       >
         {aksi?.jenis === "status" ? (
           <div className="space-y-4">
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-teks">
               {aksi.staf.is_active
                 ? `${aksi.staf.nama} langsung tidak bisa masuk setelah akun dinonaktifkan. Data triase yang pernah dibuatnya tetap tersimpan.`
                 : `${aksi.staf.nama} bisa masuk lagi dengan password yang terakhir dipakai.`}
@@ -381,7 +386,7 @@ export function HalamanStaf() {
       <Dialog terbuka={aksi?.jenis === "atur-ulang"} judul="Atur ulang password" onTutup={tutup}>
         {aksi?.jenis === "atur-ulang" ? (
           <div className="space-y-4">
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-teks">
               Password lama {aksi.staf.nama} tidak bisa dipakai lagi. Server membuat password sementara baru yang hanya
               ditampilkan sekali.
             </p>

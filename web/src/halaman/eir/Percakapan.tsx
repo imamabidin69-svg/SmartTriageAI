@@ -20,13 +20,21 @@ interface Galat {
   jenis: "galat" | "peringatan";
 }
 
+/** Pertanyaan Eir di kiri dengan label nama, jawaban pasien di kanan berwarna biru tua (sama dengan aplikasi). */
 function Gelembung({ pesan }: { pesan: PesanEir }) {
   const dariEir = pesan.peran === "eir";
   return (
-    <li className={`flex ${dariEir ? "justify-start" : "justify-end"}`}>
+    <li className={`flex flex-col ${dariEir ? "items-start" : "items-end"}`}>
+      {dariEir ? (
+        <span aria-hidden className="mb-1 text-[13px] font-bold text-teks-3">
+          Eir
+        </span>
+      ) : null}
       <p
-        className={`max-w-[85%] rounded-2xl px-4 py-3 text-base leading-relaxed whitespace-pre-wrap ${
-          dariEir ? "bg-slate-100 text-slate-900" : "bg-blue-600 text-white"
+        className={`max-w-[88%] px-3.5 py-2.5 text-base leading-relaxed whitespace-pre-wrap ${
+          dariEir
+            ? "rounded-[2px_12px_12px_12px] bg-latar text-teks"
+            : "rounded-[12px_2px_12px_12px] bg-navy text-white"
         }`}
       >
         <span className="sr-only">{dariEir ? "Eir: " : "Anda: "}</span>
@@ -148,7 +156,7 @@ export function Percakapan({ sesi, onUbah }: PercakapanProps) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <ol aria-label="Percakapan dengan Eir" aria-live="polite" className="flex-1 space-y-3">
+      <ol aria-label="Percakapan dengan Eir" aria-live="polite" className="flex-1 space-y-3.5">
         {daftarGelembung.map((pesan, urutan) => (
           // Urutan pesan tidak pernah berubah, jadi indeks aman dipakai sebagai kunci.
           // biome-ignore lint/suspicious/noArrayIndexKey: daftar hanya bertambah di akhir
@@ -157,14 +165,14 @@ export function Percakapan({ sesi, onUbah }: PercakapanProps) {
       </ol>
 
       {sesi.status === "dihentikan" && terakhir ? (
-        <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-900">
-          <p className="text-base font-semibold">Perlu dilihat perawat sekarang</p>
+        <div role="alert" className="mt-4 border border-l-4 border-garis border-l-kritis bg-white p-4 text-teks">
+          <p className="text-base font-bold text-galat">Perlu dilihat perawat sekarang</p>
           <p className="mt-1 text-sm leading-relaxed">{terakhir.teks}</p>
         </div>
       ) : null}
       {sesi.status === "selesai" && terakhir ? (
-        <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-          <p className="text-base font-semibold">Terima kasih</p>
+        <div role="status" className="mt-4 border border-l-4 border-garis border-l-navy bg-white p-4 text-teks">
+          <p className="text-base font-bold text-navy">Terima kasih</p>
           <p className="mt-1 text-sm leading-relaxed">{terakhir.teks}</p>
         </div>
       ) : null}
@@ -179,7 +187,7 @@ export function Percakapan({ sesi, onUbah }: PercakapanProps) {
         ) : null}
         <form onSubmit={kirimTeks} noValidate className="flex items-end gap-2">
           <div className="flex-1">
-            <label htmlFor="jawaban-eir" className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="jawaban-eir" className="mb-1 block text-sm font-bold text-teks">
               Jawaban Anda
             </label>
             <textarea
@@ -198,7 +206,7 @@ export function Percakapan({ sesi, onUbah }: PercakapanProps) {
                       : undefined
               }
               onChange={(e) => setDraf(e.target.value)}
-              className="block w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50"
+              className="block w-full resize-none rounded-md border border-garis-isian px-3 py-2 text-base focus:border-biru focus:outline-none focus:ring-1 focus:ring-biru disabled:bg-latar"
             />
           </div>
           {berjalan && dukungRekaman() ? (
@@ -208,7 +216,7 @@ export function Percakapan({ sesi, onUbah }: PercakapanProps) {
               aria-label={rekaman.merekam ? "Berhenti merekam dan kirim" : "Jawab dengan suara"}
               onClick={rekaman.merekam ? rekaman.berhenti : rekaman.mulai}
               disabled={mengirim}
-              className={rekaman.merekam ? "border-red-300 text-red-700" : undefined}
+              className={rekaman.merekam ? "border-galat-garis text-galat" : undefined}
             >
               {rekaman.merekam ? <Stop size={20} aria-hidden /> : <Microphone size={20} aria-hidden />}
             </Button>
@@ -223,12 +231,12 @@ export function Percakapan({ sesi, onUbah }: PercakapanProps) {
           </Button>
         </form>
         {rekaman.merekam ? (
-          <p role="status" className="text-sm text-red-700">
+          <p role="status" className="text-sm text-galat">
             Merekam... Tekan tombol berhenti bila sudah selesai bicara.
           </p>
         ) : null}
         {mengirim ? (
-          <p role="status" className="text-sm text-slate-500">
+          <p role="status" className="text-sm text-teks-3">
             Eir sedang membaca jawaban...
           </p>
         ) : null}

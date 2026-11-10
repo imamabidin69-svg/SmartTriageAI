@@ -73,16 +73,110 @@ class _KerangkaUtamaState extends ConsumerState<KerangkaUtama> {
     final terpilih = cabang.indexOf(widget.navigasi.currentIndex);
     return Scaffold(
       body: widget.navigasi,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: terpilih < 0 ? 0 : terpilih,
-        onDestinationSelected: (i) =>
-            widget.navigasi.goBranch(cabang[i], initialLocation: cabang[i] == widget.navigasi.currentIndex),
-        destinations: [
-          const NavigationDestination(icon: Icon(Icons.format_list_bulleted), label: 'Daftar Tunggu'),
-          if (perawat) const NavigationDestination(icon: Icon(Icons.person_add_alt), label: 'Triase Baru'),
-          const NavigationDestination(icon: Icon(Icons.history), label: 'Riwayat'),
-          const NavigationDestination(icon: Icon(Icons.account_circle_outlined), label: 'Profil'),
+      bottomNavigationBar: NavigasiBawah(
+        terpilih: terpilih < 0 ? 0 : terpilih,
+        onPilih: (i) => widget.navigasi.goBranch(cabang[i], initialLocation: cabang[i] == widget.navigasi.currentIndex),
+        tujuan: [
+          const TujuanNavigasi(Icons.format_list_bulleted, 'Daftar Tunggu'),
+          if (perawat) const TujuanNavigasi(Icons.person_add_alt, 'Triase Baru'),
+          const TujuanNavigasi(Icons.history, 'Riwayat'),
+          const TujuanNavigasi(Icons.account_circle_outlined, 'Profil'),
         ],
+      ),
+    );
+  }
+}
+
+class TujuanNavigasi {
+  const TujuanNavigasi(this.ikon, this.label);
+
+  final IconData ikon;
+  final String label;
+}
+
+/// Navigasi bawah datar: tab aktif ditandai garis biru di tepi atas dan warna biru, tanpa latar berbentuk pil.
+class NavigasiBawah extends StatelessWidget {
+  const NavigasiBawah({super.key, required this.tujuan, required this.terpilih, required this.onPilih});
+
+  final List<TujuanNavigasi> tujuan;
+  final int terpilih;
+  final ValueChanged<int> onPilih;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Warna.garis)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              for (final (i, t) in tujuan.indexed)
+                Expanded(
+                  child: _ItemNavigasi(t, aktif: i == terpilih, onTap: () => onPilih(i)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ItemNavigasi extends StatelessWidget {
+  const _ItemNavigasi(this.tujuan, {required this.aktif, required this.onTap});
+
+  final TujuanNavigasi tujuan;
+  final bool aktif;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final warna = aktif ? Warna.utama : Warna.teksSamar;
+    return Semantics(
+      container: true,
+      button: true,
+      selected: aktif,
+      child: InkWell(
+        onTap: onTap,
+        child: Stack(
+          children: [
+            if (aktif)
+              const Positioned(
+                top: 0,
+                left: 20,
+                right: 20,
+                child: SizedBox(
+                  height: 3,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Warna.utama,
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(2)),
+                    ),
+                  ),
+                ),
+              ),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(tujuan.ikon, color: warna, size: 24),
+                  const SizedBox(height: 3),
+                  Text(
+                    tujuan.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: warna, fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
