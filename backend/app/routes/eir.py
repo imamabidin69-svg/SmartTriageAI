@@ -89,10 +89,11 @@ def buka_sesi(body: BukaSesiEirRequest):
     "/eir/sesi/<uuid:id_sesi>/pesan",
     summary="Mengirim jawaban ke Eir",
     description=(
-        "Setiap jawaban diperiksa aturan tanda bahaya sebelum LLM dipanggil. Bila cocok, sesi dihentikan "
-        "(status dihentikan), perawat mendapat peringatan, dan pesan berisi arahan menemui perawat. Setelah "
-        "15 jawaban, atau saat jawaban sudah cukup, ringkasan dibuat otomatis (status selesai). Bila Groq tidak "
-        "menjawab, respons 503 dan jawaban tetap tersimpan. Maksimal 20 pesan per menit per sesi."
+        "Setiap jawaban diperiksa aturan informasi penting (misalnya alergi obat atau obat pengencer darah) "
+        "sebelum LLM dipanggil. Bila cocok, labelnya dicatat di sesi dan perawat mendapat peringatan, tetapi "
+        "percakapan tetap berjalan. Setelah 15 jawaban, atau saat jawaban sudah cukup, ringkasan dibuat "
+        "otomatis (status selesai). Bila Groq tidak menjawab, respons 503 dan jawaban tetap tersimpan. "
+        "Maksimal 20 pesan per menit per sesi."
     ),
     security=TOKEN_EIR,
     responses={200: BalasanEirResponse, **respons_problem_doc(401, 404, 409, 429, 503)},
@@ -125,7 +126,7 @@ def kirim_suara(path: SesiEirPath, form: UnggahSuara):
     summary="Menyelesaikan sesi dan membuat ringkasan",
     description=(
         "Boleh dipanggil setelah minimal tujuh jawaban. Ringkasan dibuat LLM dengan JSON Schema, divalidasi, lalu "
-        "disimpan sebagai draf untuk perawat (GET /kunjungan/{id}/ringkasan-eir). Bila Groq tidak menjawab, "
+        "disimpan untuk perawat (GET /kunjungan/{id}/ringkasan-eir). Bila Groq tidak menjawab, "
         "respons 503 dan sesi tetap berjalan sehingga bisa dicoba lagi."
     ),
     security=TOKEN_EIR,

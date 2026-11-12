@@ -1,25 +1,30 @@
-"""Input triase dan rekomendasi risk level (FR-03, FR-05, Desain 2.3 dan 2.5)."""
+"""Observasi pasien ICU dan penilaian prioritasnya (FR-03, FR-05, Desain 2.3 dan 2.5).
+
+Penilaian awal dan setiap kenaikan level menunggu persetujuan dokter. Observasi yang levelnya sama atau
+turun langsung berstatus tercatat, karena tidak mengubah urutan penanganan ke arah yang lebih mendesak.
+"""
 
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import exists, select
+from sqlalchemy import select
 
-from app.ai.klasifikasi import FiturTriase, buat_klasifikator
+from app.ai.klasifikasi import URUTAN_LEVEL, DataObservasi, buat_klasifikator
 from app.ai.penjelasan import format_angka
 from app.ai.registry import ModelRegistry
 from app.extensions import db
 from app.models import Kunjungan, LogAudit, PemindaianAlat, Pengguna, Triase
-from app.models.enums import AksiAudit, JenisTriase, StatusKunjungan, SumberTandaVital
+from app.models.enums import AksiAudit, JenisTriase, RiskLevel, StatusKunjungan, StatusValidasi, SumberTandaVital
 from app.services.konfigurasi_service import CacheKonfigurasi
 from app.utils.errors import KonflikError, TidakDitemukanError, ValidasiGagalError
 from app.utils.schemas import Peringatan, TandaVital, TriaseInput
-from app.utils.waktu import WIB, hari_ini, usia_pasien
+from app.utils.waktu import WIB, hari_ini, sekarang, usia_pasien
 
 KOLOM_TANDA_VITAL = ("td_sistolik", "td_diastolik", "nadi", "laju_napas", "suhu", "saturasi")
-# Data latih model mulai usia sekitar 15 tahun (ml-service/triase_data.py, kelompok usia).
-USIA_MINIMAL_DATA_LATIH = 15
+KOLOM_LAB = ("laktat", "kreatinin", "trombosit", "leukosit", "bilirubin")
+# Data latih model (PhysioNet 2019) berasal dari pasien ICU dewasa.
+USIA_MINIMAL_DATA_LATIH = 18
 
 
 @dataclass(frozen=True)
@@ -86,8 +91,8 @@ class PeringatanVital:
                 Peringatan(
                     field=None,
                     pesan=(
-                        f"Pasien berusia {usia} tahun. Model dilatih dengan data pasien remaja dan dewasa, "
-                        "jadi periksa ulang rekomendasi ini secara klinis."
+                        f"Pasien berusia {usia} tahun. Model dilatih dengan data pasien ICU dewasa, "
+                        "jadi periksa ulang penilaian ini secara klinis."
                     ),
                 )
             ]
@@ -121,54 +126,87 @@ class TriaseService:
         return triase
 
     def _buat(self, id_kunjungan: uuid.UUID, data: TriaseInput, perawat: Pengguna) -> Triase:
-        # Baris kunjungan dikunci supaya dua triase yang dikirim bersamaan tidak sama-sama tercatat "awal".
+        # Baris kunjungan dikunci supaya dua observasi yang dikirim bersamaan tidak sama-sama tercatat "awal".
         kunjungan = db.session.scalar(select(Kunjungan).where(Kunjungan.id_kunjungan == id_kunjungan).with_for_update())
         if kunjungan is None:
-            raise TidakDitemukanError("Kunjungan tidak ditemukan.")
-        if kunjungan.status != StatusKunjungan.MENUNGGU:
-            raise KonflikError("Kunjungan ini sudah ditangani atau selesai, jadi tidak bisa ditriase lagi.")
+            raise TidakDitemukanError("Pasien ICU tidak ditemukan.")
+        if kunjungan.status == StatusKunjungan.SELESAI:
+            raise KonflikError("Pasien ini sudah keluar dari ICU, jadi observasi tidak bisa ditambahkan.")
 
-        sudah_ditriase = db.session.scalar(select(exists().where(Triase.id_kunjungan == id_kunjungan)))
+        sebelumnya = self.observasi_terakhir(id_kunjungan)
+        acuan = self.observasi_final_terakhir(id_kunjungan)
         pemindaian = self._ambil_pemindaian(data.id_pemindaian, perawat)
 
         pasien = kunjungan.pasien
         tv = data.tanda_vital
-        fitur = FiturTriase(
+        observasi = DataObservasi(
             usia=usia_pasien(pasien.tanggal_lahir, pasien.perkiraan_usia, hari_ini()),
             jenis_kelamin=pasien.jenis_kelamin,
-            kategori_keluhan=data.kategori_keluhan,
             tingkat_kesadaran=data.tingkat_kesadaran,
-            skala_nyeri=data.skala_nyeri,
-            td_sistolik=tv.td_sistolik,
-            td_diastolik=tv.td_diastolik,
-            nadi=tv.nadi,
-            laju_napas=tv.laju_napas,
-            suhu=tv.suhu,
-            saturasi=tv.saturasi,
-            gejala=data.gejala,
+            oksigen_tambahan=data.oksigen_tambahan,
+            **{kolom: getattr(tv, kolom) for kolom in KOLOM_TANDA_VITAL},
+            **{kolom: getattr(data.lab, kolom) for kolom in KOLOM_LAB},
         )
         konfigurasi = self.cache.ambil()
-        hasil = buat_klasifikator(self.registry.model_triase, konfigurasi.ambang_aturan).klasifikasi(fitur)
+        hasil = buat_klasifikator(self.registry.model_perburukan, konfigurasi.ambang_news2).klasifikasi(observasi)
 
         triase = Triase(
             id_kunjungan=id_kunjungan,
-            jenis=JenisTriase.ULANG if sudah_ditriase else JenisTriase.AWAL,
+            jenis=JenisTriase.AWAL if sebelumnya is None else JenisTriase.ULANG,
             dibuat_oleh=perawat.id_pengguna,
-            keluhan_utama=data.keluhan_utama,
-            gejala=data.gejala,
-            kategori_keluhan=data.kategori_keluhan,
-            skala_nyeri=data.skala_nyeri,
             tingkat_kesadaran=data.tingkat_kesadaran,
+            oksigen_tambahan=data.oksigen_tambahan,
+            ventilator=data.ventilator,
+            vasopresor=data.vasopresor,
+            catatan=data.catatan,
             **{kolom: getattr(tv, kolom) for kolom in KOLOM_TANDA_VITAL},
+            **{kolom: getattr(data.lab, kolom) for kolom in KOLOM_LAB},
             sumber_tanda_vital=self._sumber_tanda_vital(pemindaian),
+            skor_news2=hasil.news2.skor,
+            peluang_perburukan=hasil.peluang,
             risk_level=hasil.risk_level,
             sumber_rekomendasi=hasil.sumber,
             penjelasan_ai=hasil.penjelasan_json(),
+            status_validasi=self.status_awal(hasil.risk_level, acuan),
+            # Diisi dari jam aplikasi, bukan now() basis data yang sama untuk seluruh transaksi, supaya urutan
+            # observasi tetap jelas walau beberapa observasi dibuat dalam satu transaksi.
+            waktu_triase=sekarang(),
         )
         db.session.add(triase)
         db.session.flush()
         self._konfirmasi_pemindaian(pemindaian, triase, tv)
         return triase
+
+    @staticmethod
+    def status_awal(level: RiskLevel, acuan: Triase | None) -> StatusValidasi:
+        """Menunggu dokter bila belum ada level yang final atau level baru lebih tinggi dari level final terakhir.
+
+        Acuannya level final (disetujui, dikoreksi, atau tercatat), bukan sekadar observasi sebelumnya, supaya
+        kenaikan yang belum sempat disetujui tidak hilang ketika perawat mencatat observasi berikutnya.
+        """
+        if acuan is None or URUTAN_LEVEL.index(level) > URUTAN_LEVEL.index(acuan.risk_level):
+            return StatusValidasi.MENUNGGU
+        return StatusValidasi.TERCATAT
+
+    @staticmethod
+    def observasi_final_terakhir(id_kunjungan: uuid.UUID) -> Triase | None:
+        return db.session.scalar(
+            select(Triase)
+            .where(Triase.id_kunjungan == id_kunjungan, Triase.status_validasi.in_(Triase.STATUS_FINAL))
+            .order_by(Triase.waktu_triase.desc(), Triase.id_triase.desc())
+            .limit(1)
+        )
+
+    @staticmethod
+    def observasi_terakhir(id_kunjungan: uuid.UUID, sebelum: Triase | None = None) -> Triase | None:
+        """Observasi terbaru di satu masa rawat, atau yang tepat sebelum `sebelum` bila diisi."""
+        kueri = select(Triase).where(Triase.id_kunjungan == id_kunjungan)
+        if sebelum is not None:
+            kueri = kueri.where(
+                (Triase.waktu_triase < sebelum.waktu_triase)
+                | ((Triase.waktu_triase == sebelum.waktu_triase) & (Triase.id_triase < sebelum.id_triase))
+            )
+        return db.session.scalar(kueri.order_by(Triase.waktu_triase.desc(), Triase.id_triase.desc()).limit(1))
 
     @staticmethod
     def _ambil_pemindaian(daftar_id: list[uuid.UUID], perawat: Pengguna) -> list[PemindaianAlat]:
@@ -218,7 +256,7 @@ class TriaseService:
     def ambil(id_triase: uuid.UUID) -> Triase:
         triase = db.session.get(Triase, id_triase)
         if triase is None:
-            raise TidakDitemukanError("Triase tidak ditemukan.")
+            raise TidakDitemukanError("Observasi tidak ditemukan.")
         return triase
 
     @staticmethod

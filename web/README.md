@@ -1,11 +1,12 @@
-# Web SmartTriage AI (admin IGD dan Eir)
+# Web SmartTriage AI (admin ICU dan Eir)
 
 Aplikasi React untuk dua kelompok pengguna, sesuai SKPL v3.0 Tabel 7.2 dan 7.3:
 
-- **Admin IGD**: Kelola Staf, Pengaturan Triase, Rekap (dengan ekspor CSV), Log Audit, dan ganti password.
-  Perawat dan dokter memakai aplikasi Android, jadi akun mereka ditolak di web ini.
-- **Pasien zona hijau atau keluarganya**: halaman Eir di `/eir`, dibuka dari kode QR yang dibuat perawat, tanpa akun.
-  Jawaban bisa diketik atau direkam suara.
+- **Admin ICU**: Kelola Staf, Pengaturan Penilaian ICU (ambang skor NEWS2 dan interval observasi per level), Rekap
+  (dengan ekspor CSV), Log Audit, dan ganti password. Perawat dan dokter memakai aplikasi Android, jadi akun mereka
+  ditolak di web ini.
+- **Keluarga pasien ICU**: halaman Eir di `/eir`, dibuka dari kode QR yang dibuat perawat, tanpa akun. Eir menanyakan
+  riwayat pasien (kronologi, penyakit, obat rutin, alergi). Jawaban bisa diketik atau direkam suara.
 
 Hasil build disajikan Flask (SpaRoute) dari origin yang sama dengan API, lalu bisa dipasang sebagai PWA.
 

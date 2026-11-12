@@ -119,7 +119,7 @@ def test_autentikasi_diperiksa_sebelum_validasi_isi(app_uji, buat_pengguna):
     token = login_mobile(klien, buat_pengguna(Peran.DOKTER).email).get_json()["access_token"]
     respons = klien.post("/api/v1/uji/klinis", json={"catatan": "x"}, headers=bearer(token))
     assert respons.status_code == 422
-    assert respons.get_json()["errors"] == [{"field": "catatan", "pesan": "catatan minimal 5 karakter."}]
+    assert respons.get_json()["errors"] == [{"field": "catatan", "pesan": "Catatan minimal 5 karakter."}]
 
 
 def test_post_lewat_cookie_wajib_token_csrf(app_uji, buat_pengguna):

@@ -1,8 +1,8 @@
 """ModelRegistry: memuat bundle Random Forest, explainer SHAP, model YOLO, dan indeks panduan Eir saat aplikasi start.
 
-Bundle berasal dari prototipe (ml-service/latih_model.py) dan berupa dict berisi Pipeline
-(ColumnTransformer + RandomForestClassifier), daftar fitur, urutan level, dan versi model.
-Explainer tidak ikut tersimpan, jadi dibuat ulang dengan shap.TreeExplainer seperti di prototipe.
+Bundle dibuat oleh ai_training/perburukan.py dan berupa dict berisi Pipeline (ColumnTransformer +
+RandomForestClassifier dua kelas), daftar fitur, ambang peluang tiap level, dan versi model.
+Explainer tidak ikut tersimpan, jadi dibuat ulang dengan shap.TreeExplainer saat dimuat.
 
 Bila berkas tidak ada atau isinya tidak sesuai, aplikasi tetap berjalan dengan aturan cadangan
 dan health check menjadi degraded (NFR-03).
@@ -19,27 +19,30 @@ from flask import current_app
 from app.ai.eir.llm import GroqClient, LlmClient, LlmTiruan
 from app.ai.eir.panduan import GuidelineRetriever, muat_panduan
 from app.ai.pembaca_layar import PembacaLayar, PembacaLayarOnnx, PembacaLayarTiruan
-from app.models.enums import KategoriKeluhan, RiskLevel
+from app.models.enums import RiskLevel
 
 logger = logging.getLogger(__name__)
 
-# Urutan kolom yang dipakai saat model dilatih (ml-service/triase_data.py, FITUR_LENGKAP).
+# Urutan kolom saat model perburukan ICU dilatih (ai_training/perburukan.py, data PhysioNet 2019).
 FITUR_MODEL = (
-    "Sex",
-    "Age",
-    "kategori_keluhan",
-    "Mental",
-    "NRS_pain",
-    "SBP",
-    "DBP",
-    "HR",
-    "RR",
-    "BT",
-    "Saturation",
+    "nadi",
+    "saturasi",
+    "suhu",
+    "td_sistolik",
+    "td_diastolik",
     "map",
+    "laju_napas",
+    "laktat",
+    "kreatinin",
+    "trombosit",
+    "leukosit",
+    "bilirubin",
+    "usia",
+    "jenis_kelamin",
     "shock_index",
 )
-URUTAN_LEVEL = (RiskLevel.RENDAH, RiskLevel.SEDANG, RiskLevel.TINGGI, RiskLevel.KRITIS)
+# Level yang punya ambang peluang, dari yang terendah. Di bawah ambang sedang berarti Rendah.
+LEVEL_AMBANG = ("sedang", "tinggi", "kritis")
 
 
 class BundleTidakSesuaiError(ValueError):
@@ -47,33 +50,43 @@ class BundleTidakSesuaiError(ValueError):
 
 
 @dataclass(frozen=True)
-class ModelTriase:
+class ModelPerburukan:
     prep: Any
     rf: Any
     explainer: Any
     nama_fitur_transformasi: tuple[str, ...]
+    ambang: dict[str, float]
     versi: str
+
+    def level(self, peluang: float) -> RiskLevel:
+        hasil = RiskLevel.RENDAH
+        for nama in LEVEL_AMBANG:
+            if peluang >= self.ambang[nama]:
+                hasil = RiskLevel(nama)
+        return hasil
 
 
 def _periksa_bundle(bundle: Any) -> None:
     if not isinstance(bundle, dict):
         raise BundleTidakSesuaiError("Bundle model harus berupa dict.")
-    for kunci in ("model", "fitur", "urutan_level", "kategori_keluhan_dikenal", "versi"):
+    for kunci in ("model", "fitur", "ambang", "versi"):
         if kunci not in bundle:
             raise BundleTidakSesuaiError(f"Bundle model tidak punya kunci '{kunci}'.")
     if tuple(bundle["fitur"]) != FITUR_MODEL:
         raise BundleTidakSesuaiError(f"Fitur bundle {bundle['fitur']} tidak sama dengan {list(FITUR_MODEL)}.")
-    if tuple(bundle["urutan_level"]) != tuple(level.value for level in URUTAN_LEVEL):
-        raise BundleTidakSesuaiError(f"Urutan level bundle {bundle['urutan_level']} tidak dikenal.")
-    if set(bundle["kategori_keluhan_dikenal"]) != {kategori.value for kategori in KategoriKeluhan}:
-        raise BundleTidakSesuaiError("Kategori keluhan bundle tidak sama dengan 18 kategori di basis data.")
+    ambang = bundle["ambang"]
+    if not isinstance(ambang, dict) or set(ambang) != set(LEVEL_AMBANG):
+        raise BundleTidakSesuaiError(f"Ambang bundle harus berisi {list(LEVEL_AMBANG)}.")
+    nilai = [float(ambang[nama]) for nama in LEVEL_AMBANG]
+    if nilai != sorted(nilai) or not all(0 <= n <= 1 for n in nilai):
+        raise BundleTidakSesuaiError(f"Ambang bundle {ambang} harus urut naik di antara 0 dan 1.")
     rf = bundle["model"].named_steps["model"]
-    if list(rf.classes_) != list(range(len(URUTAN_LEVEL))):
-        raise BundleTidakSesuaiError(f"Kelas model {list(rf.classes_)} tidak sama dengan kode level 0-3.")
+    if list(rf.classes_) != [0, 1]:
+        raise BundleTidakSesuaiError(f"Kelas model {list(rf.classes_)} bukan 0 (stabil) dan 1 (memburuk).")
 
 
 @lru_cache(maxsize=4)
-def _muat_dari_berkas(path: str, waktu_ubah: float) -> ModelTriase:
+def _muat_dari_berkas(path: str, waktu_ubah: float) -> ModelPerburukan:
     """Disimpan per path dan waktu ubah berkas, supaya instance aplikasi kedua (misalnya di tes) tidak memuat ulang."""
     # Impor di sini supaya scikit-learn dan SHAP hanya dimuat bila memang ada model.
     import joblib
@@ -85,47 +98,47 @@ def _muat_dari_berkas(path: str, waktu_ubah: float) -> ModelTriase:
     pipeline = bundle["model"]
     prep = pipeline.named_steps["prep"]
     rf = pipeline.named_steps["model"]
-    # Model dilatih dengan n_jobs=-1. Untuk satu baris per request, satu thread justru lebih cepat
-    # dan tidak berebut CPU dengan worker Gunicorn lain.
+    # Untuk satu baris per request, satu thread lebih cepat dan tidak berebut CPU dengan worker Gunicorn lain.
     rf.set_params(n_jobs=1)
-    return ModelTriase(
+    return ModelPerburukan(
         prep=prep,
         rf=rf,
         explainer=shap.TreeExplainer(rf),
         nama_fitur_transformasi=tuple(prep.get_feature_names_out()),
+        ambang={nama: float(bundle["ambang"][nama]) for nama in LEVEL_AMBANG},
         versi=str(bundle["versi"]),
     )
 
 
 class ModelRegistry:
     def __init__(self) -> None:
-        self.model_triase: ModelTriase | None = None
+        self.model_perburukan: ModelPerburukan | None = None
         self.pembaca_layar: PembacaLayar | None = None
         self.retriever: GuidelineRetriever | None = None
         self.llm: LlmClient | None = None
 
     @property
     def termuat(self) -> bool:
-        return self.model_triase is not None
+        return self.model_perburukan is not None
 
     @property
     def versi_model(self) -> str | None:
-        return self.model_triase.versi if self.model_triase else None
+        return self.model_perburukan.versi if self.model_perburukan else None
 
     def muat(self, path_model_rf: str | None) -> None:
-        self.model_triase = None
+        self.model_perburukan = None
         if not path_model_rf:
-            logger.warning("MODEL_RF_PATH kosong. Rekomendasi triase memakai aturan cadangan.")
+            logger.warning("MODEL_RF_PATH kosong. Penilaian prioritas memakai NEWS2 saja.")
             return
         berkas = Path(path_model_rf)
         try:
-            self.model_triase = _muat_dari_berkas(str(berkas.resolve()), berkas.stat().st_mtime)
+            self.model_perburukan = _muat_dari_berkas(str(berkas.resolve()), berkas.stat().st_mtime)
         except FileNotFoundError:
-            logger.error("Model triase tidak ditemukan di %s. Rekomendasi memakai aturan cadangan.", berkas)
+            logger.error("Model perburukan tidak ditemukan di %s. Penilaian memakai NEWS2 saja.", berkas)
         except Exception:
-            logger.exception("Model triase gagal dimuat dari %s. Rekomendasi memakai aturan cadangan.", berkas)
+            logger.exception("Model perburukan gagal dimuat dari %s. Penilaian memakai NEWS2 saja.", berkas)
         else:
-            logger.info("Model triase %s dimuat dari %s.", self.model_triase.versi, berkas)
+            logger.info("Model perburukan %s dimuat dari %s.", self.model_perburukan.versi, berkas)
 
     def muat_pembaca_layar(self, path_model_yolo: str | None, mode: str = "onnx") -> None:
         """Tanpa pembaca layar, pemindaian tetap tersimpan tetapi kolomnya dibiarkan kosong (Desain baris 396)."""

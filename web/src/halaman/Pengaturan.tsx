@@ -12,8 +12,8 @@ import { angka, persen } from "@/lib/format";
 import { useNotifikasi } from "@/lib/notifikasi";
 import { galatZod } from "@/lib/validasi";
 
-// Batas sama dengan KonfigurasiPatch di backend (skor aturan cadangan 1-18, batas tunggu 1-1440 menit).
-const SKOR_MAKSIMUM = 18;
+// Batas sama dengan KonfigurasiPatch di backend (skor NEWS2 1-20, interval observasi 1-1440 menit).
+const SKOR_MAKSIMUM = 20;
 const bulat = (label: string, maks: number) =>
   z.coerce
     .number({ message: `${label} harus berupa angka.` })
@@ -22,9 +22,10 @@ const bulat = (label: string, maks: number) =>
     .max(maks, `${label} maksimal ${maks}.`);
 
 const skema = z.object({
-  batas_tunggu_tinggi: bulat("Batas tunggu tinggi", 1440),
-  batas_tunggu_sedang: bulat("Batas tunggu sedang", 1440),
-  batas_tunggu_rendah: bulat("Batas tunggu rendah", 1440),
+  batas_tunggu_kritis: bulat("Interval kritis", 1440),
+  batas_tunggu_tinggi: bulat("Interval tinggi", 1440),
+  batas_tunggu_sedang: bulat("Interval sedang", 1440),
+  batas_tunggu_rendah: bulat("Interval rendah", 1440),
   ambang_kritis: bulat("Ambang kritis", SKOR_MAKSIMUM),
   ambang_tinggi: bulat("Ambang tinggi", SKOR_MAKSIMUM),
   ambang_sedang: bulat("Ambang sedang", SKOR_MAKSIMUM),
@@ -42,6 +43,7 @@ type Kolom = keyof z.input<typeof skema>;
 type IsianForm = Record<Kolom, string>;
 
 const KOLOM: Kolom[] = [
+  "batas_tunggu_kritis",
   "batas_tunggu_tinggi",
   "batas_tunggu_sedang",
   "batas_tunggu_rendah",
@@ -94,7 +96,7 @@ function KartuRekap() {
       {rekap.data ? (
         <dl className="space-y-4">
           <div>
-            <dt className="text-sm text-teks-2">Triase tercatat</dt>
+            <dt className="text-sm text-teks-2">Penilaian tercatat</dt>
             <dd className="text-3xl font-bold text-teks">{angka(rekap.data.total_triase)}</dd>
           </div>
           <div>
@@ -109,7 +111,7 @@ function KartuRekap() {
             <dd className="text-3xl font-bold text-teks">{persen(rekap.data.akurasi_pemindaian)}</dd>
           </div>
           <div>
-            <dt className="text-sm text-teks-2">Triase ulang dipicu</dt>
+            <dt className="text-sm text-teks-2">Observasi ulang</dt>
             <dd className="text-3xl font-bold text-teks">{angka(rekap.data.triase_ulang)}</dd>
           </div>
         </dl>
@@ -177,30 +179,34 @@ export function HalamanPengaturan() {
 
   return (
     <div>
-      <h1 className="text-[26px] font-bold text-teks">Pengaturan Triase</h1>
+      <h1 className="text-[26px] font-bold text-teks">Pengaturan Penilaian ICU</h1>
       <p className="mt-1 mb-6 text-sm text-teks-2">
-        Perubahan berlaku untuk triase berikutnya dan tercatat di log audit.
+        Perubahan berlaku untuk observasi berikutnya dan tercatat di log audit.
       </p>
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <form onSubmit={kirim} noValidate className="space-y-6">
           {galat ? <Alert jenis="galat">{galat}</Alert> : null}
           <Card>
             <JudulKartu
-              judul="Batas waktu tunggu per risk level"
-              keterangan="Lewat batas ini, pasien ditandai untuk triase ulang. Sesuaikan dengan SOP IGD."
+              judul="Interval observasi per level"
+              keterangan="Lewat interval ini, pasien ditandai observasi terlambat. Sesuaikan dengan SOP ICU."
             />
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
+              <Isian label="Kritis (menit)" {...props("batas_tunggu_kritis")} />
               <Isian label="Tinggi (menit)" {...props("batas_tunggu_tinggi")} />
               <Isian label="Sedang (menit)" {...props("batas_tunggu_sedang")} />
               <Isian label="Rendah (menit)" {...props("batas_tunggu_rendah")} />
             </div>
           </Card>
           <Card>
-            <JudulKartu judul="Aturan cadangan" keterangan="Dipakai bila model triase tidak dapat dimuat." />
+            <JudulKartu
+              judul="Ambang skor NEWS2"
+              keterangan="Skor minimal untuk tiap level. Satu parameter bernilai 3 selalu minimal Sedang. Bawaan NEWS2: 7, 5, 3."
+            />
             <div className="grid gap-4 sm:grid-cols-3">
-              <Isian label="Ambang kritis (skor)" {...props("ambang_kritis")} />
-              <Isian label="Ambang tinggi" {...props("ambang_tinggi")} />
-              <Isian label="Ambang sedang" {...props("ambang_sedang")} />
+              <Isian label="Kritis (skor)" {...props("ambang_kritis")} />
+              <Isian label="Tinggi (skor)" {...props("ambang_tinggi")} />
+              <Isian label="Sedang (skor)" {...props("ambang_sedang")} />
             </div>
           </Card>
           <Card>
@@ -213,10 +219,10 @@ export function HalamanPengaturan() {
                 petunjuk="0 sampai 1, misalnya 0,85."
               />
               <Isian
-                label="Model triase aktif"
+                label="Model perburukan aktif"
                 {...props("versi_model")}
                 inputMode="text"
-                petunjuk={`Model yang dimuat: ${lama.versi_model_termuat ?? "tidak ada (aturan cadangan)"}`}
+                petunjuk={`Model yang dimuat: ${lama.versi_model_termuat ?? "tidak ada (NEWS2 saja)"}`}
               />
               {/* Keputusan W6: status model pembaca layar hanya ditampilkan dari health check. */}
               <Isian

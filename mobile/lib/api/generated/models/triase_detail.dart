@@ -4,13 +4,14 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
+import 'hasil_lab_response.dart';
 import 'jenis_triase.dart';
-import 'kategori_keluhan.dart';
 import 'pasien_triase.dart';
 import 'pengguna_ringkas.dart';
 import 'penjelasan_response.dart';
 import 'peringatan.dart';
 import 'risk_level.dart';
+import 'status_kunjungan.dart';
 import 'status_validasi.dart';
 import 'sumber_rekomendasi.dart';
 import 'sumber_tanda_vital.dart';
@@ -27,13 +28,19 @@ class TriaseDetail {
     required this.idKunjungan,
     required this.jenis,
     required this.pasien,
-    required this.keluhanUtama,
-    required this.gejala,
-    required this.kategoriKeluhan,
-    required this.skalaNyeri,
+    required this.nomorBed,
+    required this.statusKunjungan,
     required this.tingkatKesadaran,
+    required this.oksigenTambahan,
     required this.tandaVital,
+    required this.lab,
+    required this.ventilator,
+    required this.vasopresor,
+    required this.catatan,
     required this.sumberTandaVital,
+    required this.skorNews2,
+    required this.peluangPerburukan,
+    required this.levelSebelumnya,
     required this.riskLevel,
     required this.sumberRekomendasi,
     required this.penjelasanAi,
@@ -53,19 +60,32 @@ class TriaseDetail {
   final String idKunjungan;
   final JenisTriase jenis;
   final PasienTriase pasien;
-  @JsonKey(name: 'keluhan_utama')
-  final String keluhanUtama;
-  final String gejala;
-  @JsonKey(name: 'kategori_keluhan')
-  final KategoriKeluhan? kategoriKeluhan;
-  @JsonKey(name: 'skala_nyeri')
-  final int? skalaNyeri;
+  @JsonKey(name: 'nomor_bed')
+  final String? nomorBed;
+
+  /// Status pasien saat ini: dirawat, sedang tindakan, keluar.
+  @JsonKey(name: 'status_kunjungan')
+  final StatusKunjungan statusKunjungan;
   @JsonKey(name: 'tingkat_kesadaran')
   final TingkatKesadaran tingkatKesadaran;
+  @JsonKey(name: 'oksigen_tambahan')
+  final bool oksigenTambahan;
   @JsonKey(name: 'tanda_vital')
   final TandaVitalResponse tandaVital;
+  final HasilLabResponse lab;
+  final bool ventilator;
+  final bool vasopresor;
+  final String? catatan;
   @JsonKey(name: 'sumber_tanda_vital')
   final SumberTandaVital sumberTandaVital;
+  @JsonKey(name: 'skor_news2')
+  final int skorNews2;
+  @JsonKey(name: 'peluang_perburukan')
+  final num? peluangPerburukan;
+
+  /// Level observasi sebelumnya di masa rawat yang sama.
+  @JsonKey(name: 'level_sebelumnya')
+  final RiskLevel? levelSebelumnya;
   @JsonKey(name: 'risk_level')
   final RiskLevel riskLevel;
   @JsonKey(name: 'sumber_rekomendasi')

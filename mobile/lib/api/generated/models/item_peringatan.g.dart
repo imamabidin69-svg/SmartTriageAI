@@ -33,9 +33,9 @@ Map<String, dynamic> _$ItemPeringatanToJson(ItemPeringatan instance) =>
     };
 
 const _$ItemPeringatanJenisEnumMap = {
-  ItemPeringatanJenis.kritisBelumDivalidasi: 'kritis_belum_divalidasi',
-  ItemPeringatanJenis.levelNaik: 'level_naik',
-  ItemPeringatanJenis.tandaBahayaEir: 'tanda_bahaya_eir',
+  ItemPeringatanJenis.menungguPersetujuan: 'menunggu_persetujuan',
+  ItemPeringatanJenis.observasiTerlambat: 'observasi_terlambat',
+  ItemPeringatanJenis.informasiPentingEir: 'informasi_penting_eir',
   ItemPeringatanJenis.$unknown: r'$unknown',
 };
 

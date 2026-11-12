@@ -14,6 +14,54 @@ class DatasetTidakSesuaiError(ValueError):
     """Kelas atau struktur dataset tidak sesuai detektor digit 0-9."""
 
 
+# Nama kelas digit yang sering dipakai dataset Roboflow Universe untuk layar monitor dan seven-segment.
+EJAAN_DIGIT = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+    "nol": 0, "satu": 1, "dua": 2, "tiga": 3, "empat": 4, "lima": 5, "enam": 6, "tujuh": 7, "delapan": 8,
+    "sembilan": 9,
+}  # fmt: skip
+
+
+def digit_dari_nama(nama: str) -> int | None:
+    """ "7", "digit_7", "num-7", atau "seven" menjadi 7. Kelas lain (misalnya "HR" atau "spo2") menjadi None."""
+    rapi = nama.strip().lower()
+    if rapi in EJAAN_DIGIT:
+        return EJAAN_DIGIT[rapi]
+    akhir = rapi.replace("-", "_").replace(" ", "_").split("_")[-1]
+    if len(akhir) == 1 and akhir.isdigit() and (akhir == rapi or not rapi[0].isdigit()):
+        return int(akhir)
+    return None
+
+
+def peta_kelas_digit(nama_kelas: list[str]) -> dict[int, int]:
+    """Indeks kelas dataset ke digit 0-9. Kelas yang bukan digit tidak masuk peta dan labelnya akan dibuang."""
+    peta = {i: d for i, nama in enumerate(nama_kelas) if (d := digit_dari_nama(str(nama))) is not None}
+    kurang = sorted(set(range(10)) - set(peta.values()))
+    if kurang:
+        raise DatasetTidakSesuaiError(
+            f"Dataset tidak punya kelas untuk digit {kurang}. Pilih dataset lain atau anotasi digitnya di Roboflow."
+        )
+    return peta
+
+
+def tulis_ulang_label(folder: Path, peta: dict[int, int]) -> int:
+    """Mengganti indeks kelas di semua berkas label YOLO sesuai peta, membuang baris kelas non-digit.
+
+    Mengembalikan jumlah kotak digit yang tersisa.
+    """
+    jumlah = 0
+    for berkas in Path(folder).glob("*/labels/*.txt"):
+        baris_baru = []
+        for baris in berkas.read_text(encoding="utf-8").splitlines():
+            bagian = baris.split()
+            if not bagian or int(bagian[0]) not in peta:
+                continue
+            baris_baru.append(" ".join([str(peta[int(bagian[0])]), *bagian[1:]]))
+        berkas.write_text("\n".join(baris_baru) + ("\n" if baris_baru else ""), encoding="utf-8")
+        jumlah += len(baris_baru)
+    return jumlah
+
+
 def periksa_kelas(nama_kelas: list[str]) -> None:
     if list(nama_kelas) != NAMA_KELAS:
         raise DatasetTidakSesuaiError(
@@ -52,5 +100,10 @@ def unduh_dari_roboflow(workspace: str, proyek: str, versi: int, folder: Path) -
     hasil = Path(dataset.download("yolov8", location=str(folder)).location)
     import yaml
 
-    periksa_kelas(yaml.safe_load((hasil / "data.yaml").read_text())["names"])
+    nama = yaml.safe_load((hasil / "data.yaml").read_text())["names"]
+    if isinstance(nama, dict):
+        nama = [nama[i] for i in sorted(nama)]
+    if list(nama) != NAMA_KELAS:
+        # Dataset dari Roboflow Universe sering memakai nama lain ("seven", "digit_7") atau punya kelas tambahan.
+        print(f"{tulis_ulang_label(hasil, peta_kelas_digit(list(nama)))} kotak digit dipakai.")
     return tulis_data_yaml(hasil)

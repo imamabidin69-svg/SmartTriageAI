@@ -1,41 +1,46 @@
 """PembersihIdentitas, PenyusunPrompt, dan PemeriksaKeluaran untuk Eir (Desain 2.8, 7.2, dan 7.4).
 
 Nama dan NIK pasien tidak pernah dikirim ke Groq. Jawaban LLM diperiksa sebelum ditampilkan supaya Eir tidak
-memberi diagnosis, menyarankan obat, atau menyebut risk level.
+memberi diagnosis, memperkirakan kondisi pasien, menyarankan obat, atau menyebut level prioritas.
 """
 
 import re
 from typing import Any
 
 from app.ai.eir.panduan import Panduan
-from app.models.enums import KategoriKeluhan
 
 PANJANG_MAKS_PERTANYAAN = 300
 
-ATURAN_EIR = """Kamu adalah Eir, asisten anamnesis di IGD. Kamu sedang mengobrol dengan {pengisi} yang menunggu
-giliran diperiksa. Tugasmu hanya mengumpulkan keterangan keluhan untuk perawat.
+ATURAN_EIR = """Kamu adalah Eir, asisten yang membantu tim ICU mengenal riwayat kesehatan pasien. Pasien sedang
+dirawat di ICU dan belum bisa ditanya langsung, jadi kamu mengobrol dengan {pengisi}. Tugasmu hanya mengumpulkan
+keterangan untuk perawat ICU.
+
+Topik yang perlu digali: kronologi sebelum masuk ICU, riwayat penyakit, obat rutin, alergi, riwayat operasi
+atau rawat inap, serta kebiasaan dan kondisi sehari-hari pasien.
 
 Aturan:
-- Ajukan tepat satu pertanyaan pendek setiap giliran, dengan bahasa Indonesia sehari-hari yang sopan.
+- Ajukan tepat satu pertanyaan pendek setiap giliran, dengan bahasa Indonesia sehari-hari yang sopan dan empatik.
 - Jangan memberi diagnosis atau dugaan penyakit.
+- Jangan memperkirakan kondisi pasien, peluang sembuh, atau lama perawatan.
 - Jangan menyarankan obat, dosis, atau tindakan pengobatan.
-- Jangan menyebut risk level, level triase, warna zona, atau tingkat kegawatan.
+- Jangan menyebut level prioritas, skor, atau tingkat kegawatan pasien.
 - Jangan menanyakan nama, NIK, alamat, atau nomor telepon.
-- Jangan mengulang pertanyaan yang sudah dijawab.
-- Isi "cukup" dengan true hanya bila keluhan utama, waktu mulai, gejala penyerta, dan riwayat penting
-  sudah tergali.
+- Jangan mengulang pertanyaan yang sudah dijawab. Bila keluarga tidak tahu, lanjut ke topik lain.
+- Isi "cukup" dengan true hanya bila kronologi, riwayat penyakit, obat rutin, dan alergi sudah tergali.
 
-Panduan anamnesis yang relevan:
+Panduan pertanyaan yang relevan:
 
 {panduan}"""
 
-ATURAN_RINGKASAN = """Rangkum percakapan anamnesis berikut untuk perawat IGD. Tulis hanya yang disampaikan
-{pengisi}, tanpa menambah dugaan penyakit, obat, atau tingkat kegawatan.
+ATURAN_RINGKASAN = """Rangkum percakapan berikut untuk perawat ICU. Tulis hanya yang disampaikan {pengisi},
+tanpa menambah dugaan penyakit, obat, atau perkiraan kondisi. Tulis "Tidak disebutkan" untuk topik yang tidak
+dibahas, dan "Tidak tahu" bila keluarga menyatakan tidak tahu.
 
-- keluhan_utama: satu kalimat pendek keluhan yang paling mengganggu.
-- gejala: rincian gejala, lokasi, karakter, gejala penyerta, dan riwayat yang disebutkan.
-- onset: kapan keluhan mulai, sesuai kata-kata pengisi. Tulis "Tidak disebutkan" bila tidak ada.
-- kategori_keluhan: satu kategori yang paling sesuai dari daftar."""
+- kronologi: urutan kejadian sebelum pasien masuk ICU.
+- riwayat_penyakit: penyakit lama atau yang sedang dikontrol.
+- obat_rutin: nama obat yang rutin dipakai dan kapan terakhir dipakai, sesuai kata keluarga.
+- alergi: alergi obat, makanan, atau bahan lain beserta reaksinya.
+- informasi_lain: riwayat operasi, rawat inap, alat di tubuh, kehamilan, kebiasaan, dan keinginan pasien."""
 
 SKEMA_PERTANYAAN: dict[str, Any] = {
     "type": "object",
@@ -47,19 +52,15 @@ SKEMA_PERTANYAAN: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+KOLOM_RINGKASAN = ("kronologi", "riwayat_penyakit", "obat_rutin", "alergi", "informasi_lain")
 SKEMA_RINGKASAN: dict[str, Any] = {
     "type": "object",
-    "properties": {
-        "keluhan_utama": {"type": "string"},
-        "gejala": {"type": "string"},
-        "onset": {"type": "string"},
-        "kategori_keluhan": {"type": "string", "enum": [k.value for k in KategoriKeluhan]},
-    },
-    "required": ["keluhan_utama", "gejala", "onset", "kategori_keluhan"],
+    "properties": {kolom: {"type": "string"} for kolom in KOLOM_RINGKASAN},
+    "required": list(KOLOM_RINGKASAN),
     "additionalProperties": False,
 }
 
-NAMA_PENGISI = {"pasien": "pasien", "keluarga": "keluarga pendamping pasien"}
+NAMA_PENGISI = {"pasien": "pasien", "keluarga": "keluarga pasien"}
 
 
 class PembersihIdentitas:
@@ -112,7 +113,7 @@ class PenyusunPrompt:
 
 
 class PemeriksaKeluaran:
-    """Menolak pertanyaan LLM yang berisi diagnosis, saran obat, atau risk level (Desain 2.8)."""
+    """Menolak pertanyaan LLM yang berisi diagnosis, perkiraan kondisi, saran obat, atau level (Desain 2.8)."""
 
     POLA_TERLARANG = re.compile(
         r"diagnosis|didiagnosis|diagnosa"
@@ -122,7 +123,9 @@ class PemeriksaKeluaran:
         r"|(sebaiknya|disarankan|saran saya|silakan|cobalah|coba)\s+"
         r"(minum|mengonsumsi|konsumsi|memakai|pakai|menggunakan|gunakan|meminum)\b"
         r"|\bdosis\b|\d+\s?(mg|ml|tablet|kapsul)\b"
-        r"|risk level|level (risiko|triase|kegawatan)|tingkat kegawatan|zona (merah|kuning|hijau)"
+        r"|risk level|level (risiko|triase|kegawatan|prioritas)|tingkat kegawatan|zona (merah|kuning|hijau)"
+        r"|skor news|peluang (sembuh|hidup|meninggal|memburuk)|harapan hidup|prognosis"
+        r"|(pasti|akan|bisa) (sembuh|membaik|meninggal|pulih)\b"
         r"|(termasuk|kategori) (gawat|darurat|kritis|ringan)",
         re.IGNORECASE,
     )

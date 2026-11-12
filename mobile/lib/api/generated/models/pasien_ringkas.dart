@@ -38,7 +38,7 @@ class PasienRingkas {
   @JsonKey(name: 'nik_tersamar')
   final String? nikTersamar;
 
-  /// Kunjungan yang masih menunggu atau sedang ditangani.
+  /// Masa rawat ICU yang belum selesai, bila ada.
   @JsonKey(name: 'id_kunjungan_aktif')
   final String? idKunjunganAktif;
 

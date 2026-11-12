@@ -74,7 +74,7 @@ class PemeriksaHakAksesLogAudit(PemeriksaKomponen):
 class PemeriksaModel(PemeriksaKomponen):
     """Model triase tidak wajib: tanpa model, rekomendasi tetap keluar dari aturan cadangan (NFR-03)."""
 
-    nama = "model_triase"
+    nama = "model_perburukan"
     wajib = False
 
     def __init__(self, registry: ModelRegistry) -> None:

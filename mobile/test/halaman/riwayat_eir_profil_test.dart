@@ -22,7 +22,7 @@ void main() {
       when(() => repo.cariPasien('budi')).thenAnswer((_) async => [pasienRingkas()]);
       when(() => repo.riwayat(idPasien)).thenAnswer((_) async => riwayat(kursor: 'kursor-2'));
       when(() => repo.riwayat(idPasien, kursor: 'kursor-2'))
-          .thenAnswer((_) async => riwayat(idTriaseItem: 'triase-lama', keluhan: 'Pusing berputar'));
+          .thenAnswer((_) async => riwayat(idTriaseItem: 'triase-lama', skor: 2));
       when(() => repo.detailTriase(idTriase)).thenAnswer((_) async => triaseDetail());
       await jalankanAplikasi(tester, repo);
       await tester.tap(find.text('Riwayat'));
@@ -40,15 +40,16 @@ void main() {
       await tester.tap(find.text('Budi Santoso'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Riwayat Triase'), findsOneWidget);
-      expect(find.text('Triase ulang · 2 Nov 2026 08.50'), findsOneWidget);
-      expect(find.text('Disetujui · oleh Ns. Ratna Wijaya · Menunggu dokter'), findsOneWidget);
+      expect(find.text('Riwayat Observasi'), findsOneWidget);
+      expect(find.text('Observasi · 2 Nov 2026 08.50'), findsOneWidget);
+      expect(find.text('Syok sepsis'), findsOneWidget);
+      expect(find.text('Disetujui dokter · oleh Ns. Ratna Wijaya · Dirawat'), findsOneWidget);
       await ketuk(tester, find.text('Muat lebih banyak'));
-      expect(find.text('Pusing berputar'), findsOneWidget);
+      expect(find.text('Bed ICU-2 · NEWS2 2 · peluang memburuk 65%'), findsOneWidget);
       expect(find.text('Muat lebih banyak'), findsNothing);
 
-      await ketuk(tester, find.text('Nyeri dada kiri'));
-      expect(find.text('Hasil Triase'), findsOneWidget);
+      await ketuk(tester, find.text('Bed ICU-2 · NEWS2 6 · peluang memburuk 65%'));
+      expect(find.text('Hasil Penilaian'), findsOneWidget);
       await tutupAplikasi(tester);
     });
 
@@ -72,7 +73,7 @@ void main() {
       gagal = false;
       await tester.tap(find.text('Coba lagi'));
       await tester.pumpAndSettle();
-      expect(find.text('Pasien ini belum pernah ditriase.'), findsOneWidget);
+      expect(find.text('Pasien ini belum pernah dinilai.'), findsOneWidget);
       await tutupAplikasi(tester);
     });
   });
@@ -102,7 +103,7 @@ void main() {
       await tutupAplikasi(tester);
     });
 
-    testWidgets('kode QR ditolak untuk pasien yang bukan zona hijau', (tester) async {
+    testWidgets('kode QR ditolak untuk pasien yang sudah keluar ICU', (tester) async {
       var gagal = true;
       when(() => repo.tautanEir(idKunjungan)).thenAnswer((_) async {
         if (gagal) {
@@ -110,14 +111,14 @@ void main() {
             status: 409,
             tipe: GalatApi.tipeKonflik,
             judul: 'Konflik',
-            detail: 'Eir hanya untuk pasien dengan risk level terakhir rendah (zona hijau).',
+            detail: 'Pasien ini sudah keluar dari ICU, jadi tautan Eir tidak bisa dibuat.',
           );
         }
         return tautanEir();
       });
       final container = await jalankanAplikasi(tester, repo);
       await bukaHalaman(tester, container, Rute.kodeQrEir(idKunjungan));
-      expect(find.textContaining('zona hijau'), findsOneWidget);
+      expect(find.textContaining('sudah keluar dari ICU'), findsOneWidget);
       gagal = false;
       await tester.tap(find.text('Coba lagi'));
       await tester.pumpAndSettle();
@@ -131,9 +132,10 @@ void main() {
       await bukaHalaman(tester, container, Rute.ringkasanEir(idKunjungan), extra: 'Dewi Anggraini');
       expect(find.text('Dewi Anggraini'), findsOneWidget);
       expect(find.text('Percakapan selesai · dijawab keluarga · mulai 08.55'), findsOneWidget);
-      expect(find.text('Keluhan utama: Demam tiga hari'), findsOneWidget);
-      expect(find.text('Kategori: Demam'), findsOneWidget);
-      expect(find.text('Demam tiga hari'), findsOneWidget);
+      expect(find.text('Ringkasan riwayat untuk perawat'), findsOneWidget);
+      expect(find.text('Darah tinggi dan kencing manis'), findsOneWidget);
+      expect(find.text('Alergi amoxicillin'), findsOneWidget);
+      expect(find.text('Sesak sejak semalam'), findsOneWidget);
       await tutupAplikasi(tester);
     });
 
@@ -232,7 +234,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Keluar'));
       await tester.pumpAndSettle();
       verify(() => repo.keluar()).called(1);
-      expect(find.text('Untuk perawat dan dokter IGD.'), findsOneWidget);
+      expect(find.text('Untuk perawat dan dokter ICU.'), findsOneWidget);
       await tutupAplikasi(tester);
     });
   });

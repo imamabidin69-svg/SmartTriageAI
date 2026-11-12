@@ -74,7 +74,7 @@ export function HalamanLogin() {
             <p className="text-sm text-teks-2">Instalasi Gawat Darurat</p>
           </div>
         </div>
-        <h1 className="mt-8 text-2xl font-bold">Masuk admin IGD</h1>
+        <h1 className="mt-8 text-2xl font-bold">Masuk admin ICU</h1>
         <p className="mt-1 mb-6 text-[15px] text-teks-2">Gunakan akun admin yang terdaftar.</p>
         <form onSubmit={kirim} noValidate className="space-y-4">
           {galat ? <Alert jenis="galat">{galat}</Alert> : null}

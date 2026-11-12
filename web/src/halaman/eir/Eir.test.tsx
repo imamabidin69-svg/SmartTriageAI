@@ -71,7 +71,7 @@ describe("Persetujuan Eir", () => {
     expect(screen.getByText("Pilih siapa yang mengisi.")).toBeInTheDocument();
     expect(screen.getByText("Centang persetujuan untuk memulai percakapan.")).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText("Keluarga pendamping"));
+    await user.click(screen.getByLabelText("Keluarga pasien"));
     await user.click(screen.getByLabelText(/setuju percakapan ini dicatat/));
     await user.click(screen.getByRole("button", { name: "Mulai percakapan" }));
     expect(await screen.findByText(PEMBUKA)).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe("Persetujuan Eir", () => {
       ),
     );
     const { user } = renderRute("/eir");
-    await user.click(await screen.findByLabelText("Saya pasien"));
+    await user.click(await screen.findByLabelText("Pasien sendiri"));
     await user.click(screen.getByLabelText(/setuju percakapan ini dicatat/));
     await user.click(screen.getByRole("button", { name: "Mulai percakapan" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Minta kode QR baru ke perawat");

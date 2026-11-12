@@ -1,4 +1,4 @@
-"""Blueprint antrean: daftar tunggu dan peringatan, dipanggil aplikasi setiap 15 detik (FR-07)."""
+"""Blueprint antrean: papan prioritas ICU dan peringatan, dipanggil aplikasi setiap 15 detik (FR-07)."""
 
 from datetime import UTC
 
@@ -40,6 +40,9 @@ def _item_respons(item: ItemDaftarTunggu) -> ItemDaftarTungguResponse:
             usia=item.usia,
             jenis_kelamin=item.pasien.jenis_kelamin,
         ),
+        nomor_bed=item.kunjungan.nomor_bed,
+        diagnosis_masuk=item.kunjungan.diagnosis_masuk,
+        status=item.kunjungan.status,
         waktu_datang=item.kunjungan.waktu_datang,
         triase_terakhir=None if triase is None else TriaseTerakhir.model_validate(triase, from_attributes=True),
         lama_menunggu_menit=item.lama_menunggu,
@@ -53,12 +56,13 @@ def _item_respons(item: ItemDaftarTunggu) -> ItemDaftarTungguResponse:
 
 @antrean_bp.get(
     "/daftar-tunggu",
-    summary="Daftar tunggu pasien beserta penanda triase ulang",
+    summary="Papan prioritas pasien ICU",
     description=(
-        "Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase "
-        "terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. "
-        "Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu. ringkasan_eir_siap bernilai true "
-        "bila sesi Eir terakhir selesai dengan ringkasan dan belum ada triase sesudahnya."
+        "Semua pasien yang belum keluar ICU beserta penilaian terakhirnya, sudah diurutkan menurut prioritas "
+        "penanganan: Kritis, belum dinilai, Tinggi, Sedang, Rendah; di level yang sama yang menunggu persetujuan "
+        "dokter dan yang observasinya terlambat lebih dulu, lalu peluang perburukan dan skor NEWS2 tertinggi. "
+        "Pasien yang sedang menjalani tindakan ditaruh paling bawah. Lama dihitung sejak observasi terakhir dan "
+        "dibandingkan dengan interval observasi level tersebut."
     ),
     responses={200: DaftarTungguResponse, **respons_problem_doc(401, 403)},
 )
@@ -73,10 +77,10 @@ def daftar_tunggu():
 
 @antrean_bp.get(
     "/peringatan",
-    summary="Peringatan kritis, level naik, dan tanda bahaya Eir",
+    summary="Peringatan persetujuan dokter, observasi terlambat, dan informasi penting Eir",
     description=(
-        "Triase kritis yang belum divalidasi, triase ulang yang levelnya naik dan belum divalidasi, serta sesi Eir "
-        "yang dihentikan karena tanda bahaya tetapi belum diikuti triase baru. Hanya kunjungan yang masih menunggu."
+        "Penilaian awal atau kenaikan level yang belum disetujui dokter, observasi yang melewati intervalnya, dan "
+        "informasi penting dari keluarga lewat Eir yang belum diikuti observasi baru. Hanya pasien yang masih di ICU."
     ),
     responses={200: DaftarPeringatanResponse, **respons_problem_doc(401, 403)},
 )
@@ -93,6 +97,6 @@ def peringatan():
             alasan=p.alasan,
             waktu=p.waktu,
         )
-        for p in PeringatanService().kumpulkan()
+        for p in PeringatanService(cache_konfigurasi().ambil()).kumpulkan(sekarang())
     ]
     return jsonify(DaftarPeringatanResponse(items=items).model_dump(mode="json"))

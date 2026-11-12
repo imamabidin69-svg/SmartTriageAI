@@ -11,21 +11,27 @@ TriaseDetail _$TriaseDetailFromJson(Map<String, dynamic> json) => TriaseDetail(
   idKunjungan: json['id_kunjungan'] as String,
   jenis: JenisTriase.fromJson(json['jenis'] as String),
   pasien: PasienTriase.fromJson(json['pasien'] as Map<String, dynamic>),
-  keluhanUtama: json['keluhan_utama'] as String,
-  gejala: json['gejala'] as String,
-  kategoriKeluhan: json['kategori_keluhan'] == null
-      ? null
-      : KategoriKeluhan.fromJson(json['kategori_keluhan'] as String),
-  skalaNyeri: (json['skala_nyeri'] as num?)?.toInt(),
+  nomorBed: json['nomor_bed'] as String?,
+  statusKunjungan: StatusKunjungan.fromJson(json['status_kunjungan'] as String),
   tingkatKesadaran: TingkatKesadaran.fromJson(
     json['tingkat_kesadaran'] as String,
   ),
+  oksigenTambahan: json['oksigen_tambahan'] as bool,
   tandaVital: TandaVitalResponse.fromJson(
     json['tanda_vital'] as Map<String, dynamic>,
   ),
+  lab: HasilLabResponse.fromJson(json['lab'] as Map<String, dynamic>),
+  ventilator: json['ventilator'] as bool,
+  vasopresor: json['vasopresor'] as bool,
+  catatan: json['catatan'] as String?,
   sumberTandaVital: SumberTandaVital.fromJson(
     json['sumber_tanda_vital'] as String,
   ),
+  skorNews2: (json['skor_news2'] as num).toInt(),
+  peluangPerburukan: json['peluang_perburukan'] as num?,
+  levelSebelumnya: json['level_sebelumnya'] == null
+      ? null
+      : RiskLevel.fromJson(json['level_sebelumnya'] as String),
   riskLevel: RiskLevel.fromJson(json['risk_level'] as String),
   sumberRekomendasi: SumberRekomendasi.fromJson(
     json['sumber_rekomendasi'] as String,
@@ -56,13 +62,19 @@ Map<String, dynamic> _$TriaseDetailToJson(
   'id_kunjungan': instance.idKunjungan,
   'jenis': _$JenisTriaseEnumMap[instance.jenis]!,
   'pasien': instance.pasien,
-  'keluhan_utama': instance.keluhanUtama,
-  'gejala': instance.gejala,
-  'kategori_keluhan': _$KategoriKeluhanEnumMap[instance.kategoriKeluhan],
-  'skala_nyeri': instance.skalaNyeri,
+  'nomor_bed': instance.nomorBed,
+  'status_kunjungan': _$StatusKunjunganEnumMap[instance.statusKunjungan]!,
   'tingkat_kesadaran': _$TingkatKesadaranEnumMap[instance.tingkatKesadaran]!,
+  'oksigen_tambahan': instance.oksigenTambahan,
   'tanda_vital': instance.tandaVital,
+  'lab': instance.lab,
+  'ventilator': instance.ventilator,
+  'vasopresor': instance.vasopresor,
+  'catatan': instance.catatan,
   'sumber_tanda_vital': _$SumberTandaVitalEnumMap[instance.sumberTandaVital]!,
+  'skor_news2': instance.skorNews2,
+  'peluang_perburukan': instance.peluangPerburukan,
+  'level_sebelumnya': _$RiskLevelEnumMap[instance.levelSebelumnya],
   'risk_level': _$RiskLevelEnumMap[instance.riskLevel]!,
   'sumber_rekomendasi': _$SumberRekomendasiEnumMap[instance.sumberRekomendasi]!,
   'penjelasan_ai': instance.penjelasanAi,
@@ -80,27 +92,11 @@ const _$JenisTriaseEnumMap = {
   JenisTriase.$unknown: r'$unknown',
 };
 
-const _$KategoriKeluhanEnumMap = {
-  KategoriKeluhan.penurunanKesadaranAtauKejang:
-      'Penurunan kesadaran atau kejang',
-  KategoriKeluhan.nyeriDada: 'Nyeri dada',
-  KategoriKeluhan.sesakNapasAtauBatuk: 'Sesak napas atau batuk',
-  KategoriKeluhan.perdarahan: 'Perdarahan',
-  KategoriKeluhan.gangguanSaraf: 'Gangguan saraf',
-  KategoriKeluhan.nyeriPerut: 'Nyeri perut',
-  KategoriKeluhan.demam: 'Demam',
-  KategoriKeluhan.pusing: 'Pusing',
-  KategoriKeluhan.nyeriKepala: 'Nyeri kepala',
-  KategoriKeluhan.undefined0: 'Mual, muntah, atau diare',
-  KategoriKeluhan.cederaAtauLuka: 'Cedera atau luka',
-  KategoriKeluhan.jantungBerdebar: 'Jantung berdebar',
-  KategoriKeluhan.kulitAtauAlergi: 'Kulit atau alergi',
-  KategoriKeluhan.undefined1: 'Mata, telinga, hidung, atau tenggorokan',
-  KategoriKeluhan.undefined2: 'Nyeri punggung, pinggang, atau anggota gerak',
-  KategoriKeluhan.lemasAtauKelemahanUmum: 'Lemas atau kelemahan umum',
-  KategoriKeluhan.keluhanKemihAtauKandungan: 'Keluhan kemih atau kandungan',
-  KategoriKeluhan.lainnya: 'Lainnya',
-  KategoriKeluhan.$unknown: r'$unknown',
+const _$StatusKunjunganEnumMap = {
+  StatusKunjungan.menunggu: 'menunggu',
+  StatusKunjungan.ditangani: 'ditangani',
+  StatusKunjungan.selesai: 'selesai',
+  StatusKunjungan.$unknown: r'$unknown',
 };
 
 const _$TingkatKesadaranEnumMap = {
@@ -137,5 +133,6 @@ const _$StatusValidasiEnumMap = {
   StatusValidasi.disetujui: 'disetujui',
   StatusValidasi.menungguReviewDokter: 'menunggu_review_dokter',
   StatusValidasi.dikoreksi: 'dikoreksi',
+  StatusValidasi.tercatat: 'tercatat',
   StatusValidasi.$unknown: r'$unknown',
 };

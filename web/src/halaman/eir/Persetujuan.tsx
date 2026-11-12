@@ -6,8 +6,8 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 const PILIHAN: { nilai: PengisiEir; label: string }[] = [
-  { nilai: "pasien", label: "Saya pasien" },
-  { nilai: "keluarga", label: "Keluarga pendamping" },
+  { nilai: "keluarga", label: "Keluarga pasien" },
+  { nilai: "pasien", label: "Pasien sendiri" },
 ];
 
 interface PersetujuanProps {
@@ -47,14 +47,15 @@ export function Persetujuan({ token, onMulai }: PersetujuanProps) {
       <div>
         <h1 className="text-[26px] font-bold text-teks">Halo, saya Eir</h1>
         <p className="mt-3 text-base leading-relaxed text-teks">
-          Sambil menunggu dipanggil, saya akan menanyakan beberapa hal tentang keluhan. Jawaban Anda membantu perawat
-          dan dokter memahami kondisi pasien lebih cepat.
+          Pasien sedang dirawat di ICU dan belum bisa banyak ditanya. Saya akan menanyakan riwayat kesehatannya:
+          kejadian sebelum masuk ICU, penyakit lama, obat rutin, dan alergi. Jawaban Anda membantu tim ICU merawat
+          pasien.
         </p>
       </div>
       {/* Peringatan penting diberi garis tepi, bukan kotak berwarna, supaya terbaca tanpa terasa menakutkan. */}
       <div className="border-l-4 border-navy bg-latar px-4 py-3 text-[15px] leading-relaxed text-teks">
-        Saya bukan dokter dan tidak memberi diagnosis. Bila keluhan memburuk, langsung temui perawat. Nama dan NIK tidak
-        dikirim ke layanan AI.
+        Saya bukan dokter, jadi tidak memberi diagnosis atau kabar tentang kondisi pasien. Untuk itu, silakan bertanya
+        langsung ke dokter atau perawat ICU. Nama dan NIK tidak dikirim ke layanan AI.
       </div>
       <fieldset>
         <legend className="mb-2 text-sm font-bold text-teks">Siapa yang mengisi?</legend>

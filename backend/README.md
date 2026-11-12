@@ -14,6 +14,10 @@ Yang sudah dikerjakan:
 - Tahap 4: asisten anamnesis Eir.
 - Tahap 5: SpaRoute yang menyajikan aplikasi web admin dan halaman Eir dari folder `web/` di root repo.
 - Tahap 6: penanda `ringkasan_eir_siap` di daftar tunggu untuk aplikasi mobile Flutter di folder `mobile/`.
+- Tahap 7 (perubahan lingkup ke ICU): migrasi `0002_prioritas_icu`, skor NEWS2, model peluang perburukan dari
+  PhysioNet 2019, persetujuan dokter hanya saat penilaian awal dan saat level naik, papan prioritas ICU dengan
+  interval observasi, dan Eir untuk keluarga pasien ICU. Alasan dan rinciannya ada di
+  `CATATAN-PERUBAHAN-ICU.md` di root repo.
 
 Kumpulan perintah PowerShell untuk Windows ada di `PERINTAH-TERMINAL.md` di root repo.
 
@@ -36,7 +40,7 @@ python3.12 -m venv .venv
 
 .venv/bin/flask db upgrade      # membuat tabel (dijalankan sebagai role pemilik)
 .venv/bin/flask seed-demo       # akun demo admin, perawat, dan dokter
-.venv/bin/flask seed-demo --dengan-pasien   # opsional: pasien, kunjungan, dan triase simulasi
+.venv/bin/flask seed-demo --dengan-pasien   # opsional: 8 bed ICU dengan pasien dan observasi simulasi
 .venv/bin/flask run --debug     # http://127.0.0.1:5000/api/v1/health
 ```
 
@@ -85,48 +89,56 @@ ini dibuat oleh `docker/initdb/10-role-aplikasi.sh`.
 `log_audit` (misalnya `DATABASE_URL` terisi role pemilik), komponen `hak_akses_log_audit` bernilai `gagal` dan health
 check membalas 503.
 
-## Endpoint alur triase
+## Endpoint alur ICU
+
+Nama endpoint mengikuti SKPL. Di ICU, `kunjungan` adalah satu masa rawat di ICU dan `triase` adalah satu observasi
+beserta penilaian prioritasnya.
 
 | Endpoint | Peran | Keterangan |
 |---|---|---|
 | `GET /api/v1/pasien?q=` | perawat, dokter | Cari pasien lama dari potongan nama atau NIK lengkap 16 digit, maksimal 20 hasil. Pencarian NIK yang tidak ketemu dibatasi 30 kali per 15 menit per akun |
-| `POST /api/v1/kunjungan` | perawat | Registrasi singkat; pilih pasien lama lewat `id_pasien` atau isi identitas pasien baru |
-| `POST /api/v1/kunjungan/{id}/triase` | perawat | Simpan triase beserta rekomendasi risk level, tiga faktor penjelas, dan peringatan tanda vital |
-| `GET /api/v1/triase/{id}` | perawat, dokter | Detail triase dalam bentuk yang sama dengan respons POST |
-| `POST /api/v1/triase/{id}/validasi` | perawat, dokter | Setujui, koreksi, atau ajukan review; tercatat di log audit dalam transaksi yang sama |
-| `PATCH /api/v1/kunjungan/{id}/status` | dokter | Tandai pasien mulai ditangani atau selesai |
-| `GET /api/v1/daftar-tunggu` | perawat, dokter | Kunjungan yang masih menunggu beserta triase terakhir, lama menunggu, penanda triase ulang, dan `ringkasan_eir_siap` (sesi Eir terakhir selesai dan belum ada triase sesudahnya) |
-| `GET /api/v1/peringatan` | perawat, dokter | Triase kritis belum divalidasi, triase ulang yang levelnya naik, dan tanda bahaya Eir |
-| `GET /api/v1/pasien/{id}/riwayat` | perawat, dokter | Riwayat triase pasien dari semua kunjungan, dengan kursor halaman |
+| `POST /api/v1/kunjungan` | perawat | Pasien masuk ICU: nomor bed (wajib, satu bed satu pasien aktif), asal ruangan, diagnosis masuk, dan pasien lama lewat `id_pasien` atau identitas pasien baru |
+| `POST /api/v1/kunjungan/{id}/triase` | perawat | Simpan observasi (tanda vital, AVPU, oksigen, lab opsional, ventilator, vasopresor, catatan) beserta skor NEWS2, peluang memburuk, level, dan faktor penjelas |
+| `GET /api/v1/triase/{id}` | perawat, dokter | Detail observasi dalam bentuk yang sama dengan respons POST, termasuk level sebelumnya dan status pasien |
+| `POST /api/v1/triase/{id}/validasi` | perawat, dokter | Dokter menyetujui atau mengoreksi; perawat hanya mengajukan review; tercatat di log audit |
+| `PATCH /api/v1/kunjungan/{id}/status` | dokter | Mulai tindakan (`ditangani`), kembali dipantau (`menunggu`), atau keluar ICU (`selesai`) |
+| `GET /api/v1/daftar-tunggu` | perawat, dokter | Papan prioritas ICU yang sudah diurutkan, dengan bed, observasi terakhir, interval observasi, penanda observasi terlambat, persetujuan dokter, dan `ringkasan_eir_siap` |
+| `GET /api/v1/peringatan` | perawat, dokter | Penilaian yang menunggu persetujuan dokter, observasi terlambat, dan informasi penting dari Eir |
+| `GET /api/v1/pasien/{id}/riwayat` | perawat, dokter | Riwayat observasi pasien dari semua masa rawat, dengan kursor halaman |
 | `GET /api/v1/admin/staf` | admin | Daftar staf, filter opsional `peran` dan `aktif` |
 | `POST /api/v1/admin/staf` | admin | Tambah staf; password sementara dikirim sekali di respons |
 | `PATCH /api/v1/admin/staf/{id}` | admin | Ubah data, aktif/nonaktifkan, atau `atur_ulang_password` |
 | `PATCH /api/v1/auth/password` | semua peran | Ganti password sendiri |
 | `POST /api/v1/pemindaian` | perawat | Baca angka dari foto layar alat (multipart: `jenis_alat`, `berkas`); foto tidak disimpan |
-| `POST /api/v1/kunjungan/{id}/tautan-eir` | perawat | Tautan Eir untuk kode QR (berlaku 2 jam), khusus pasien menunggu dengan risk level terakhir rendah |
-| `GET /api/v1/kunjungan/{id}/ringkasan-eir` | perawat, dokter | Sesi Eir terakhir: ringkasan (draf form triase), transkrip, dan tanda bahaya |
+| `POST /api/v1/kunjungan/{id}/tautan-eir` | perawat | Tautan Eir untuk kode QR (berlaku 2 jam) bagi keluarga pasien yang masih di ICU |
+| `GET /api/v1/kunjungan/{id}/ringkasan-eir` | perawat, dokter | Sesi Eir terakhir: ringkasan riwayat dari keluarga, transkrip, dan informasi penting |
 | `POST /api/v1/eir/sesi` | pasien/keluarga | Persetujuan dan pembukaan sesi dengan token dari kode QR |
-| `POST /api/v1/eir/sesi/{id}/pesan` | pasien/keluarga | Kirim jawaban (header `X-Token-Eir`); dibalas pertanyaan berikutnya, penutup, atau arahan ke perawat |
+| `POST /api/v1/eir/sesi/{id}/pesan` | pasien/keluarga | Kirim jawaban (header `X-Token-Eir`); dibalas pertanyaan berikutnya atau penutup |
 | `POST /api/v1/eir/sesi/{id}/suara` | pasien/keluarga | Jawaban berupa rekaman suara (webm, ogg, mp3, m4a, wav, maksimal 5 MB); rekaman tidak disimpan |
 | `POST /api/v1/eir/sesi/{id}/selesai` | pasien/keluarga | Selesaikan sesi setelah minimal 7 jawaban dan buat ringkasan |
 | `GET /api/v1/rekap` | admin | Rekap per rentang tanggal; `format=csv` untuk unduhan CSV |
-| `GET /api/v1/admin/log-audit` | admin | Log audit dengan filter tanggal, aksi, aktor, dan triase |
-| `GET /api/v1/admin/konfigurasi` | admin | Ambang aturan cadangan, batas waktu tunggu, ambang keyakinan, dan versi model |
+| `GET /api/v1/admin/log-audit` | admin | Log audit dengan filter tanggal, aksi, aktor, dan observasi |
+| `GET /api/v1/admin/konfigurasi` | admin | Ambang skor NEWS2, interval observasi per level, ambang keyakinan, dan versi model |
 | `PATCH /api/v1/admin/konfigurasi` | admin | Ubah sebagian konfigurasi; setiap perubahan masuk log audit |
 
-### Model triase
+### Penilaian prioritas: NEWS2 dan model perburukan
 
-Bundle Random Forest dari prototipe disalin ke `app/ai/artefak/model_rf.joblib` dan dimuat sekali saat aplikasi
-start, bersama explainer SHAP. Bila berkas itu tidak ada atau rusak, aplikasi tetap berjalan: rekomendasi diambil
-dari aturan cadangan (`sumber_rekomendasi = "aturan"`) dan komponen `model_triase` di health check bernilai `gagal`
-dengan status keseluruhan `degraded`. Lokasinya bisa diganti lewat `MODEL_RF_PATH`.
+Setiap observasi dihitung skor NEWS2-nya (`app/ai/news2.py`) dari laju napas, saturasi, oksigen tambahan,
+sistolik, nadi, kesadaran, dan suhu. Ambang bawaan 7 (Kritis), 5 (Tinggi), dan 3 (Sedang), ditambah aturan satu
+parameter bernilai 3 minimal Sedang; ambang bisa diubah admin.
 
-### Aturan validasi
+Model Random Forest `rf-icu-physionet2019-v1` (`app/ai/artefak/model_rf.joblib`, dilatih dengan
+`ai_training/perburukan.py`) menghitung peluang memburuk dalam 6 jam beserta tiga faktor SHAP terbesar. Level
+akhir adalah yang lebih tinggi antara NEWS2 dan model. Bila berkas model tidak ada atau rusak, aplikasi tetap
+berjalan dengan NEWS2 saja (`sumber_rekomendasi = "aturan"`), komponen `model_perburukan` di health check bernilai
+`gagal`, dan status keseluruhan `degraded`. Lokasinya bisa diganti lewat `MODEL_RF_PATH`.
 
-Perawat boleh menyetujui hasil non-kritis atau mengajukan review untuk semua level. Dokter boleh menyetujui atau
-mengoreksi semua level. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui
-atau dikoreksi, triase lama yang sudah digantikan triase ulang, dan triase pada kunjungan yang sudah selesai dibalas
-409. Ajuan review hanya bisa diputuskan dokter.
+### Aturan persetujuan dokter
+
+Penilaian awal dan setiap observasi yang levelnya lebih tinggi dari level final terakhir berstatus `menunggu`
+dan harus disetujui atau dikoreksi dokter. Observasi yang levelnya sama atau turun langsung berstatus `tercatat`.
+Perawat hanya bisa mengajukan review. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Penilaian yang
+sudah final, yang sudah digantikan observasi lebih baru, atau milik pasien yang sudah keluar ICU dibalas 409.
 
 ### Pembaca layar alat
 
@@ -134,7 +146,7 @@ Foto layar tensimeter, oksimeter, atau termometer dibaca model YOLO format ONNX
 (`app/ai/artefak/yolo_digit.onnx`, bisa diganti lewat `MODEL_YOLO_PATH`). Foto hanya diproses di memori
 lalu dibuang. Kolom diisi bila keyakinan model mencapai ambang di konfigurasi (bawaan 0,85) dan nilainya
 masuk rentang yang mungkin dicatat; selebihnya dikosongkan untuk diisi manual. Bedside monitor sementara
-selalu dikosongkan sampai jenis monitor di dataset diketahui.
+selalu dikosongkan karena tata letak angkanya berbeda antar merek.
 
 Model YOLO belum ada di repo. Selama itu pemindaian tetap tersimpan dengan semua kolom kosong dan
 `GET /api/v1/health` berstatus `degraded`. Untuk mencoba alurnya di development, isi `PEMBACA_LAYAR=tiruan`
@@ -142,20 +154,22 @@ di `.env` supaya keluar angka contoh. Cara melatih dan mengekspor model ada di `
 
 ### Eir
 
-Eir menanyakan keluhan pasien zona hijau atau keluarganya lewat halaman tanpa akun. Setiap jawaban diperiksa dulu
-dengan aturan tanda bahaya di `app/ai/eir/tanda_bahaya.py` tanpa memanggil LLM. Bila cocok, sesi dihentikan dan
-perawat mendapat peringatan di `GET /peringatan`. Bila aman, tiga panduan paling relevan diambil dengan TF-IDF dari
-18 berkas di `app/ai/artefak/panduan`, nama dan NIK dibuang dari teks, lalu Groq menyusun satu pertanyaan
-berikutnya. Pertanyaan yang berisi diagnosis, saran obat, atau risk level diganti pertanyaan inti dari panduan.
-Setelah 15 jawaban, atau saat jawaban sudah cukup dan minimal 7, ringkasan dibuat otomatis. Bila Groq tidak
+Eir menggali riwayat pasien ICU dari keluarganya lewat halaman tanpa akun: kronologi sebelum masuk ICU, riwayat
+penyakit, obat rutin, alergi, riwayat operasi, dan kebiasaan. Setiap jawaban diperiksa dulu dengan aturan informasi
+penting di `app/ai/eir/informasi_penting.py` tanpa memanggil LLM (misalnya alergi obat, obat pengencer darah,
+insulin, kehamilan, alat implan). Bila cocok, labelnya dicatat di sesi dan perawat mendapat peringatan di
+`GET /peringatan`, tetapi percakapan tetap berjalan. Tiga panduan paling relevan diambil dengan TF-IDF dari enam
+berkas topik di `app/ai/artefak/panduan`, nama dan NIK dibuang dari teks, lalu Groq menyusun satu pertanyaan
+berikutnya. Pertanyaan yang berisi diagnosis, perkiraan kondisi, saran obat, atau level diganti pertanyaan inti dari
+panduan. Setelah 15 jawaban, atau saat jawaban sudah cukup dan minimal 7, ringkasan dibuat otomatis. Bila Groq tidak
 menjawab, respons 503 dan jawaban tetap tersimpan.
 
-Isi 18 panduan dan daftar tanda bahaya masih **draf** dan wajib diperiksa tenaga medis sebelum dipakai di IGD
+Isi panduan dan pola informasi penting masih **draf** dan wajib diperiksa tenaga medis sebelum dipakai di ICU
 sungguhan. Untuk mencoba tanpa kunci Groq, isi `LLM_EIR=tiruan` di `.env` (hanya development). Evaluasi pencarian
-panduan dan tanda bahaya dengan keluhan dataset KTAS:
+panduan dan informasi penting dengan 30 kalimat uji:
 
 ```bash
-python -m ai_training.evaluasi_eir --data ../ml-service/data.csv
+python -m ai_training.evaluasi_eir
 ```
 
 ### Akun staf dan password
@@ -169,11 +183,11 @@ tidak menyimpan daftar token yang dicabut.
 ### Rekap dan CSV
 
 Rekap dihitung untuk rentang tanggal WIB (bawaan 7 hari terakhir, maksimal 366 hari). Rata-rata tunggu adalah menit
-dari datang sampai ditangani dokter, dikelompokkan menurut level triase terakhir kunjungan. CSV memakai pemisah titik
+dari masuk ICU sampai tindakan pertama, dikelompokkan menurut level penilaian terakhir. CSV memakai pemisah titik
 koma dan koma desimal supaya langsung terbaca per kolom di Excel berpengaturan Indonesia, berisi agregat saja tanpa
 data pasien.
 
-Konfigurasi triase disimpan di memori proses selama 60 detik. Perubahan lewat PATCH langsung berlaku di worker
+Konfigurasi penilaian disimpan di memori proses selama 60 detik. Perubahan lewat PATCH langsung berlaku di worker
 yang memprosesnya; worker Gunicorn lain menyesuaikan paling lambat 60 detik kemudian.
 
 ## Akun demo
@@ -191,9 +205,11 @@ password sudah sesuai `.env`, berarti akun dibuat sebelum `.env` diisi. Samakan 
 (perintah lengkapnya ada di `PERINTAH-TERMINAL.md`). Akun di README root milik prototipe Next.js lama dan tidak
 berlaku di backend ini.
 
-`flask seed-demo --dengan-pasien` menambahkan tujuh pasien simulasi (nama fiktif, tanpa NIK). Isinya mencakup satu
-pasien yang belum ditriase, satu ajuan review, dan satu triase ulang yang levelnya naik, sehingga daftar tunggu dan
-peringatan langsung bisa dicoba.
+`flask seed-demo --dengan-pasien` menambahkan delapan pasien ICU simulasi di bed ICU-1 sampai ICU-8 (nama fiktif,
+tanpa NIK), lengkap dengan diagnosis masuk dan observasi. Isinya mencakup pasien yang belum dinilai, kenaikan level
+yang menunggu persetujuan dokter, dan observasi yang levelnya turun, sehingga papan prioritas dan peringatan langsung
+bisa dicoba. Karena waktu observasi dibuat mundur dari saat seed dijalankan, pasien akan tampil "observasi terlambat"
+bila seed sudah lama dijalankan; jalankan ulang setelah reset basis data untuk data yang segar.
 
 ## Autentikasi singkat
 

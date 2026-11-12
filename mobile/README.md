@@ -1,20 +1,21 @@
 # Aplikasi Mobile SmartTriage AI (perawat dan dokter)
 
-Aplikasi Android yang dibangun dengan Flutter, untuk perawat dan dokter IGD (SKPL v3.0 Tabel 7.1). Aplikasi ini
+Aplikasi Android yang dibangun dengan Flutter, untuk perawat dan dokter ICU (SKPL v3.0 Tabel 7.1, disesuaikan untuk
+ICU; lihat `CATATAN-PERUBAHAN-ICU.md` di root repo). Aplikasi ini
 memakai REST API backend Flask yang sama dengan aplikasi web, dengan token Bearer yang disimpan di
 `flutter_secure_storage`. Akun admin ditolak di aplikasi ini karena admin memakai aplikasi web.
 
 | Halaman (Tabel 7.1) | Isi |
 |---|---|
 | Login | Email dan password. Gagal 5 kali dalam 15 menit dibatasi server |
-| Daftar Tunggu | Jumlah pasien per risk level dalam satu baris, baris pasien bergaris warna level, jam terakhir diperbarui, lama menunggu dibanding batas, penanda "Perlu triase ulang" dan "Ringkasan Eir siap", panel peringatan, badge, dan toast. Dimuat ulang tiap 15 detik selama aplikasi dibuka |
-| Registrasi Pasien Singkat | Tab Triase Baru, khusus perawat: cari pasien lama atau isi identitas pasien baru |
-| Form Triase | Enam tanda vital, AVPU, skala nyeri, kategori keluhan, keluhan utama, gejala, tombol Pindai layar alat, dan Isi dari ringkasan Eir |
+| Prioritas Pasien ICU (pengganti Daftar Tunggu) | Jumlah pasien per level, keterisian bed, kartu pasien berurutan menurut prioritas penanganan dengan nomor urut, bed, diagnosis, skor NEWS2, peluang memburuk, waktu sejak observasi dibanding intervalnya, penanda "Menunggu persetujuan dokter", "Observasi terlambat", "Sedang tindakan", dan "Ringkasan Eir siap", panel peringatan, badge, dan toast. Dimuat ulang tiap 15 detik |
+| Pasien Masuk ICU (pengganti Registrasi Singkat) | Tab Pasien Masuk, khusus perawat: nomor bed, asal ruangan, diagnosis masuk, lalu pasien lama atau identitas pasien baru |
+| Form Observasi (pengganti Form Triase) | Enam tanda vital dengan tombol Pindai monitor, AVPU, oksigen tambahan, lima hasil lab opsional, ventilator, vasopresor, dan catatan |
 | Kamera Pemindaian | Pilih jenis alat, ambil foto dengan kamera bawaan HP, lalu periksa angka terbaca sebelum dipakai. Foto dihapus setelah dikirim |
-| Hasil dan Penjelasan | Risk level, tiga faktor penjelas, sumber rekomendasi, dan tombol sesuai peran: perawat Setujui (non-kritis) atau Ajukan Review; dokter Setujui atau Koreksi dengan alasan, serta mulai periksa atau selesai |
-| Riwayat Triase Pasien | Tab Riwayat: cari pasien, lalu lihat triase awal dan ulangnya |
+| Hasil Penilaian (pengganti Hasil dan Penjelasan) | Level prioritas dan perubahannya dari observasi sebelumnya, skor NEWS2 beserta komponennya, peluang memburuk 6 jam dan tiga faktor SHAP, tanda vital, lab, alat bantu. Dokter Setujui atau Koreksi dengan alasan, serta mulai tindakan, kembali dipantau, atau keluar ICU; perawat Ajukan Review |
+| Riwayat Observasi Pasien | Tab Riwayat: cari pasien, lalu lihat penilaian awal dan observasinya |
 | Profil | Ganti password dan keluar (keputusan M5) |
-| Kode QR Eir | Untuk pasien risk level rendah, dibuka dari kartu daftar tunggu atau halaman hasil (keputusan M7) |
+| Kode QR Eir | Untuk keluarga pasien yang masih di ICU, dibuka dari kartu papan prioritas atau halaman hasil (keputusan M7) |
 
 ## Teknologi
 
@@ -29,8 +30,8 @@ Aturan tampilan (panduan gaya tahap 6D) sama dengan aplikasi web dan ditulis di 
 - Biru tua `#0F2A4F` dari logo untuk header dan pilihan aktif. Merah, oranye, kuning, dan hijau hanya untuk level
   risiko, mengikuti urutan Manchester Triage System. Hanya Kritis yang berlatar merah penuh; level lain ditandai
   kotak kecil berwarna dan teks, jadi tetap terbaca oleh perawat yang buta warna.
-- Daftar dibuat rapat seperti papan pantau IGD: blok putih selebar layar dengan garis tipis, sudut kecil, tanpa
-  bayangan dan gradasi. Tombol keputusan di Hasil Triase dan tombol Hitung rekomendasi selalu terlihat di bawah.
+- Daftar dibuat rapat seperti papan pantau ICU: blok putih selebar layar dengan garis tipis, sudut kecil, tanpa
+  bayangan dan gradasi. Tombol keputusan di Hasil Penilaian dan tombol Nilai prioritas selalu terlihat di bawah.
 - Huruf Atkinson Hyperlegible Next (Braille Institute, lisensi SIL OFL, lihat `assets/fonts/OFL.txt`) disimpan di
   aplikasi, jadi tidak diunduh saat dipakai. Angka memakai angka rata supaya jam dan tanda vital sejajar.
 - Logo ada di `assets/logo/logo.png`. Ikon launcher Android ada di `android/app/src/main/res/mipmap-*`, termasuk
@@ -137,8 +138,8 @@ assets/         logo dan font Atkinson Hyperlegible Next beserta lisensinya
 lib/
   tema.dart     warna, huruf, dan gaya komponen (panduan gaya tahap 6D)
   api/          klien HTTP (token, refresh), repository, error Problem Details, kode hasil generate
-  state/        sesi login, daftar tunggu dan peringatan, penyedia Riverpod
-  halaman/      login, daftar tunggu, registrasi, form triase, pemindaian, hasil, riwayat, Eir, profil
+  state/        sesi login, papan prioritas dan peringatan, penyedia Riverpod
+  halaman/      login, papan prioritas, pasien masuk, form observasi, pemindaian, hasil, riwayat, Eir, profil
   komponen/     penanda risk level, kotak pesan, blok, bilah tombol bawah, panel dan lembar peringatan
   util/         format waktu WIB, label, validasi isian
 test/           unit dan widget test

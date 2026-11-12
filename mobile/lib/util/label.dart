@@ -6,6 +6,7 @@ import '../api/generated/models/jenis_alat.dart';
 import '../api/generated/models/jenis_kelamin.dart';
 import '../api/generated/models/jenis_triase.dart';
 import '../api/generated/models/peran.dart';
+import '../api/generated/models/registrasi_request_asal_ruangan.dart';
 import '../api/generated/models/risk_level.dart';
 import '../api/generated/models/status_kunjungan.dart';
 import '../api/generated/models/status_validasi.dart';
@@ -21,7 +22,7 @@ String labelLevel(RiskLevel level) => switch (level) {
   RiskLevel.$unknown => 'Tidak dikenal',
 };
 
-/// L atau P seperti di kartu daftar tunggu.
+/// L atau P seperti di kartu papan prioritas.
 String singkatanKelamin(JenisKelamin jenis) => switch (jenis) {
   JenisKelamin.lakiLaki => 'L',
   JenisKelamin.perempuan => 'P',
@@ -37,21 +38,22 @@ String labelKelamin(JenisKelamin jenis) => switch (jenis) {
 String labelPeran(Peran peran) => switch (peran) {
   Peran.perawat => 'Perawat',
   Peran.dokter => 'Dokter',
-  Peran.admin => 'Admin IGD',
+  Peran.admin => 'Admin ICU',
   Peran.$unknown => '-',
 };
 
 String labelStatusValidasi(StatusValidasi status) => switch (status) {
-  StatusValidasi.menunggu => 'Menunggu validasi',
-  StatusValidasi.disetujui => 'Disetujui',
-  StatusValidasi.menungguReviewDokter => 'Menunggu review dokter',
+  StatusValidasi.menunggu => 'Menunggu persetujuan dokter',
+  StatusValidasi.disetujui => 'Disetujui dokter',
+  StatusValidasi.menungguReviewDokter => 'Review diajukan ke dokter',
   StatusValidasi.dikoreksi => 'Dikoreksi dokter',
+  StatusValidasi.tercatat => 'Tercatat (level tidak naik)',
   StatusValidasi.$unknown => '-',
 };
 
 String labelSumberRekomendasi(SumberRekomendasi sumber) => switch (sumber) {
-  SumberRekomendasi.model => 'Model AI (Random Forest)',
-  SumberRekomendasi.aturan => 'Aturan cadangan',
+  SumberRekomendasi.model => 'NEWS2 dan model AI (Random Forest)',
+  SumberRekomendasi.aturan => 'NEWS2 saja (model tidak tersedia)',
   SumberRekomendasi.$unknown => '-',
 };
 
@@ -62,12 +64,12 @@ String labelSumberTandaVital(SumberTandaVital sumber) => switch (sumber) {
   SumberTandaVital.$unknown => '-',
 };
 
-String labelJenisTriase(JenisTriase jenis) => jenis == JenisTriase.ulang ? 'Triase ulang' : 'Triase awal';
+String labelJenisTriase(JenisTriase jenis) => jenis == JenisTriase.ulang ? 'Observasi' : 'Penilaian awal';
 
 String labelStatusKunjungan(StatusKunjungan status) => switch (status) {
-  StatusKunjungan.menunggu => 'Menunggu dokter',
-  StatusKunjungan.ditangani => 'Sedang diperiksa',
-  StatusKunjungan.selesai => 'Selesai',
+  StatusKunjungan.menunggu => 'Dirawat',
+  StatusKunjungan.ditangani => 'Sedang tindakan',
+  StatusKunjungan.selesai => 'Keluar ICU',
   StatusKunjungan.$unknown => '-',
 };
 
@@ -97,9 +99,9 @@ String labelAlat(JenisAlat alat) => switch (alat) {
 };
 
 String labelJenisPeringatan(ItemPeringatanJenis jenis) => switch (jenis) {
-  ItemPeringatanJenis.kritisBelumDivalidasi => 'Risk level kritis',
-  ItemPeringatanJenis.levelNaik => 'Level naik',
-  ItemPeringatanJenis.tandaBahayaEir => 'Tanda bahaya dari Eir',
+  ItemPeringatanJenis.menungguPersetujuan => 'Menunggu persetujuan dokter',
+  ItemPeringatanJenis.observasiTerlambat => 'Observasi terlambat',
+  ItemPeringatanJenis.informasiPentingEir => 'Informasi penting dari keluarga',
   ItemPeringatanJenis.$unknown => 'Peringatan',
 };
 
@@ -113,7 +115,7 @@ const labelTandaVital = {
   'laju_napas': 'Laju napas (x/mnt)',
 };
 
-/// Nama pendek dan satuan untuk kotak isian di Form Triase; satuannya ditulis di dalam kotak.
+/// Nama pendek dan satuan untuk kotak isian di Form Observasi; satuannya ditulis di dalam kotak.
 const labelPendekTandaVital = {
   'td_sistolik': 'Sistolik',
   'td_diastolik': 'Diastolik',
@@ -134,3 +136,18 @@ const satuanTandaVital = {
 
 /// Urutan kolom tanda vital seperti di mockup Gambar 7.1.
 const urutanTandaVital = ['td_sistolik', 'td_diastolik', 'nadi', 'saturasi', 'suhu', 'laju_napas'];
+
+/// Hasil laboratorium opsional di Form Observasi: label, satuan, dan jumlah desimal yang diterima server.
+const kolomLab = <String, (String, String, int)>{
+  'laktat': ('Laktat', 'mmol/L', 1),
+  'kreatinin': ('Kreatinin', 'mg/dL', 2),
+  'trombosit': ('Trombosit', 'rb/µL', 0),
+  'leukosit': ('Leukosit', 'rb/µL', 1),
+  'bilirubin': ('Bilirubin', 'mg/dL', 1),
+};
+
+/// Pilihan asal ruangan saat pasien masuk ICU, sama dengan nilai yang diterima backend.
+String labelAsalRuangan(RegistrasiRequestAsalRuangan asal) => asal.json ?? '-';
+
+/// Persen peluang perburukan, misalnya 0.7412 menjadi "74%".
+String persenPeluang(num peluang) => '${(peluang * 100).round()}%';

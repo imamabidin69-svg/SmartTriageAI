@@ -4,20 +4,19 @@ import 'package:go_router/go_router.dart';
 
 import '../api/generated/models/item_peringatan.dart';
 import '../api/generated/models/item_peringatan_jenis.dart';
-import '../api/generated/models/status_kunjungan.dart';
 import '../rute.dart';
 import '../state/antrean.dart';
 import '../tema.dart';
 import '../util/format.dart';
 import '../util/label.dart';
 
-/// Membuka halaman yang relevan untuk satu peringatan: hasil triase, atau percakapan Eir untuk tanda bahaya.
+/// Membuka halaman yang relevan untuk satu peringatan: hasil penilaian, atau percakapan Eir untuk informasi penting.
 void bukaPeringatan(BuildContext context, ItemPeringatan item) {
   final idTriase = item.idTriase;
-  if (item.jenis == ItemPeringatanJenis.tandaBahayaEir || idTriase == null) {
+  if (item.jenis == ItemPeringatanJenis.informasiPentingEir || idTriase == null) {
     context.push(Rute.ringkasanEir(item.idKunjungan), extra: item.pasien.nama);
   } else {
-    context.push(Rute.hasil(idTriase), extra: const InfoHasil(statusKunjungan: StatusKunjungan.menunggu));
+    context.push(Rute.hasil(idTriase));
   }
 }
 
@@ -92,7 +91,7 @@ class LembarPeringatan extends ConsumerWidget {
   }
 }
 
-/// Panel peringatan di atas daftar tunggu: blok putih dengan garis merah di kiri, tiap baris bisa diketuk.
+/// Panel peringatan di atas papan prioritas: blok putih dengan garis merah di kiri, tiap baris bisa diketuk.
 class PanelPeringatan extends StatelessWidget {
   const PanelPeringatan(this.daftar, {super.key});
 

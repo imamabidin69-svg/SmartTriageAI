@@ -14,7 +14,6 @@ from app.models.enums import (
     JenisAlat,
     JenisKelamin,
     JenisTriase,
-    KategoriKeluhan,
     PengisiEir,
     Peran,
     RiskLevel,
@@ -32,10 +31,6 @@ def triase_valid(kunjungan: Kunjungan, **ubah) -> Triase:
         "id_kunjungan": kunjungan.id_kunjungan,
         "jenis": JenisTriase.AWAL,
         "dibuat_oleh": kunjungan.pasien.didaftarkan_oleh,
-        "keluhan_utama": "Demam dan batuk",
-        "gejala": "Demam dua hari disertai batuk berdahak.",
-        "kategori_keluhan": KategoriKeluhan.MUAL_MUNTAH_ATAU_DIARE,
-        "skala_nyeri": 3,
         "tingkat_kesadaran": TingkatKesadaran.SADAR_PENUH,
         "td_sistolik": 120,
         "td_diastolik": 80,
@@ -44,6 +39,7 @@ def triase_valid(kunjungan: Kunjungan, **ubah) -> Triase:
         "suhu": Decimal("38.2"),
         "saturasi": Decimal("97.0"),
         "sumber_tanda_vital": SumberTandaVital.MANUAL,
+        "skor_news2": 3,
         "risk_level": RiskLevel.SEDANG,
         "sumber_rekomendasi": SumberRekomendasi.MODEL,
         "penjelasan_ai": {"faktor": [{"label": "Suhu tubuh 38,2 °C", "arah": "meningkatkan"}]},
@@ -72,7 +68,8 @@ def test_triase_valid_tersimpan_dengan_nilai_bawaan(sesi_db, kunjungan):
     assert triase.status_validasi == StatusValidasi.MENUNGGU
     assert triase.waktu_triase is not None
     assert triase.waktu_triase.tzinfo is not None
-    assert triase.kategori_keluhan == KategoriKeluhan.MUAL_MUNTAH_ATAU_DIARE
+    assert (triase.oksigen_tambahan, triase.ventilator, triase.vasopresor) == (False, False, False)
+    assert triase.laktat is None
     assert triase.penjelasan_ai["faktor"][0]["label"] == "Suhu tubuh 38,2 °C"
     assert kunjungan.triase == [triase]
 
@@ -97,10 +94,14 @@ def test_saturasi_tidak_wajar_tetap_diterima(sesi_db, kunjungan):
         ("td_sistolik", -1, "ck_triase_td_sistolik"),
         ("nadi", -1, "ck_triase_nadi"),
         ("laju_napas", -1, "ck_triase_laju_napas"),
-        ("skala_nyeri", 11, "ck_triase_skala_nyeri"),
-        ("skala_nyeri", -1, "ck_triase_skala_nyeri"),
-        ("gejala", "pendek", "ck_triase_gejala"),
-        ("gejala", "x" * 2001, "ck_triase_gejala"),
+        ("laktat", Decimal("30.1"), "ck_triase_laktat"),
+        ("kreatinin", Decimal("25.01"), "ck_triase_kreatinin"),
+        ("trombosit", 2001, "ck_triase_trombosit"),
+        ("leukosit", Decimal("-0.1"), "ck_triase_leukosit"),
+        ("bilirubin", Decimal("60.1"), "ck_triase_bilirubin"),
+        ("skor_news2", 21, "ck_triase_skor_news2"),
+        ("peluang_perburukan", Decimal("1.0001"), "ck_triase_peluang_perburukan"),
+        ("catatan", "x" * 501, "ck_triase_catatan"),
     ],
 )
 def test_triase_di_luar_rentang_ditolak(sesi_db, kunjungan, kolom, nilai, constraint):
@@ -122,11 +123,12 @@ def test_triase_di_luar_rentang_ditolak(sesi_db, kunjungan, kolom, nilai, constr
         ("nadi", 300),
         ("laju_napas", 0),
         ("laju_napas", 80),
-        ("skala_nyeri", 0),
-        ("skala_nyeri", 10),
-        ("skala_nyeri", None),
-        ("gejala", "x" * 10),
-        ("gejala", "x" * 2000),
+        ("laktat", Decimal("30")),
+        ("trombosit", 0),
+        ("skor_news2", 20),
+        ("peluang_perburukan", Decimal("1")),
+        ("catatan", "x" * 500),
+        ("catatan", None),
     ],
 )
 def test_nilai_tepat_di_batas_rentang_diterima(sesi_db, kunjungan, kolom, nilai):
@@ -138,6 +140,18 @@ def test_kunjungan_baru_berstatus_menunggu(sesi_db, kunjungan):
     assert kunjungan.status == StatusKunjungan.MENUNGGU
     assert kunjungan.waktu_datang is not None
     assert kunjungan.pasien.kunjungan == [kunjungan]
+
+
+def test_satu_bed_hanya_untuk_satu_pasien_aktif(sesi_db, buat_kunjungan):
+    pertama = buat_kunjungan("Pertama", nomor_bed="ICU-1")
+    kedua = buat_kunjungan("Kedua", status=StatusKunjungan.SELESAI)
+    simpan_gagal(sesi_db, Kunjungan(id_pasien=kedua.id_pasien, nomor_bed="ICU-1"), "uq_kunjungan_bed_aktif")
+    # Setelah pasien pertama keluar ICU, bed boleh dipakai lagi; bed kosong (NULL) tidak dibatasi.
+    pertama.status = StatusKunjungan.SELESAI
+    sesi_db.commit()
+    _simpan_dalam_savepoint(sesi_db, Kunjungan(id_pasien=pertama.id_pasien, nomor_bed="ICU-1"))
+    buat_kunjungan("Tanpa bed 1")
+    buat_kunjungan("Tanpa bed 2")
 
 
 def _pasien(pendaftar: Pengguna, **ubah) -> Pasien:
@@ -244,19 +258,21 @@ def test_konfigurasi_hanya_satu_baris_dan_ambang_berurutan(sesi_db):
         Konfigurasi(
             id_konfigurasi=2,
             versi_model="x",
-            ambang_kritis=6,
-            ambang_tinggi=4,
-            ambang_sedang=2,
-            batas_tunggu_tinggi=10,
-            batas_tunggu_sedang=30,
-            batas_tunggu_rendah=60,
+            ambang_kritis=7,
+            ambang_tinggi=5,
+            ambang_sedang=3,
+            batas_tunggu_kritis=15,
+            batas_tunggu_tinggi=30,
+            batas_tunggu_sedang=60,
+            batas_tunggu_rendah=120,
             ambang_keyakinan=Decimal("0.85"),
         ),
         "ck_konfigurasi_satu_baris",
     )
     for kolom, nilai, constraint in (
-        ("ambang_tinggi", 7, "ck_konfigurasi_ambang_berurutan"),
-        ("batas_tunggu_tinggi", 45, "ck_konfigurasi_batas_tunggu"),
+        ("ambang_tinggi", 8, "ck_konfigurasi_ambang_berurutan"),
+        ("batas_tunggu_tinggi", 90, "ck_konfigurasi_batas_tunggu"),
+        ("batas_tunggu_kritis", 31, "ck_konfigurasi_batas_tunggu"),
         ("ambang_keyakinan", Decimal("1.5"), "ck_konfigurasi_ambang_keyakinan"),
     ):
         with pytest.raises(IntegrityError) as galat, sesi_db.begin_nested():

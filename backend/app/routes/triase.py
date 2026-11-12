@@ -1,4 +1,7 @@
-"""Blueprint triase: input triase, detail, validasi, dan riwayat pasien (FR-03, FR-05, FR-06, FR-09)."""
+"""Blueprint triase: observasi ICU, detail penilaian, persetujuan dokter, dan riwayat (FR-03, FR-05, FR-06, FR-09).
+
+Path /triase dipertahankan dari SKPL. Di ICU satu "triase" adalah satu observasi beserta penilaian prioritasnya.
+"""
 
 from flask import jsonify
 from flask_jwt_extended import get_current_user
@@ -15,6 +18,7 @@ from app.services.triase_service import TriaseService, peringatan_triase, tanda_
 from app.services.validasi_service import ValidasiService
 from app.utils.schemas import (
     HalamanQuery,
+    HasilLabResponse,
     ItemRiwayat,
     KunjunganPath,
     KunjunganRiwayat,
@@ -47,6 +51,7 @@ def _ringkas(pengguna: Pengguna | None) -> PenggunaRingkas | None:
 def susun_detail(triase: Triase) -> TriaseDetail:
     pasien = triase.kunjungan.pasien
     tv = tanda_vital_triase(triase)
+    sebelumnya = TriaseService.observasi_terakhir(triase.id_kunjungan, sebelum=triase)
     return TriaseDetail(
         id_triase=triase.id_triase,
         id_kunjungan=triase.id_kunjungan,
@@ -57,13 +62,19 @@ def susun_detail(triase: Triase) -> TriaseDetail:
             usia=usia_pasien(pasien.tanggal_lahir, pasien.perkiraan_usia, triase.waktu_triase.astimezone(WIB).date()),
             jenis_kelamin=pasien.jenis_kelamin,
         ),
-        keluhan_utama=triase.keluhan_utama,
-        gejala=triase.gejala,
-        kategori_keluhan=triase.kategori_keluhan,
-        skala_nyeri=triase.skala_nyeri,
+        nomor_bed=triase.kunjungan.nomor_bed,
+        status_kunjungan=triase.kunjungan.status,
         tingkat_kesadaran=triase.tingkat_kesadaran,
+        oksigen_tambahan=triase.oksigen_tambahan,
         tanda_vital=TandaVitalResponse(**tv.model_dump()),
+        lab=HasilLabResponse.model_validate(triase, from_attributes=True),
+        ventilator=triase.ventilator,
+        vasopresor=triase.vasopresor,
+        catatan=triase.catatan,
         sumber_tanda_vital=triase.sumber_tanda_vital,
+        skor_news2=triase.skor_news2,
+        peluang_perburukan=triase.peluang_perburukan,
+        level_sebelumnya=None if sebelumnya is None else sebelumnya.risk_level,
         risk_level=triase.risk_level,
         sumber_rekomendasi=triase.sumber_rekomendasi,
         penjelasan_ai=PenjelasanResponse.model_validate(triase.penjelasan_ai),
@@ -82,11 +93,12 @@ def _service() -> TriaseService:
 
 @triase_bp.post(
     "/kunjungan/<uuid:id_kunjungan>/triase",
-    summary="Input triase dan rekomendasi risk level",
+    summary="Mencatat observasi pasien ICU dan menilai prioritasnya",
     description=(
-        "Menyimpan triase berstatus menunggu validasi beserta rekomendasi risk level dan tiga faktor penjelas. "
-        "Triase pertama pada kunjungan dicatat sebagai awal, berikutnya sebagai ulang. Nilai tanda vital yang "
-        "tidak wajar dikembalikan di field peringatan tanpa menolak request."
+        "Menghitung skor NEWS2 dan peluang perburukan 6 jam dari model Random Forest, lalu memakai level yang "
+        "lebih tinggi dari keduanya. Observasi pertama (awal) dan observasi yang levelnya naik dibanding level "
+        "final terakhir berstatus menunggu persetujuan dokter; selain itu langsung berstatus tercatat. Nilai yang "
+        "tidak wajar dikembalikan di field peringatan tanpa menolak request. Pasien yang sudah keluar ICU dibalas 409."
     ),
     responses={201: TriaseDetail, **respons_problem_doc(401, 403, 404, 409)},
 )
@@ -99,7 +111,7 @@ def buat_triase(path: KunjunganPath, body: TriaseInput):
 
 @triase_bp.get(
     "/triase/<uuid:id_triase>",
-    summary="Detail triase beserta penjelasan rekomendasi",
+    summary="Detail observasi beserta penjelasan penilaian",
     responses={200: TriaseDetail, **respons_problem_doc(401, 403, 404)},
 )
 @role_required(Peran.PERAWAT, Peran.DOKTER)
@@ -110,12 +122,12 @@ def detail_triase(path: TriasePath):
 
 @triase_bp.post(
     "/triase/<uuid:id_triase>/validasi",
-    summary="Menyetujui, mengoreksi, atau mengajukan review hasil triase",
+    summary="Persetujuan dokter: menyetujui, mengoreksi, atau mengajukan review",
     description=(
-        "Perawat boleh menyetujui hasil non-kritis atau mengajukan review; dokter boleh menyetujui atau mengoreksi "
-        "semua tingkat. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui "
-        "atau dikoreksi, sudah digantikan triase ulang, atau kunjungannya sudah selesai dibalas 409. Setiap aksi "
-        "dicatat di log audit dalam transaksi yang sama."
+        "Hanya dokter yang boleh menyetujui atau mengoreksi level; perawat hanya boleh mengajukan review. Koreksi "
+        "dan ajuan review wajib beralasan minimal 5 karakter. Penilaian yang sudah final (disetujui, dikoreksi, "
+        "atau tercatat), sudah digantikan observasi yang lebih baru, atau pasiennya sudah keluar ICU dibalas 409. "
+        "Setiap aksi dicatat di log audit dalam transaksi yang sama."
     ),
     responses={200: TriaseDetail, **respons_problem_doc(401, 403, 404, 409)},
 )
@@ -128,9 +140,9 @@ def validasi_triase(path: TriasePath, body: ValidasiRequest):
 
 @triase_bp.get(
     "/pasien/<uuid:id_pasien>/riwayat",
-    summary="Riwayat triase pasien",
+    summary="Riwayat observasi pasien",
     description=(
-        "Triase awal dan ulang dari semua kunjungan pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan "
+        "Observasi dari semua masa rawat ICU pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan "
         "mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim."
     ),
     responses={200: RiwayatResponse, **respons_problem_doc(401, 403, 404)},
@@ -145,8 +157,8 @@ def riwayat_pasien(path: PasienPath, query: HalamanQuery):
             id_triase=t.id_triase,
             jenis=t.jenis,
             waktu_triase=t.waktu_triase,
-            keluhan_utama=t.keluhan_utama,
-            kategori_keluhan=t.kategori_keluhan,
+            skor_news2=t.skor_news2,
+            peluang_perburukan=t.peluang_perburukan,
             risk_level=t.risk_level,
             sumber_rekomendasi=t.sumber_rekomendasi,
             status_validasi=t.status_validasi,

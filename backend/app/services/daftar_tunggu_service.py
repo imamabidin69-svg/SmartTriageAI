@@ -1,5 +1,6 @@
-"""Daftar tunggu dan penanda triase ulang (FR-07, Desain 2.7 dan Gambar 2.19-2.21).
+"""Papan prioritas ICU dan penanda observasi terlambat (FR-07, Desain 2.7 dan Gambar 2.19-2.21).
 
+Daftar berisi semua pasien yang belum keluar ICU, diurutkan menurut siapa yang harus ditangani lebih dulu.
 Penanda dihitung saat request dibaca, jadi tidak ada penjadwal maupun pekerjaan latar. Penanda "Ringkasan Eir
 siap" (mockup SKPL Gambar 7.1, keputusan M4) juga dihitung di sini.
 """
@@ -18,6 +19,8 @@ from app.utils.waktu import WIB, usia_pasien
 
 URUTAN_LEVEL = {RiskLevel.RENDAH: 0, RiskLevel.SEDANG: 1, RiskLevel.TINGGI: 2, RiskLevel.KRITIS: 3}
 STATUS_BELUM_DIVALIDASI = (StatusValidasi.MENUNGGU, StatusValidasi.MENUNGGU_REVIEW_DOKTER)
+# Pasien yang masih di ICU: dirawat (menunggu) atau sedang menjalani tindakan/operasi (ditangani).
+STATUS_DI_ICU = (StatusKunjungan.MENUNGGU, StatusKunjungan.DITANGANI)
 
 
 @dataclass(frozen=True)
@@ -83,7 +86,7 @@ class DaftarTungguService:
             .join(Pasien, Pasien.id_pasien == Kunjungan.id_pasien)
             .outerjoin(terakhir, terakhir.id_kunjungan == Kunjungan.id_kunjungan)
             .outerjoin(sesi_terakhir, sesi_terakhir.id_kunjungan == Kunjungan.id_kunjungan)
-            .where(Kunjungan.status == StatusKunjungan.MENUNGGU)
+            .where(Kunjungan.status.in_(STATUS_DI_ICU))
         ).all()
         hari = sekarang.astimezone(WIB).date()
         items = [
@@ -105,9 +108,9 @@ class DaftarTungguService:
         lama = max(0, int((sekarang - acuan).total_seconds() // 60))
         batas = None if triase is None else self.konfigurasi.batas_tunggu(triase.risk_level)
         if triase is None:
-            tanda = "belum_ditriase"
-        elif self.perlu_triase_ulang(lama, batas):
-            tanda = "perlu_triase_ulang"
+            tanda = "belum_dinilai"
+        elif self.observasi_terlambat(lama, batas):
+            tanda = "observasi_terlambat"
         else:
             tanda = "normal"
         return ItemDaftarTunggu(
@@ -122,23 +125,35 @@ class DaftarTungguService:
         )
 
     @staticmethod
-    def perlu_triase_ulang(lama_menunggu: int, batas_tunggu: int | None) -> bool:
-        """Lewat batas waktu tunggu level ini. Pasien kritis tidak punya batas karena harus segera ditangani.
-
-        Pemicu kedua di Gambar 2.19, tanda vital baru masuk, tidak punya sumber data di ERD dan tidak
-        dibuat (keputusan K11).
-        """
-        return batas_tunggu is not None and lama_menunggu > batas_tunggu
+    def observasi_terlambat(lama: int, interval: int | None) -> bool:
+        """Observasi terakhir sudah lebih lama dari interval observasi untuk level pasien ini."""
+        return interval is not None and lama > interval
 
     @staticmethod
     def _kunci_urut(item: ItemDaftarTunggu) -> tuple:
-        # Urutan Gambar 2.19: kritis, belum ditriase, lewat batas, level, lalu lama menunggu.
-        level = item.triase_terakhir.risk_level if item.triase_terakhir is not None else None
+        """Urutan prioritas penanganan di ICU.
+
+        1. Pasien yang sedang menjalani tindakan atau operasi ditaruh paling bawah karena sudah ditangani.
+        2. Level: Kritis, lalu pasien yang belum dinilai (harus segera dinilai), lalu Tinggi, Sedang, Rendah.
+        3. Di level yang sama: yang menunggu persetujuan dokter, lalu yang observasinya terlambat.
+        4. Lalu peluang perburukan dan skor NEWS2 yang lebih tinggi, lalu yang paling lama sejak observasi.
+        """
+        triase = item.triase_terakhir
+        if triase is None:
+            peringkat_level = 1
+        else:
+            peringkat_level = {RiskLevel.KRITIS: 0, RiskLevel.TINGGI: 2, RiskLevel.SEDANG: 3, RiskLevel.RENDAH: 4}[
+                triase.risk_level
+            ]
+        peluang = float(triase.peluang_perburukan) if triase is not None and triase.peluang_perburukan else 0.0
+        skor = triase.skor_news2 if triase is not None else 0
         return (
-            level != RiskLevel.KRITIS,
-            item.status_tanda != "belum_ditriase",
-            item.status_tanda != "perlu_triase_ulang",
-            -URUTAN_LEVEL.get(level, -1),
+            item.kunjungan.status == StatusKunjungan.DITANGANI,
+            peringkat_level,
+            not item.menunggu_validasi,
+            item.status_tanda != "observasi_terlambat",
+            -peluang,
+            -skor,
             -item.lama_menunggu,
             item.kunjungan.waktu_datang,
             str(item.kunjungan.id_kunjungan),

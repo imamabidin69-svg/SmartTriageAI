@@ -9,6 +9,7 @@ import '../api/generated/models/risk_level.dart';
 import '../api/generated/models/status_kunjungan.dart';
 import '../komponen/peringatan.dart';
 import '../komponen/umum.dart';
+import '../konfigurasi.dart';
 import '../rute.dart';
 import '../state/antrean.dart';
 import '../state/sesi.dart';
@@ -16,8 +17,9 @@ import '../tema.dart';
 import '../util/format.dart';
 import '../util/label.dart';
 
-/// Daftar Tunggu (SKPL Tabel 7.1 no. 2): pasien non-merah yang menunggu dokter, lama menunggu dibanding batas,
-/// penanda triase ulang, dan panel peringatan. Tampilannya rapat seperti papan pantau pasien di IGD.
+/// Papan Prioritas ICU (pengganti Daftar Tunggu SKPL Tabel 7.1 no. 2): pasien yang masih di ICU, sudah diurutkan
+/// server menurut siapa yang harus ditangani lebih dulu. Setiap kartu memuat bed, level, skor NEWS2, peluang
+/// memburuk, waktu sejak observasi terakhir dibanding intervalnya, dan penanda persetujuan dokter.
 class HalamanDaftarTunggu extends ConsumerWidget {
   const HalamanDaftarTunggu({super.key});
 
@@ -25,14 +27,14 @@ class HalamanDaftarTunggu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final antrean = ref.watch(antreanProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Daftar Tunggu IGD'), actions: const [TombolPeringatan()]),
+      appBar: AppBar(title: const Text('Prioritas Pasien ICU'), actions: const [TombolPeringatan()]),
       body: switch (antrean) {
         AsyncData(:final value) => RefreshIndicator(
           onRefresh: () => ref.read(antreanProvider.notifier).muatUlang(),
           child: _IsiDaftar(value),
         ),
         AsyncError(:final error) => TampilanGalat(error, cobaLagi: () => ref.invalidate(antreanProvider)),
-        _ => const TampilanMemuat(pesan: 'Memuat daftar tunggu...'),
+        _ => const TampilanMemuat(pesan: 'Memuat papan prioritas...'),
       },
     );
   }
@@ -48,11 +50,11 @@ class _IsiDaftar extends StatelessWidget {
     final items = data.daftar.items;
     final galat = data.galatMuatUlang;
     final jumlah = <RiskLevel, int>{};
-    var belumDitriase = 0;
+    var belumDinilai = 0;
     for (final item in items) {
       final level = item.triaseTerakhir?.riskLevel;
       if (level == null) {
-        belumDitriase++;
+        belumDinilai++;
       } else {
         jumlah[level] = (jumlah[level] ?? 0) + 1;
       }
@@ -61,7 +63,7 @@ class _IsiDaftar extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 24),
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        _Sensus(jumlah: jumlah, belumDitriase: belumDitriase),
+        _Sensus(jumlah: jumlah, belumDinilai: belumDinilai),
         _BarisKeterangan(jumlahPasien: items.length, waktuMuat: data.waktuMuat),
         if (galat != null)
           Padding(
@@ -76,33 +78,33 @@ class _IsiDaftar extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 48, horizontal: 16),
             child: Text(
-              'Tidak ada pasien yang menunggu dokter.',
+              'Belum ada pasien yang dirawat di ICU.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Warna.teksRedup),
             ),
           )
         else ...[
           const Divider(),
-          for (final item in items) BarisPasienTunggu(item),
+          for (final (i, item) in items.indexed) BarisPasienTunggu(item, urutan: i + 1),
         ],
       ],
     );
   }
 }
 
-/// Ringkasan jumlah pasien per level dalam satu baris angka, seperti kepala papan pantau IGD.
+/// Ringkasan jumlah pasien per level dalam satu baris angka, seperti kepala papan pantau ICU.
 class _Sensus extends StatelessWidget {
-  const _Sensus({required this.jumlah, required this.belumDitriase});
+  const _Sensus({required this.jumlah, required this.belumDinilai});
 
   final Map<RiskLevel, int> jumlah;
-  final int belumDitriase;
+  final int belumDinilai;
 
   @override
   Widget build(BuildContext context) {
     final sel = [
       for (final level in const [RiskLevel.kritis, RiskLevel.tinggi, RiskLevel.sedang, RiskLevel.rendah])
         (labelLevel(level), Warna.level(level), jumlah[level] ?? 0, '${labelLevel(level)}: ${jumlah[level] ?? 0}'),
-      ('Belum', Warna.belum, belumDitriase, 'Belum ditriase: $belumDitriase'),
+      ('Belum', Warna.belum, belumDinilai, 'Belum dinilai: $belumDinilai'),
     ];
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -168,7 +170,10 @@ class _BarisKeterangan extends StatelessWidget {
         spacing: 12,
         runSpacing: 4,
         children: [
-          Text('$jumlahPasien pasien menunggu', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          Text(
+            '$jumlahPasien dari $jumlahBedIcu bed terisi',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -183,35 +188,41 @@ class _BarisKeterangan extends StatelessWidget {
   }
 }
 
-/// Satu baris pasien di daftar tunggu: garis warna level di kiri, nama dan level, keluhan, lama tunggu, penanda,
-/// dan tombol aksi untuk perawat.
+/// Satu pasien di papan prioritas: garis warna level di kiri, nomor urut dan bed, nama dan level, dasar penilaian,
+/// waktu sejak observasi terakhir, penanda, dan tombol aksi untuk perawat.
 class BarisPasienTunggu extends ConsumerWidget {
-  const BarisPasienTunggu(this.item, {super.key});
+  const BarisPasienTunggu(this.item, {super.key, this.urutan});
 
   final ItemDaftarTunggu item;
+
+  /// Nomor urut prioritas di papan (1 = ditangani paling dulu).
+  final int? urutan;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final peran = ref.watch(peranProvider);
     final triase = item.triaseTerakhir;
     final pasien = item.pasien;
-    final kritis = triase?.riskLevel == RiskLevel.kritis;
-    final lewat = item.statusTanda == ItemDaftarTungguStatusTanda.perluTriaseUlang;
+    final terlambat = item.statusTanda == ItemDaftarTungguStatusTanda.observasiTerlambat;
+    final tindakan = item.status == StatusKunjungan.ditangani;
     final identitas = [
       if (pasien.usia != null) '${pasien.usia} th',
       singkatanKelamin(pasien.jenisKelamin),
-      'datang ${jamWib(item.waktuDatang)}',
+      if (item.diagnosisMasuk != null) item.diagnosisMasuk!,
     ].join(' · ');
 
     final batas = item.batasTungguMenit;
+    final peluang = triase?.peluangPerburukan;
+    final dasar = triase == null
+        ? 'Belum dinilai · masuk ${jamWib(item.waktuDatang)}'
+        : ['NEWS2 ${triase.skorNews2}', if (peluang != null) 'peluang memburuk ${persenPeluang(peluang)}'].join(' · ');
     final waktu = <Widget>[
-      Text('Tunggu ${durasiMenit(item.lamaMenungguMenit)}'),
-      if (triase != null && kritis)
-        const Text(
-          'segera',
-          style: TextStyle(color: Warna.galat, fontWeight: FontWeight.w700),
-        )
-      else if (triase != null && lewat && batas != null)
+      Text(
+        triase == null
+            ? 'Masuk ${durasiMenit(item.lamaMenungguMenit)} lalu'
+            : 'Observasi ${durasiMenit(item.lamaMenungguMenit)} lalu',
+      ),
+      if (triase != null && terlambat && batas != null)
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -219,22 +230,23 @@ class BarisPasienTunggu extends ConsumerWidget {
             const SizedBox(width: 3),
             Flexible(
               child: Text(
-                'lewat batas $batas mnt',
+                'lewat interval $batas mnt',
                 style: const TextStyle(color: Warna.galat, fontWeight: FontWeight.w700),
               ),
             ),
           ],
         )
       else if (triase != null && batas != null)
-        Text('batas $batas mnt'),
+        Text('interval $batas mnt'),
     ];
 
     final tanda = <Widget>[
-      if (lewat) const Tanda('Perlu triase ulang', warna: Warna.waspada, ikon: Icons.update),
+      if (tindakan) const Tanda('Sedang tindakan', warna: Warna.utama, ikon: Icons.medical_services_outlined),
+      if (terlambat) const Tanda('Observasi terlambat', warna: Warna.waspada, ikon: Icons.update),
       if (item.reviewDiajukan)
-        const Tanda('Menunggu review dokter', warna: Warna.waspada, ikon: Icons.rate_review_outlined)
-      else if (kritis && item.menungguValidasi)
-        const Tanda('Menunggu dokter', warna: Warna.galat, ikon: Icons.priority_high),
+        const Tanda('Review diajukan', warna: Warna.waspada, ikon: Icons.rate_review_outlined)
+      else if (item.menungguValidasi)
+        const Tanda('Menunggu persetujuan dokter', warna: Warna.galat, ikon: Icons.priority_high),
       if (item.ringkasanEirSiap)
         const Tanda('Ringkasan Eir siap', warna: Warna.utama, ikon: Icons.description_outlined),
     ];
@@ -246,22 +258,23 @@ class BarisPasienTunggu extends ConsumerWidget {
       textStyle: const TextStyle(fontFamily: hurufAplikasi, fontSize: 14, fontWeight: FontWeight.w700),
     );
     final aksi = <Widget>[
-      if (perawat && (triase == null || lewat))
+      if (perawat)
         OutlinedButton.icon(
           style: gayaAksi,
           onPressed: () => _bukaForm(context, ulang: triase != null),
           icon: const Icon(Icons.edit_note, size: 20),
-          label: Text(triase == null ? 'Isi triase' : 'Triase ulang'),
+          label: Text(triase == null ? 'Nilai awal' : 'Observasi'),
         ),
-      if (perawat && triase?.riskLevel == RiskLevel.rendah)
+      if (perawat)
         OutlinedButton.icon(
           style: gayaAksi,
           onPressed: () => context.push(Rute.kodeQrEir(item.idKunjungan), extra: pasien),
           icon: const Icon(Icons.qr_code_2, size: 20),
-          label: const Text('Kode QR Eir'),
+          label: const Text('QR Eir'),
         ),
     ];
 
+    final bed = item.nomorBed;
     return Material(
       color: Colors.white,
       child: InkWell(
@@ -280,8 +293,39 @@ class BarisPasienTunggu extends ConsumerWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (urutan != null)
+                    Semantics(
+                      label: 'Prioritas ke-$urutan',
+                      excludeSemantics: true,
+                      child: Container(
+                        width: 28,
+                        margin: const EdgeInsets.only(right: 8, top: 1),
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Warna.latar,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Warna.garis),
+                        ),
+                        child: Text(
+                          '$urutan',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        ),
+                      ),
+                    ),
                   Expanded(
-                    child: Text(pasien.nama, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                    child: Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (bed != null)
+                          Text(
+                            bed,
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Warna.kepala),
+                          ),
+                        Text(pasien.nama, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 8),
                   if (triase != null) LencanaRisiko(triase.riskLevel) else const LencanaBelumTriase(),
@@ -289,29 +333,21 @@ class BarisPasienTunggu extends ConsumerWidget {
               ),
               const SizedBox(height: 2),
               Text(identitas, style: const TextStyle(color: Warna.teksRedup, fontSize: 14)),
-              if (triase != null) ...[
-                const SizedBox(height: 5),
-                Text(triase.keluhanUtama, style: const TextStyle(fontSize: 15)),
-              ],
-              const SizedBox(height: 6),
+              const SizedBox(height: 5),
+              Text(dasar, style: const TextStyle(fontSize: 15)),
+              const SizedBox(height: 4),
               DefaultTextStyle.merge(
                 style: const TextStyle(color: Warna.teksRedup, fontSize: 14),
                 child: Wrap(spacing: 12, runSpacing: 2, children: waktu),
               ),
-              if (tanda.isNotEmpty || aksi.isNotEmpty) const SizedBox(height: 8),
-              if (tanda.isEmpty && aksi.isNotEmpty)
+              if (tanda.isNotEmpty) ...[const SizedBox(height: 8), Wrap(spacing: 12, runSpacing: 6, children: tanda)],
+              if (aksi.isNotEmpty) ...[
+                const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
                   child: Wrap(spacing: 8, runSpacing: 8, children: aksi),
-                )
-              else if (tanda.isNotEmpty)
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [...tanda, ...aksi],
                 ),
+              ],
             ],
           ),
         ),
@@ -324,6 +360,7 @@ class BarisPasienTunggu extends ConsumerWidget {
       Rute.formTriase(item.idKunjungan),
       extra: InfoFormTriase(
         pasien: item.pasien,
+        nomorBed: item.nomorBed,
         waktuDatang: item.waktuDatang,
         triaseUlang: ulang,
         ringkasanEirSiap: item.ringkasanEirSiap,
@@ -334,11 +371,11 @@ class BarisPasienTunggu extends ConsumerWidget {
   void _buka(BuildContext context, Peran? peran) {
     final triase = item.triaseTerakhir;
     if (triase != null) {
-      context.push(Rute.hasil(triase.idTriase), extra: const InfoHasil(statusKunjungan: StatusKunjungan.menunggu));
+      context.push(Rute.hasil(triase.idTriase));
     } else if (peran == Peran.perawat) {
       _bukaForm(context, ulang: false);
     } else {
-      tampilkanPesan(context, 'Pasien ini belum ditriase perawat.');
+      tampilkanPesan(context, 'Pasien ini belum dinilai perawat.');
     }
   }
 }

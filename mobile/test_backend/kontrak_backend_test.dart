@@ -98,8 +98,9 @@ void main() {
     expect((await perawat.saya()).email, 'perawat@smarttriage.demo');
     expect(await klienPerawat.perbaruiAkses(), isNotNull);
 
-    // Registrasi pasien baru dengan tanggal lahir, lalu dicari lagi.
+    // Pasien baru masuk ICU dengan tanggal lahir, lalu dicari lagi. Bed acak supaya tidak bentrok dengan seed.
     final nama = 'Uji Kontrak ${Random().nextInt(1 << 30)}';
+    final bed = 'UJI-${Random().nextInt(99999)}';
     final kunjungan = await perawat.registrasi(
       RegistrasiRequest(
         idPasien: null,
@@ -109,9 +110,12 @@ void main() {
         jenisKelamin: JenisKelamin.perempuan,
         nik: null,
         noTelepon: '0812-3456-7890',
+        nomorBed: bed,
+        asalRuangan: RegistrasiRequestAsalRuangan.kamarOperasi,
+        diagnosisMasuk: 'Uji kontrak',
       ),
     );
-    expect(kunjungan.status, StatusKunjungan.menunggu);
+    expect((kunjungan.status, kunjungan.nomorBed), (StatusKunjungan.menunggu, bed));
     final cari = await perawat.cariPasien(nama);
     expect(cari.single.idKunjunganAktif, kunjungan.idKunjungan);
     expect(cari.single.tanggalLahir, DateTime(1990, 5, 17));
@@ -130,19 +134,19 @@ void main() {
     final detail = await perawat.buatTriase(
       kunjungan.idKunjungan,
       const TriaseInput(
-        keluhanUtama: 'Demam',
-        gejala: 'Demam sejak dua hari disertai pusing',
-        kategoriKeluhan: KategoriKeluhan.demam,
-        skalaNyeri: 2,
         tingkatKesadaran: TingkatKesadaran.a,
+        oksigenTambahan: false,
+        catatan: 'Uji kontrak',
+        lab: HasilLab(laktat: 2.1, kreatinin: null, trombosit: 180, leukosit: null, bilirubin: null),
         tandaVital: TandaVital(tdSistolik: 118, tdDiastolik: 76, nadi: 88, lajuNapas: 18, suhu: 38.1, saturasi: 98),
         idPemindaian: [],
       ),
     );
     expect(detail.idKunjungan, kunjungan.idKunjungan);
     expect(detail.riskLevel, isNot(RiskLevel.$unknown));
-    expect(detail.penjelasanAi.faktor, isNotEmpty);
+    expect(detail.penjelasanAi.skorNews2, detail.skorNews2);
     expect(detail.tandaVital.suhu, 38.1);
+    expect((detail.lab.laktat, detail.lab.trombosit), (2.1, 180));
     expect(detail.statusValidasi, StatusValidasi.menunggu);
 
     final daftar = await perawat.daftarTunggu();
@@ -151,15 +155,9 @@ void main() {
     expect(item.ringkasanEirSiap, isFalse);
     expect(await perawat.peringatan(), isA<List<ItemPeringatan>>());
 
-    if (detail.riskLevel == RiskLevel.rendah) {
-      final tautan = await perawat.tautanEir(kunjungan.idKunjungan);
-      expect(tautan.url, contains('/eir#t='));
-    } else {
-      await expectLater(
-        perawat.tautanEir(kunjungan.idKunjungan),
-        throwsA(isA<GalatApi>().having((g) => g.status, 'status', 409)),
-      );
-    }
+    // Eir untuk keluarga pasien ICU, apa pun levelnya.
+    final tautan = await perawat.tautanEir(kunjungan.idKunjungan);
+    expect(tautan.url, contains('/eir#t='));
 
     // Perawat mengajukan review; alasan pendek ditolak per field.
     await expectLater(
@@ -175,7 +173,7 @@ void main() {
     );
     expect(review.statusValidasi, StatusValidasi.menungguReviewDokter);
 
-    // Dokter mengoreksi, lalu memeriksa dan menyelesaikan kunjungan.
+    // Dokter mengoreksi, lalu pasien menjalani tindakan, kembali dipantau, dan keluar ICU.
     final (dokter, _) = _repo();
     expect((await dokter.masuk('dokter@smarttriage.demo', passwordDokter)).peran, Peran.dokter);
     final levelBaru = detail.riskLevel == RiskLevel.sedang ? RiskLevel.tinggi : RiskLevel.sedang;
@@ -198,6 +196,10 @@ void main() {
     expect(
       (await dokter.ubahStatusKunjungan(kunjungan.idKunjungan, StatusKunjunganRequestStatus.ditangani)).status,
       StatusKunjungan.ditangani,
+    );
+    expect(
+      (await dokter.ubahStatusKunjungan(kunjungan.idKunjungan, StatusKunjunganRequestStatus.menunggu)).status,
+      StatusKunjungan.menunggu,
     );
     expect(
       (await dokter.ubahStatusKunjungan(kunjungan.idKunjungan, StatusKunjunganRequestStatus.selesai)).status,

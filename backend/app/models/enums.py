@@ -31,27 +31,15 @@ class JenisTriase(StrEnum):
     ULANG = "ulang"
 
 
-class KategoriKeluhan(StrEnum):
-    """18 kategori keluhan, sama persis dengan kategori saat model Random Forest dilatih."""
+class TopikAnamnesis(StrEnum):
+    """Enam topik yang digali Eir dari keluarga pasien ICU. Hanya dipakai di Python, tidak ada tipe di basis data."""
 
-    PENURUNAN_KESADARAN_ATAU_KEJANG = "Penurunan kesadaran atau kejang"
-    NYERI_DADA = "Nyeri dada"
-    SESAK_NAPAS_ATAU_BATUK = "Sesak napas atau batuk"
-    PERDARAHAN = "Perdarahan"
-    GANGGUAN_SARAF = "Gangguan saraf"
-    NYERI_PERUT = "Nyeri perut"
-    DEMAM = "Demam"
-    PUSING = "Pusing"
-    NYERI_KEPALA = "Nyeri kepala"
-    MUAL_MUNTAH_ATAU_DIARE = "Mual, muntah, atau diare"
-    CEDERA_ATAU_LUKA = "Cedera atau luka"
-    JANTUNG_BERDEBAR = "Jantung berdebar"
-    KULIT_ATAU_ALERGI = "Kulit atau alergi"
-    MATA_TELINGA_HIDUNG_TENGGOROKAN = "Mata, telinga, hidung, atau tenggorokan"
-    NYERI_PUNGGUNG_PINGGANG_ANGGOTA_GERAK = "Nyeri punggung, pinggang, atau anggota gerak"
-    LEMAS_ATAU_KELEMAHAN_UMUM = "Lemas atau kelemahan umum"
-    KELUHAN_KEMIH_ATAU_KANDUNGAN = "Keluhan kemih atau kandungan"
-    LAINNYA = "Lainnya"
+    KRONOLOGI = "Kronologi sebelum masuk ICU"
+    RIWAYAT_PENYAKIT = "Riwayat penyakit"
+    OBAT_RUTIN = "Obat rutin"
+    ALERGI = "Alergi"
+    RIWAYAT_OPERASI = "Riwayat operasi dan rawat inap"
+    KEBIASAAN = "Kebiasaan dan kondisi sehari-hari"
 
 
 class TingkatKesadaran(StrEnum):
@@ -86,6 +74,7 @@ class StatusValidasi(StrEnum):
     DISETUJUI = "disetujui"
     MENUNGGU_REVIEW_DOKTER = "menunggu_review_dokter"
     DIKOREKSI = "dikoreksi"
+    TERCATAT = "tercatat"
 
 
 class JenisAlat(StrEnum):
@@ -132,7 +121,6 @@ PERAN = _tipe_enum(Peran, "peran")
 JENIS_KELAMIN = _tipe_enum(JenisKelamin, "jenis_kelamin")
 STATUS_KUNJUNGAN = _tipe_enum(StatusKunjungan, "status_kunjungan")
 JENIS_TRIASE = _tipe_enum(JenisTriase, "jenis_triase")
-KATEGORI_KELUHAN = _tipe_enum(KategoriKeluhan, "kategori_keluhan")
 TINGKAT_KESADARAN = _tipe_enum(TingkatKesadaran, "tingkat_kesadaran")
 SUMBER_TANDA_VITAL = _tipe_enum(SumberTandaVital, "sumber_tanda_vital")
 RISK_LEVEL = _tipe_enum(RiskLevel, "risk_level")
@@ -148,7 +136,6 @@ SEMUA_TIPE_ENUM = (
     JENIS_KELAMIN,
     STATUS_KUNJUNGAN,
     JENIS_TRIASE,
-    KATEGORI_KELUHAN,
     TINGKAT_KESADARAN,
     SUMBER_TANDA_VITAL,
     RISK_LEVEL,

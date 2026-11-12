@@ -14,15 +14,15 @@ part 'antrean_client.g.dart';
 abstract class AntreanClient {
   factory AntreanClient(Dio dio, {String? baseUrl}) = _AntreanClient;
 
-  /// Daftar tunggu pasien beserta penanda triase ulang.
+  /// Papan prioritas pasien ICU.
   ///
-  /// Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu. ringkasan_eir_siap bernilai true bila sesi Eir terakhir selesai dengan ringkasan dan belum ada triase sesudahnya.
+  /// Semua pasien yang belum keluar ICU beserta penilaian terakhirnya, sudah diurutkan menurut prioritas penanganan: Kritis, belum dinilai, Tinggi, Sedang, Rendah; di level yang sama yang menunggu persetujuan dokter dan yang observasinya terlambat lebih dulu, lalu peluang perburukan dan skor NEWS2 tertinggi. Pasien yang sedang menjalani tindakan ditaruh paling bawah. Lama dihitung sejak observasi terakhir dan dibandingkan dengan interval observasi level tersebut.
   @GET('/api/v1/daftar-tunggu')
   Future<DaftarTungguResponse> antreanDaftarTungguDaftarTungguGet();
 
-  /// Peringatan kritis, level naik, dan tanda bahaya Eir.
+  /// Peringatan persetujuan dokter, observasi terlambat, dan informasi penting Eir.
   ///
-  /// Triase kritis yang belum divalidasi, triase ulang yang levelnya naik dan belum divalidasi, serta sesi Eir yang dihentikan karena tanda bahaya tetapi belum diikuti triase baru. Hanya kunjungan yang masih menunggu.
+  /// Penilaian awal atau kenaikan level yang belum disetujui dokter, observasi yang melewati intervalnya, dan informasi penting dari keluarga lewat Eir yang belum diikuti observasi baru. Hanya pasien yang masih di ICU.
   @GET('/api/v1/peringatan')
   Future<DaftarPeringatanResponse> antreanPeringatanPeringatanGet();
 }

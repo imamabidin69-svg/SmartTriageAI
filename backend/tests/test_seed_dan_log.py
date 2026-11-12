@@ -8,9 +8,11 @@ from app.cli import AKUN_DEMO, PASIEN_SIMULASI
 from app.models import Kunjungan, Pasien, Pengguna, Triase
 from app.models.enums import JenisTriase, StatusValidasi
 from app.services.daftar_tunggu_service import URUTAN_LEVEL
+from app.services.konfigurasi_service import cache_konfigurasi
 from app.services.peringatan_service import PeringatanService
 from app.utils.log import PemformatJson, _HandlerSmartTriage, atur_logging
 from app.utils.schemas import LoginRequest, normalisasi_email
+from app.utils.waktu import sekarang
 
 
 @pytest.fixture
@@ -47,22 +49,24 @@ def test_seed_demo_dengan_pasien_simulasi(app, sesi_db, password_demo):
     pasien = sesi_db.scalars(select(Pasien).where(Pasien.nama.in_(nama))).all()
     assert len(pasien) == len(PASIEN_SIMULASI)
     assert all(p.nik is None and p.no_telepon is None for p in pasien)
-    assert sesi_db.query(Kunjungan).count() == len(PASIEN_SIMULASI)
+    kunjungan = sesi_db.scalars(select(Kunjungan)).all()
+    assert sorted(k.nomor_bed for k in kunjungan) == [f"ICU-{i}" for i in range(1, 9)]
+    assert all(k.diagnosis_masuk and k.asal_ruangan for k in kunjungan)
     triase = sesi_db.scalars(select(Triase)).all()
-    # Satu pasien sengaja belum ditriase supaya terlihat di daftar tunggu sebagai "belum ditriase",
-    # dan satu pasien punya triase ulang.
-    assert len(triase) == len(PASIEN_SIMULASI)
+    # Satu pasien (ICU-8) sengaja belum dinilai supaya tampil sebagai "belum dinilai" di papan prioritas.
+    assert len(triase) == sum(len(isian[-1]) for isian in PASIEN_SIMULASI)
     assert {t.sumber_rekomendasi.value for t in triase} == {"model"}
     assert len({t.waktu_triase for t in triase}) == len(triase)
-    assert [t.status_validasi for t in triase].count(StatusValidasi.MENUNGGU_REVIEW_DOKTER) == 1
+    assert all(t.peluang_perburukan is not None for t in triase)
 
-    # Triase ulang Hendra levelnya naik, jadi muncul di peringatan.
-    hendra = sorted((t for t in triase if t.kunjungan.pasien.nama == "Hendra Gunawan"), key=lambda t: t.waktu_triase)
-    assert [t.jenis for t in hendra] == [JenisTriase.AWAL, JenisTriase.ULANG]
-    assert URUTAN_LEVEL[hendra[1].risk_level] > URUTAN_LEVEL[hendra[0].risk_level]
+    # Observasi kedua Agus levelnya naik, jadi menunggu persetujuan dokter dan muncul di peringatan.
+    agus = sorted((t for t in triase if t.kunjungan.pasien.nama == "Agus Prasetyo"), key=lambda t: t.waktu_triase)
+    assert [t.jenis for t in agus] == [JenisTriase.AWAL, JenisTriase.ULANG]
+    assert URUTAN_LEVEL[agus[1].risk_level] > URUTAN_LEVEL[agus[0].risk_level]
+    assert (agus[0].status_validasi, agus[1].status_validasi) == (StatusValidasi.DISETUJUI, StatusValidasi.MENUNGGU)
     with app.test_request_context():
-        dipantau = {p.nama_pasien for p in PeringatanService().kumpulkan()}
-    assert "Hendra Gunawan" in dipantau
+        dipantau = {p.nama_pasien for p in PeringatanService(cache_konfigurasi().ambil()).kumpulkan(sekarang())}
+    assert "Agus Prasetyo" in dipantau
 
     ulang = runner.invoke(args=["seed-demo", "--dengan-pasien"])
     assert ulang.exit_code == 0

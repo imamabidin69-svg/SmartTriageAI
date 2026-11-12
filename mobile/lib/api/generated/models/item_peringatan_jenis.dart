@@ -6,12 +6,12 @@ import 'package:json_annotation/json_annotation.dart';
 
 @JsonEnum()
 enum ItemPeringatanJenis {
-  @JsonValue('kritis_belum_divalidasi')
-  kritisBelumDivalidasi('kritis_belum_divalidasi'),
-  @JsonValue('level_naik')
-  levelNaik('level_naik'),
-  @JsonValue('tanda_bahaya_eir')
-  tandaBahayaEir('tanda_bahaya_eir'),
+  @JsonValue('menunggu_persetujuan')
+  menungguPersetujuan('menunggu_persetujuan'),
+  @JsonValue('observasi_terlambat')
+  observasiTerlambat('observasi_terlambat'),
+  @JsonValue('informasi_penting_eir')
+  informasiPentingEir('informasi_penting_eir'),
   /// Default value for all unparsed values, allows backward compatibility when adding new values on the backend.
   $unknown(null);
 

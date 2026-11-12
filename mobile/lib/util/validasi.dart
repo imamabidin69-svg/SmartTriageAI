@@ -26,10 +26,33 @@ String? periksaTandaVital(String kolom, String teks) {
   return null;
 }
 
-String? periksaSkalaNyeri(String teks) {
-  final nilai = int.tryParse(teks.trim());
-  if (teks.trim().isEmpty) return 'Wajib diisi.';
-  if (nilai == null || nilai < 0 || nilai > 10) return 'Isi angka 0 sampai 10.';
+/// Batas hasil lab (sama dengan skema HasilLab di backend). Lab boleh kosong.
+const batasLab = <String, (num, num)>{
+  'laktat': (0, 30),
+  'kreatinin': (0, 25),
+  'trombosit': (0, 2000),
+  'leukosit': (0, 300),
+  'bilirubin': (0, 60),
+};
+
+String? periksaLab(String kolom, String teks) {
+  if (teks.trim().isEmpty) return null;
+  final nilai = bacaAngka(teks);
+  if (nilai == null) return 'Isi dengan angka.';
+  if (kolom == 'trombosit' && nilai != nilai.roundToDouble()) return 'Isi dengan bilangan bulat.';
+  final (bawah, atas) = batasLab[kolom]!;
+  if (nilai < bawah || nilai > atas) return 'Harus antara ${angka(bawah)} dan ${angka(atas)}.';
+  return null;
+}
+
+/// Nomor bed wajib: huruf, angka, spasi, dan tanda hubung, maksimal 10 karakter (sama dengan backend).
+String? periksaNomorBed(String teks) {
+  final isi = teks.trim();
+  if (isi.isEmpty) return 'Nomor bed wajib diisi.';
+  if (isi.length > 10) return 'Nomor bed maksimal 10 karakter.';
+  if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9 -]*$').hasMatch(isi)) {
+    return 'Hanya huruf, angka, spasi, dan tanda hubung.';
+  }
   return null;
 }
 

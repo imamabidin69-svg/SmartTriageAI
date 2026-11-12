@@ -16,8 +16,8 @@ export const LABEL_LEVEL: Record<RiskLevel, string> = {
 export const URUTAN_LEVEL: RiskLevel[] = ["kritis", "tinggi", "sedang", "rendah"];
 
 export const LABEL_AKSI: Record<AksiAudit, string> = {
-  setujui: "Menyetujui triase",
-  koreksi: "Mengoreksi risk level",
+  setujui: "Menyetujui prioritas",
+  koreksi: "Mengoreksi level",
   ajukan_review: "Mengajukan review",
   ubah_konfigurasi: "Mengubah pengaturan",
   tambah_staf: "Menambah staf",
@@ -25,5 +25,5 @@ export const LABEL_AKSI: Record<AksiAudit, string> = {
   nonaktifkan_staf: "Menonaktifkan staf",
   aktifkan_staf: "Mengaktifkan staf",
   atur_ulang_password: "Mengatur ulang password",
-  registrasi_kunjungan: "Registrasi kunjungan",
+  registrasi_kunjungan: "Mencatat pasien masuk ICU",
 };

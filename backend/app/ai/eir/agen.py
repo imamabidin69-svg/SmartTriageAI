@@ -1,8 +1,8 @@
-"""EirAgent: agen berbasis alur untuk anamnesis (Desain 7.2, Gambar 2.22 dan 2.24).
+"""EirAgent: agen berbasis alur untuk menggali riwayat pasien ICU dari keluarganya (Desain 7.2, Gambar 2.22-2.24).
 
-Urutan langkah dipegang kode, bukan LLM: setiap pesan diperiksa tanda bahayanya lebih dulu, lalu panduan
-diambil dengan TF-IDF, prompt disusun tanpa identitas, dan Groq menyusun pertanyaan berikutnya. LLM tidak
-punya akses tulis ke tabel triase; ringkasannya hanya disimpan di sesi sebagai draf.
+Urutan langkah dipegang kode, bukan LLM: setiap pesan diperiksa informasi pentingnya lebih dulu (misalnya alergi
+obat), lalu panduan diambil dengan TF-IDF, prompt disusun tanpa identitas, dan Groq menyusun pertanyaan
+berikutnya. LLM tidak punya akses tulis ke tabel triase; ringkasannya hanya disimpan di sesi.
 """
 
 import logging
@@ -11,6 +11,7 @@ from datetime import datetime
 
 from pydantic import ValidationError
 
+from app.ai.eir.informasi_penting import DetektorInformasiPenting, InformasiPenting
 from app.ai.eir.llm import LlmClient, LlmTidakTersediaError
 from app.ai.eir.panduan import GuidelineRetriever, Panduan
 from app.ai.eir.prompt import (
@@ -20,22 +21,22 @@ from app.ai.eir.prompt import (
     PemeriksaKeluaran,
     PenyusunPrompt,
 )
-from app.ai.eir.tanda_bahaya import ARAHAN_TANDA_BAHAYA, RedFlagDetector, TandaBahaya
 from app.models.enums import StatusSesiEir
 from app.models.sesi_eir import PERAN_EIR, PERAN_PENGISI, SesiEir
-from app.utils.schemas import RingkasanTriase
+from app.utils.schemas import RingkasanKeluarga
 
 logger = logging.getLogger(__name__)
 
 PERTANYAAN_PEMBUKA = (
-    "Halo, saya Eir. Saya akan menanyakan beberapa hal tentang keluhan supaya perawat bisa lebih cepat "
-    "memahaminya. Keluhan apa yang paling mengganggu saat ini?"
+    "Halo, saya Eir. Saya membantu tim ICU mengenal riwayat kesehatan pasien, karena pasien belum bisa ditanya "
+    "langsung. Bisa diceritakan apa yang terjadi pada pasien sebelum dibawa ke rumah sakit?"
 )
-PERTANYAAN_UMUM = "Apakah ada hal lain tentang keluhan ini yang ingin disampaikan?"
+PERTANYAAN_UMUM = "Apakah ada hal lain tentang kesehatan pasien yang menurut Bapak/Ibu perlu diketahui tim ICU?"
 PENUTUP = (
-    "Terima kasih, jawaban sudah kami teruskan ke perawat. Silakan tetap menunggu di ruang tunggu sampai "
-    "dipanggil. Bila keluhan bertambah berat, segera beri tahu perawat."
+    "Terima kasih, keterangan Bapak/Ibu sudah kami teruskan ke perawat ICU. Bila teringat informasi lain, "
+    "misalnya nama obat atau alergi, silakan sampaikan langsung ke perawat jaga."
 )
+TANDA_TERCATAT = "Terima kasih, informasi ini kami tandai untuk perawat ICU."
 
 
 @dataclass(frozen=True)
@@ -44,13 +45,13 @@ class Balasan:
     status: StatusSesiEir
     jumlah_jawaban: int
     boleh_selesai: bool
-    tanda_bahaya: TandaBahaya | None = None
+    informasi_penting: tuple[InformasiPenting, ...] = ()
 
 
 class EirAgent:
     def __init__(
         self,
-        detektor: RedFlagDetector,
+        detektor: DetektorInformasiPenting,
         retriever: GuidelineRetriever | None,
         llm: LlmClient | None,
         min_jawaban: int,
@@ -73,56 +74,63 @@ class EirAgent:
         sesi.tambah_pesan(PERAN_EIR, PERTANYAAN_PEMBUKA, waktu)
         return PERTANYAAN_PEMBUKA
 
-    def _balasan(self, sesi: SesiEir, pesan: str, tanda: TandaBahaya | None = None) -> Balasan:
+    def _balasan(self, sesi: SesiEir, pesan: str, info: tuple[InformasiPenting, ...] = ()) -> Balasan:
         jumlah = sesi.jumlah_jawaban
-        return Balasan(pesan, sesi.status, jumlah, sesi.berjalan and jumlah >= self.min_jawaban, tanda)
+        return Balasan(pesan, sesi.status, jumlah, sesi.berjalan and jumlah >= self.min_jawaban, info)
 
     def proses(self, sesi: SesiEir, teks: str, pembersih: PembersihIdentitas, waktu: datetime) -> Balasan:
         """Memproses satu jawaban. Melempar LlmTidakTersediaError setelah jawaban dicatat di sesi."""
         sesi.tambah_pesan(PERAN_PENGISI, teks, waktu)
 
-        tanda = self.detektor.periksa(teks)
-        if tanda is not None:
-            sesi.hentikan(tanda.label, waktu)
-            sesi.tambah_pesan(PERAN_EIR, ARAHAN_TANDA_BAHAYA, waktu)
-            return self._balasan(sesi, ARAHAN_TANDA_BAHAYA, tanda)
+        # Informasi penting dicatat di sesi tanpa menghentikan percakapan; perawat melihatnya di peringatan.
+        info = tuple(self.detektor.periksa(teks))
+        if info:
+            sesi.tandai_informasi([i.label for i in info])
 
         if not self.tersedia:
             raise LlmTidakTersediaError("Eir belum dikonfigurasi.")
         if sesi.jumlah_jawaban >= self.maks_jawaban:
             # Batas giliran tercapai: ringkasan dibuat otomatis (keputusan E6).
-            return self.ringkas(sesi, pembersih, waktu)
+            return self.ringkas(sesi, pembersih, waktu, info)
 
         penyusun = PenyusunPrompt(pembersih, sesi.pengisi.value)
         panduan = self.retriever.cari(self._kueri(sesi))
         hasil = self.llm.chat(penyusun.susun(panduan, sesi.transkrip), SKEMA_PERTANYAAN, "pertanyaan_berikutnya")
         if bool(hasil.get("cukup")) and sesi.jumlah_jawaban >= self.min_jawaban:
-            return self.ringkas(sesi, pembersih, waktu)
+            return self.ringkas(sesi, pembersih, waktu, info)
 
         pertanyaan = str(hasil.get("pertanyaan", "")).strip()
         if not self.pemeriksa.aman(pertanyaan):
             # Keputusan E3: jawaban yang melanggar larangan diganti pertanyaan inti dari panduan.
             logger.warning("Pertanyaan dari LLM ditolak PemeriksaKeluaran; memakai pertanyaan panduan.")
             pertanyaan = self._pertanyaan_cadangan(sesi, panduan)
+        if info:
+            pertanyaan = f"{TANDA_TERCATAT} {pertanyaan}"
         sesi.tambah_pesan(PERAN_EIR, pertanyaan, waktu)
-        return self._balasan(sesi, pertanyaan)
+        return self._balasan(sesi, pertanyaan, info)
 
-    def ringkas(self, sesi: SesiEir, pembersih: PembersihIdentitas, waktu: datetime) -> Balasan:
+    def ringkas(
+        self,
+        sesi: SesiEir,
+        pembersih: PembersihIdentitas,
+        waktu: datetime,
+        info: tuple[InformasiPenting, ...] = (),
+    ) -> Balasan:
         if self.llm is None:
             raise LlmTidakTersediaError("Eir belum dikonfigurasi.")
         penyusun = PenyusunPrompt(pembersih, sesi.pengisi.value)
-        isi = self.llm.chat(penyusun.susun_ringkasan(sesi.transkrip), SKEMA_RINGKASAN, "ringkasan_triase")
+        isi = self.llm.chat(penyusun.susun_ringkasan(sesi.transkrip), SKEMA_RINGKASAN, "ringkasan_keluarga")
         try:
-            ringkasan = RingkasanTriase.model_validate(isi)
+            ringkasan = RingkasanKeluarga.model_validate(isi)
         except ValidationError as galat:
             raise LlmTidakTersediaError("Ringkasan dari LLM tidak sesuai skema.") from galat
         sesi.selesaikan(ringkasan.model_dump(mode="json"), waktu)
         sesi.tambah_pesan(PERAN_EIR, PENUTUP, waktu)
-        return self._balasan(sesi, PENUTUP)
+        return self._balasan(sesi, PENUTUP, info)
 
     @staticmethod
     def _kueri(sesi: SesiEir) -> str:
-        """Keluhan pertama ditambah jawaban terakhir, karena jawaban berikutnya sering pendek ("sejak kemarin")."""
+        """Cerita pertama ditambah jawaban terakhir, karena jawaban berikutnya sering pendek ("sejak kemarin")."""
         jawaban = [item["teks"] for item in sesi.transkrip if item["peran"] == PERAN_PENGISI]
         return " ".join(dict.fromkeys([jawaban[0], jawaban[-1]]))
 

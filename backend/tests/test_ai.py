@@ -1,4 +1,4 @@
-"""ModelRegistry, klasifikator Random Forest + SHAP, aturan cadangan, dan penyusun penjelasan (FR-05)."""
+"""ModelRegistry, NEWS2, Random Forest peluang perburukan + SHAP, dan penyusun penjelasan (FR-05)."""
 
 import logging
 import math
@@ -6,56 +6,103 @@ from dataclasses import replace
 from decimal import Decimal
 
 import joblib
+import numpy as np
 import pytest
 
 from app.ai import registry as modul_registry
 from app.ai.klasifikasi import (
-    SKOR_MAKSIMUM_ATURAN,
-    AmbangAturan,
+    KODE_JENIS_KELAMIN,
+    DataObservasi,
     FallbackClassifier,
-    FiturTriase,
+    HasilModel,
+    HasilPenilaian,
     RandomForestClassifier,
     RuleBasedClassifier,
     buat_klasifikator,
+    level_tertinggi,
+)
+from app.ai.news2 import (
+    SKOR_MAKSIMUM,
+    AmbangNews2,
+    hitung_news2,
+    level_news2,
+    poin_kesadaran,
+    poin_laju_napas,
+    poin_nadi,
+    poin_saturasi,
+    poin_sistolik,
+    poin_suhu,
 )
 from app.ai.penjelasan import Faktor, LabelFitur, PenyusunPenjelasan, format_angka
-from app.ai.registry import BundleTidakSesuaiError, ModelRegistry, ModelTriase, _periksa_bundle
+from app.ai.registry import (
+    FITUR_MODEL,
+    BundleTidakSesuaiError,
+    ModelPerburukan,
+    ModelRegistry,
+    _periksa_bundle,
+)
 from app.config import Config
-from app.models.enums import JenisKelamin, KategoriKeluhan, RiskLevel, SumberRekomendasi, TingkatKesadaran
+from app.models.enums import JenisKelamin, RiskLevel, SumberRekomendasi, TingkatKesadaran
 
-AMBANG = AmbangAturan(kritis=6, tinggi=4, sedang=2)
-NORMAL = FiturTriase(
-    usia=30,
+AMBANG = AmbangNews2(kritis=7, tinggi=5, sedang=3)
+NORMAL = DataObservasi(
+    usia=45,
     jenis_kelamin=JenisKelamin.PEREMPUAN,
-    kategori_keluhan=KategoriKeluhan.PUSING,
     tingkat_kesadaran=TingkatKesadaran.SADAR_PENUH,
-    skala_nyeri=2,
+    oksigen_tambahan=False,
     td_sistolik=120,
     td_diastolik=80,
     nadi=80,
     laju_napas=16,
     suhu=Decimal("36.8"),
-    saturasi=Decimal("99.0"),
-    gejala="pusing berputar sejak pagi tanpa muntah",
+    saturasi=Decimal("98.0"),
+)
+SYOK = replace(
+    NORMAL,
+    usia=70,
+    jenis_kelamin=JenisKelamin.LAKI_LAKI,
+    tingkat_kesadaran=TingkatKesadaran.RESPONS_SUARA,
+    oksigen_tambahan=True,
+    td_sistolik=84,
+    td_diastolik=46,
+    nadi=132,
+    laju_napas=28,
+    suhu=Decimal("39.2"),
+    saturasi=Decimal("89.0"),
+    laktat=Decimal("5.1"),
+    kreatinin=Decimal("2.40"),
+    trombosit=80,
+    leukosit=Decimal("21.0"),
+    bilirubin=Decimal("2.2"),
 )
 
 
 @pytest.fixture(scope="module")
-def model() -> ModelTriase:
+def model() -> ModelPerburukan:
     registry = ModelRegistry()
     registry.muat(Config.MODEL_RF_PATH)
     assert registry.termuat
-    return registry.model_triase
+    return registry.model_perburukan
 
 
 # ---------------------------------------------------------------- ModelRegistry
 
 
-def test_registry_memuat_bundle_prototipe(model):
-    assert model.versi == "smarttriage-rf-v1.0.0"
-    assert len(model.nama_fitur_transformasi) == 30
+def test_registry_memuat_bundle_icu(model):
+    assert model.versi == "rf-icu-physionet2019-v1"
+    assert model.nama_fitur_transformasi == FITUR_MODEL
+    assert model.ambang["sedang"] < model.ambang["tinggi"] < model.ambang["kritis"]
     # Satu thread per prediksi, supaya tidak berebut CPU dengan worker lain.
     assert model.rf.n_jobs == 1
+
+
+@pytest.mark.parametrize(
+    ("peluang", "level"),
+    [(0.0, RiskLevel.RENDAH), (0.5, RiskLevel.SEDANG), (0.65, RiskLevel.TINGGI), (0.7, RiskLevel.KRITIS)],
+)
+def test_level_dari_peluang_mengikuti_ambang_bundle(peluang, level):
+    model = ModelPerburukan(None, None, None, (), {"sedang": 0.5, "tinggi": 0.6, "kritis": 0.7}, "uji")
+    assert model.level(peluang) == level
 
 
 def test_registry_kosong_bila_path_tidak_diisi(caplog):
@@ -83,11 +130,9 @@ def test_registry_kosong_bila_berkas_rusak(tmp_path, caplog):
     assert "gagal dimuat" in caplog.text
 
 
-def test_registry_menolak_bundle_yang_fiturnya_berbeda(tmp_path, caplog):
-    berkas = tmp_path / "lain.joblib"
-    joblib.dump(
-        {"model": None, "fitur": ["SBP"], "urutan_level": [], "kategori_keluhan_dikenal": [], "versi": "x"}, berkas
-    )
+def test_registry_menolak_bundle_igd_lama(tmp_path, caplog):
+    berkas = tmp_path / "lama.joblib"
+    joblib.dump({"model": None, "fitur": ["SBP"], "ambang": {}, "versi": "smarttriage-rf-v1.0.0"}, berkas)
     registry = ModelRegistry()
     registry.muat(str(berkas))
     assert not registry.termuat
@@ -97,7 +142,7 @@ def test_registry_menolak_bundle_yang_fiturnya_berbeda(tmp_path, caplog):
 def test_registry_memakai_ulang_model_yang_sudah_dimuat(model):
     kedua = ModelRegistry()
     kedua.muat(Config.MODEL_RF_PATH)
-    assert kedua.model_triase is model
+    assert kedua.model_perburukan is model
 
 
 class _RfTiruan:
@@ -112,10 +157,9 @@ class _PipelineTiruan:
 
 def _bundle(**ubah):
     bundle = {
-        "model": _PipelineTiruan([0, 1, 2, 3]),
+        "model": _PipelineTiruan([0, 1]),
         "fitur": list(modul_registry.FITUR_MODEL),
-        "urutan_level": ["rendah", "sedang", "tinggi", "kritis"],
-        "kategori_keluhan_dikenal": [k.value for k in KategoriKeluhan],
+        "ambang": {"sedang": 0.4, "tinggi": 0.6, "kritis": 0.7},
         "versi": "uji",
     }
     bundle.update(ubah)
@@ -127,9 +171,11 @@ def _bundle(**ubah):
     [
         ([], "harus berupa dict"),
         ({"model": None}, "tidak punya kunci 'fitur'"),
-        (_bundle(urutan_level=["kritis", "tinggi", "sedang", "rendah"]), "Urutan level"),
-        (_bundle(kategori_keluhan_dikenal=["Lainnya"]), "Kategori keluhan"),
-        (_bundle(model=_PipelineTiruan([1, 2, 3, 4])), "Kelas model"),
+        (_bundle(ambang={"sedang": 0.4}), "Ambang bundle harus berisi"),
+        (_bundle(ambang=[0.4, 0.6, 0.7]), "Ambang bundle harus berisi"),
+        (_bundle(ambang={"sedang": 0.7, "tinggi": 0.6, "kritis": 0.8}), "urut naik"),
+        (_bundle(ambang={"sedang": 0.4, "tinggi": 0.6, "kritis": 1.2}), "urut naik"),
+        (_bundle(model=_PipelineTiruan([0, 1, 2, 3])), "Kelas model"),
     ],
 )
 def test_pemeriksaan_isi_bundle(bundle, pesan):
@@ -141,302 +187,221 @@ def test_bundle_yang_sesuai_lolos_pemeriksaan():
     _periksa_bundle(_bundle())
 
 
+# ---------------------------------------------------------------- NEWS2
+
+
+@pytest.mark.parametrize(
+    ("fungsi", "nilai_dan_poin"),
+    [
+        (poin_laju_napas, [(8, 3), (9, 1), (11, 1), (12, 0), (20, 0), (21, 2), (24, 2), (25, 3)]),
+        (
+            poin_saturasi,
+            [(Decimal("91.9"), 3), (Decimal("92"), 2), (Decimal("93.9"), 2), (Decimal("94"), 1), (Decimal("96"), 0)],
+        ),
+        (poin_sistolik, [(90, 3), (91, 2), (100, 2), (101, 1), (110, 1), (111, 0), (219, 0), (220, 3)]),
+        (poin_nadi, [(40, 3), (41, 1), (50, 1), (51, 0), (90, 0), (91, 1), (110, 1), (111, 2), (130, 2), (131, 3)]),
+        (
+            poin_suhu,
+            [
+                (Decimal("35.0"), 3),
+                (Decimal("35.1"), 1),
+                (Decimal("36.0"), 1),
+                (Decimal("36.1"), 0),
+                (Decimal("38.0"), 0),
+                (Decimal("38.1"), 1),
+                (Decimal("39.0"), 1),
+                (Decimal("39.1"), 2),
+            ],
+        ),
+    ],
+)
+def test_tabel_poin_news2(fungsi, nilai_dan_poin):
+    assert [fungsi(nilai) for nilai, _ in nilai_dan_poin] == [poin for _, poin in nilai_dan_poin]
+
+
+def test_poin_kesadaran():
+    assert [poin_kesadaran(t) for t in TingkatKesadaran] == [0, 3, 3, 3]
+
+
+def test_news2_normal_tanpa_komponen():
+    hasil = RuleBasedClassifier(AMBANG).klasifikasi(NORMAL)
+    assert (hasil.skor, hasil.level, hasil.komponen, hasil.ada_poin_merah) == (0, RiskLevel.RENDAH, [], False)
+
+
+def test_news2_skor_maksimum_dan_urutan_komponen():
+    hasil = hitung_news2(
+        laju_napas=30,
+        saturasi=Decimal("85"),
+        oksigen_tambahan=True,
+        td_sistolik=80,
+        nadi=140,
+        tingkat_kesadaran=TingkatKesadaran.TIDAK_RESPONS,
+        suhu=Decimal("34.5"),
+        ambang=AMBANG,
+    )
+    assert hasil.skor == SKOR_MAKSIMUM == 20
+    assert hasil.level == RiskLevel.KRITIS
+    assert [f.kontribusi for f in hasil.komponen] == [3, 3, 3, 3, 3, 3, 2]
+    assert hasil.komponen[-1].label == "Mendapat oksigen tambahan"
+    assert "Kesadaran U (tidak respons)" in [f.label for f in hasil.komponen]
+
+
+@pytest.mark.parametrize(
+    ("skor", "merah", "level"),
+    [
+        (0, False, RiskLevel.RENDAH),
+        (2, False, RiskLevel.RENDAH),
+        (3, False, RiskLevel.SEDANG),
+        (3, True, RiskLevel.SEDANG),
+        (4, True, RiskLevel.SEDANG),
+        (5, False, RiskLevel.TINGGI),
+        (6, True, RiskLevel.TINGGI),
+        (7, False, RiskLevel.KRITIS),
+    ],
+)
+def test_level_news2(skor, merah, level):
+    assert level_news2(skor, merah, AMBANG) == level
+
+
+def test_satu_parameter_merah_minimal_sedang():
+    hasil = RuleBasedClassifier(AMBANG).klasifikasi(replace(NORMAL, laju_napas=8))
+    assert (hasil.skor, hasil.ada_poin_merah, hasil.level) == (3, True, RiskLevel.SEDANG)
+    ambang_tinggi = AmbangNews2(kritis=12, tinggi=10, sedang=8)
+    assert RuleBasedClassifier(ambang_tinggi).klasifikasi(replace(NORMAL, laju_napas=8)).level == RiskLevel.SEDANG
+    assert RuleBasedClassifier(ambang_tinggi).klasifikasi(replace(NORMAL, laju_napas=22)).level == RiskLevel.RENDAH
+
+
 # ---------------------------------------------------------------- Random Forest + SHAP
 
 
-def test_random_forest_mengembalikan_tiga_faktor_berlabel(model):
-    fitur = replace(
-        NORMAL,
-        usia=58,
-        jenis_kelamin=JenisKelamin.LAKI_LAKI,
-        kategori_keluhan=KategoriKeluhan.NYERI_DADA,
-        skala_nyeri=7,
-        td_sistolik=168,
-        td_diastolik=102,
-        nadi=118,
-        laju_napas=28,
-        suhu=Decimal("37.1"),
-        saturasi=Decimal("91.0"),
-    )
-    hasil = RandomForestClassifier(model).klasifikasi(fitur)
-
-    assert hasil.sumber == SumberRekomendasi.MODEL
-    assert hasil.versi_model == "smarttriage-rf-v1.0.0"
-    assert set(hasil.probabilitas) == {"rendah", "sedang", "tinggi", "kritis"}
-    assert sum(hasil.probabilitas.values()) == pytest.approx(1, abs=1e-3)
-    # Level yang dipilih adalah level dengan probabilitas tertinggi.
-    assert hasil.risk_level == max(hasil.probabilitas, key=hasil.probabilitas.get)
-    assert len(hasil.penjelasan) == 3
-    kontribusi = [abs(f.kontribusi) for f in hasil.penjelasan]
-    assert kontribusi == sorted(kontribusi, reverse=True)
-    for faktor in hasil.penjelasan:
-        assert faktor.arah in ("naik", "turun")
-        assert faktor.label
-    # Penjelasan tersimpan sebagai JSON biasa (tanpa tipe numpy atau Decimal).
-    json_penjelasan = hasil.penjelasan_json()
-    assert all(type(f["kontribusi"]) is float for f in json_penjelasan["faktor"])
-    assert json_penjelasan["versi_model"] == "smarttriage-rf-v1.0.0"
+def test_random_forest_mengembalikan_peluang_dan_tiga_faktor(model):
+    hasil = RandomForestClassifier(model).klasifikasi(SYOK)
+    assert 0 <= hasil.peluang <= 1
+    assert hasil.level == model.level(hasil.peluang)
+    assert hasil.versi == "rf-icu-physionet2019-v1"
+    assert len(hasil.faktor) == 3
+    assert all(f.fitur in FITUR_MODEL and f.arah in {"naik", "turun"} for f in hasil.faktor)
+    assert [abs(f.kontribusi) for f in hasil.faktor] == sorted((abs(f.kontribusi) for f in hasil.faktor), reverse=True)
 
 
-def test_random_forest_menandai_pasien_tidak_respons(model):
-    fitur = replace(NORMAL, tingkat_kesadaran=TingkatKesadaran.TIDAK_RESPONS, td_sistolik=80, td_diastolik=50)
-    hasil = RandomForestClassifier(model).klasifikasi(fitur)
-    assert hasil.risk_level in (RiskLevel.TINGGI, RiskLevel.KRITIS)
+def test_pasien_syok_lebih_berisiko_dari_pasien_stabil(model):
+    stabil = RandomForestClassifier(model).klasifikasi(NORMAL)
+    syok = RandomForestClassifier(model).klasifikasi(SYOK)
+    assert syok.peluang > stabil.peluang
+    assert syok.level in {RiskLevel.TINGGI, RiskLevel.KRITIS}
+    assert stabil.level in {RiskLevel.RENDAH, RiskLevel.SEDANG}
 
 
-def test_fitur_yang_diimputasi_tidak_dijadikan_faktor(model):
-    # Usia kosong diisi median oleh pipeline, dan shock index kosong bila sistolik 0.
-    fitur = replace(NORMAL, usia=None, td_sistolik=0)
-    hasil = RandomForestClassifier(model).klasifikasi(fitur)
-    nama_faktor = {f.fitur for f in hasil.penjelasan}
-    assert "Age" not in nama_faktor
-    assert "shock_index" not in nama_faktor
-
-
-def _prediksi_cara_prototipe(model, fitur):
-    """Meniru ml-service/app.py: kode Sex dan Mental yang sama, fitur turunan tanpa pembulatan."""
+def test_hasil_sama_dengan_pipeline_pelatihan(model):
+    """Baris yang disusun backend menghasilkan peluang yang sama dengan pipeline hasil ai_training."""
     import pandas as pd
 
-    baris = {
-        "Sex": 1 if fitur.jenis_kelamin == JenisKelamin.PEREMPUAN else 2,
-        "Age": fitur.usia,
-        "kategori_keluhan": fitur.kategori_keluhan.value,
-        "Mental": "AVPU".index(fitur.tingkat_kesadaran.value) + 1,
-        "NRS_pain": fitur.skala_nyeri,
-        "SBP": fitur.td_sistolik,
-        "DBP": fitur.td_diastolik,
-        "HR": fitur.nadi,
-        "RR": fitur.laju_napas,
-        "BT": float(fitur.suhu),
-        "Saturation": float(fitur.saturasi),
-    }
-    baris["map"] = (baris["SBP"] + 2 * baris["DBP"]) / 3
-    baris["shock_index"] = (baris["HR"] / baris["SBP"]) if baris["SBP"] else None
-    x = model.prep.transform(pd.DataFrame([baris])[list(modul_registry.FITUR_MODEL)])
-    return model.rf.predict_proba(x.toarray() if hasattr(x, "toarray") else x)[0]
+    bundle = joblib.load(Config.MODEL_RF_PATH)
+    baris = pd.DataFrame([SYOK.baris_model()], columns=bundle["fitur"])
+    harapan = float(bundle["model"].predict_proba(baris)[0, 1])
+    assert RandomForestClassifier(model).klasifikasi(SYOK).peluang == pytest.approx(harapan)
 
 
-def test_hasil_sama_dengan_cara_prototipe(model):
-    """Input model harus sama persis dengan saat pelatihan, termasuk map dan shock index tanpa pembulatan."""
-    import random
-
-    acak = random.Random(42)  # noqa: S311 (data uji yang bisa diulang, bukan kriptografi)
-    kasus = [
-        # Kasus yang berbeda level bila fitur turunan dibulatkan dua desimal.
-        replace(
-            NORMAL,
-            usia=25,
-            jenis_kelamin=JenisKelamin.LAKI_LAKI,
-            kategori_keluhan=KategoriKeluhan.LAINNYA,
-            skala_nyeri=1,
-            td_sistolik=154,
-            td_diastolik=40,
-            nadi=101,
-            laju_napas=11,
-            suhu=Decimal("39.5"),
-            saturasi=Decimal("92"),
-        )
-    ]
-    for _ in range(150):
-        kasus.append(
-            replace(
-                NORMAL,
-                usia=acak.randint(15, 95),
-                jenis_kelamin=acak.choice(list(JenisKelamin)),
-                kategori_keluhan=acak.choice(list(KategoriKeluhan)),
-                tingkat_kesadaran=acak.choice(list(TingkatKesadaran)),
-                skala_nyeri=acak.randint(0, 10),
-                td_sistolik=acak.randint(70, 220),
-                td_diastolik=acak.randint(40, 130),
-                nadi=acak.randint(40, 160),
-                laju_napas=acak.randint(8, 40),
-                suhu=Decimal(acak.randint(350, 410)) / 10,
-                saturasi=Decimal(acak.randint(80, 100)),
-            )
-        )
-    for fitur in kasus:
-        hasil = RandomForestClassifier(model).klasifikasi(fitur)
-        proba = _prediksi_cara_prototipe(model, fitur)
-        assert [hasil.probabilitas[level.value] for level in modul_registry.URUTAN_LEVEL] == pytest.approx(
-            [round(float(p), 4) for p in proba], abs=1e-9
-        )
-        assert hasil.risk_level == modul_registry.URUTAN_LEVEL[int(proba.argmax())]
-
-
-def test_faktor_shap_diambil_dari_kelas_yang_diprediksi(model):
-    import numpy as np
+def test_nilai_shap_menjumlah_ke_peluang(model):
     import pandas as pd
 
-    fitur = replace(NORMAL, kategori_keluhan=KategoriKeluhan.NYERI_DADA, td_sistolik=168, nadi=118, laju_napas=28)
-    hasil = RandomForestClassifier(model).klasifikasi(fitur)
-    indeks = modul_registry.URUTAN_LEVEL.index(hasil.risk_level)
-
-    x = model.prep.transform(pd.DataFrame([fitur.baris_model()], columns=list(modul_registry.FITUR_MODEL)))
-    x = x.toarray() if hasattr(x, "toarray") else x
-    shap_kelas = np.asarray(model.explainer.shap_values(x))[0, :, indeks]
-    # Aditivitas SHAP: nilai dasar ditambah seluruh kontribusi sama dengan probabilitas level yang dipilih.
-    dasar = np.asarray(model.explainer.expected_value)[indeks]
-    assert dasar + shap_kelas.sum() == pytest.approx(hasil.probabilitas[hasil.risk_level.value], abs=1e-3)
-    harapan = PenyusunPenjelasan.dari_shap(shap_kelas, model.nama_fitur_transformasi, x[0], fitur.nilai_model())
-    assert hasil.penjelasan == harapan
+    x = model.prep.transform(pd.DataFrame([SYOK.baris_model()], columns=list(FITUR_MODEL)))
+    nilai = np.asarray(model.explainer.shap_values(x))[0, :, 1]
+    dasar = np.asarray(model.explainer.expected_value)[1]
+    assert dasar + nilai.sum() == pytest.approx(model.rf.predict_proba(x)[0, 1], abs=1e-6)
 
 
-def test_baris_model_tidak_membulatkan_fitur_turunan():
-    fitur = replace(NORMAL, td_sistolik=154, td_diastolik=40, nadi=101)
-    assert fitur.baris_model()["shock_index"] == 101 / 154
-    assert fitur.baris_model()["map"] == (154 + 80) / 3
-    assert fitur.nilai_model()["shock_index"] == 0.66
-    baris = replace(NORMAL, td_sistolik=0, usia=None).baris_model()
-    assert math.isnan(baris["shock_index"])
-    assert math.isnan(baris["Age"])
-    assert (baris["Sex"], baris["Mental"]) == (1, 1)
+def test_lab_kosong_tidak_dijadikan_faktor(model):
+    hasil = RandomForestClassifier(model).klasifikasi(NORMAL)
+    assert {f.fitur for f in hasil.faktor}.isdisjoint({"laktat", "kreatinin", "trombosit", "leukosit", "bilirubin"})
 
 
-def test_dari_shap_membuang_nilai_kosong_walau_kontribusinya_terbesar():
-    nama = ("angka__shock_index", "angka__Age", "angka__HR")
-    faktor = PenyusunPenjelasan.dari_shap(
-        [0.9, -0.8, 0.1], nama, [0.6, 57, 80], {"shock_index": None, "Age": None, "HR": 80}
-    )
-    assert [f.fitur for f in faktor] == ["HR"]
+def test_baris_model_memakai_kode_dan_rumus_pelatihan():
+    baris = SYOK.baris_model()
+    assert list(baris) == list(FITUR_MODEL)
+    assert baris["map"] == (84 + 2 * 46) / 3
+    assert baris["shock_index"] == 132 / 84
+    assert baris["jenis_kelamin"] == KODE_JENIS_KELAMIN[JenisKelamin.LAKI_LAKI] == 1
+    kosong = NORMAL.baris_model()
+    assert math.isnan(kosong["laktat"])
+    assert kosong["jenis_kelamin"] == 0
 
 
-def test_nilai_model_menghitung_fitur_turunan():
-    nilai = replace(NORMAL, td_sistolik=120, td_diastolik=90, nadi=96).nilai_model()
-    assert nilai["map"] == 100
-    assert nilai["shock_index"] == 0.8
-    assert nilai["Sex"] == "perempuan"
-    assert nilai["Mental"] == "A"
-    assert replace(NORMAL, td_sistolik=0).nilai_model()["shock_index"] is None
+def test_nilai_model_untuk_label():
+    nilai = SYOK.nilai_model()
+    assert (nilai["map"], nilai["shock_index"], nilai["jenis_kelamin"]) == (58.7, 1.57, "laki_laki")
+    assert nilai["laktat"] == 5.1
+    tanpa_sistolik = replace(NORMAL, td_sistolik=0)
+    assert tanpa_sistolik.nilai_model()["shock_index"] is None
+    assert math.isnan(tanpa_sistolik.baris_model()["shock_index"])
 
 
-# ---------------------------------------------------------------- aturan cadangan
-
-
-def _aturan(**ubah):
-    return RuleBasedClassifier(AMBANG).klasifikasi(replace(NORMAL, **ubah))
-
-
-def test_aturan_tanpa_pemicu_memberi_satu_faktor_netral():
-    hasil = _aturan()
-    assert hasil.risk_level == RiskLevel.RENDAH
-    assert hasil.sumber == SumberRekomendasi.ATURAN
-    assert hasil.versi_model is None
-    assert hasil.probabilitas is None
-    assert [f.arah for f in hasil.penjelasan] == ["netral"]
-    # Tidak mengklaim tanda vital normal, karena aturan tidak memeriksa misalnya suhu rendah.
-    assert [f.label for f in hasil.penjelasan] == ["Tidak ada aturan risiko cadangan yang terpicu"]
-    assert hasil.penjelasan_json()["faktor"][0]["kontribusi"] == 0
-
-
-@pytest.mark.parametrize(
-    ("ubah", "poin", "label"),
-    [
-        ({"saturasi": Decimal("91.9")}, 3, "Saturasi oksigen rendah (91,9%)"),
-        ({"saturasi": Decimal("92.0")}, 1, "Saturasi oksigen agak rendah (92%)"),
-        ({"saturasi": Decimal("95.0")}, 0, None),
-        ({"td_sistolik": 180}, 3, "Tekanan darah sistolik ekstrem (180 mmHg)"),
-        ({"td_sistolik": 89}, 3, "Tekanan darah sistolik ekstrem (89 mmHg)"),
-        ({"td_sistolik": 150}, 1, "Tekanan darah sistolik tinggi (150 mmHg)"),
-        ({"td_sistolik": 90}, 0, None),
-        ({"nadi": 120}, 2, "Nadi tidak normal (120 x/menit)"),
-        ({"nadi": 49}, 2, "Nadi tidak normal (49 x/menit)"),
-        ({"suhu": Decimal("39.0")}, 2, "Demam tinggi (39 °C)"),
-        ({"suhu": Decimal("37.8")}, 1, "Demam ringan (37,8 °C)"),
-        ({"laju_napas": 28}, 2, "Laju napas tidak normal (28 x/menit)"),
-        ({"laju_napas": 9}, 2, "Laju napas tidak normal (9 x/menit)"),
-        ({"gejala": "Pasien mengeluh SESAK sejak tadi"}, 3, "Kata kunci gejala berisiko tinggi pada uraian keluhan"),
-        ({"tingkat_kesadaran": TingkatKesadaran.RESPONS_SUARA}, 1, "Tingkat kesadaran V (respons terhadap suara)"),
-        ({"tingkat_kesadaran": TingkatKesadaran.RESPONS_NYERI}, 3, "Tingkat kesadaran P (respons terhadap nyeri)"),
-        ({"tingkat_kesadaran": TingkatKesadaran.TIDAK_RESPONS}, 3, "Tingkat kesadaran U (tidak respons)"),
-        # Nilai tepi di sisi lain setiap batas, supaya < dan <= tidak tertukar (port persis lib/classify.ts).
-        ({"saturasi": Decimal("94.9")}, 1, "Saturasi oksigen agak rendah (94,9%)"),
-        ({"td_sistolik": 179}, 1, "Tekanan darah sistolik tinggi (179 mmHg)"),
-        ({"td_sistolik": 149}, 0, None),
-        ({"nadi": 119}, 0, None),
-        ({"nadi": 50}, 0, None),
-        ({"suhu": Decimal("38.9")}, 1, "Demam ringan (38,9 °C)"),
-        ({"suhu": Decimal("37.7")}, 0, None),
-        ({"laju_napas": 27}, 0, None),
-        ({"laju_napas": 10}, 0, None),
-        ({"gejala": "pendarahan hebat dari hidung"}, 3, "Kata kunci gejala berisiko tinggi pada uraian keluhan"),
-        ({"gejala": "pasien mengeluh nyeri pada dada kanan"}, 0, None),
-    ],
-)
-def test_poin_setiap_aturan(ubah, poin, label):
-    terpicu = RuleBasedClassifier.aturan_terpicu(replace(NORMAL, **ubah))
-    assert sum(f.kontribusi for f in terpicu) == poin
-    if label:
-        assert [f.label for f in terpicu] == [label]
-
-
-def test_kata_kunci_gejala_dicatat_sebagai_nilai():
-    terpicu = RuleBasedClassifier.aturan_terpicu(replace(NORMAL, gejala="kejang dua kali di rumah"))
-    assert terpicu[0].fitur == "gejala"
-    assert terpicu[0].nilai == "kejang"
-
-
-@pytest.mark.parametrize(
-    ("ubah", "level"),
-    [
-        ({"saturasi": Decimal("94")}, RiskLevel.RENDAH),  # 1 poin
-        ({"nadi": 125}, RiskLevel.SEDANG),  # 2 poin
-        ({"nadi": 125, "saturasi": Decimal("94")}, RiskLevel.SEDANG),  # 3 poin
-        ({"nadi": 125, "laju_napas": 30}, RiskLevel.TINGGI),  # 4 poin
-        ({"td_sistolik": 185, "saturasi": Decimal("90")}, RiskLevel.KRITIS),  # 6 poin
-        # Pasien tidak respons dengan tanda vital normal tidak lagi dinilai rendah (keputusan K5).
-        ({"tingkat_kesadaran": TingkatKesadaran.TIDAK_RESPONS}, RiskLevel.SEDANG),
-    ],
-)
-def test_level_aturan_mengikuti_ambang(ubah, level):
-    assert _aturan(**ubah).risk_level == level
-
-
-def test_ambang_aturan_diambil_dari_konfigurasi():
-    fitur = replace(NORMAL, nadi=125, laju_napas=30)  # 4 poin
-    assert RuleBasedClassifier(AmbangAturan(6, 4, 2)).klasifikasi(fitur).risk_level == RiskLevel.TINGGI
-    assert RuleBasedClassifier(AmbangAturan(10, 8, 5)).klasifikasi(fitur).risk_level == RiskLevel.RENDAH
-
-
-def test_penjelasan_aturan_diurutkan_dari_poin_terbesar():
-    hasil = _aturan(saturasi=Decimal("94"), nadi=130, td_sistolik=190)
-    assert [f.kontribusi for f in hasil.penjelasan] == [3, 2, 1]
-
-
-def test_skor_maksimum_aturan():
-    fitur = replace(
-        NORMAL,
-        saturasi=Decimal("80"),
-        td_sistolik=200,
-        nadi=150,
-        suhu=Decimal("40"),
-        laju_napas=35,
-        gejala="nyeri dada hebat",
-        tingkat_kesadaran=TingkatKesadaran.TIDAK_RESPONS,
-    )
-    assert sum(f.kontribusi for f in RuleBasedClassifier.aturan_terpicu(fitur)) == SKOR_MAKSIMUM_ATURAN
-
-
-# ---------------------------------------------------------------- FallbackClassifier
+# ---------------------------------------------------------------- penggabungan NEWS2 dan model
 
 
 class _ClassifierRusak:
-    def klasifikasi(self, fitur):
+    def klasifikasi(self, data):
         raise RuntimeError("model rusak")
 
 
-def test_fallback_memakai_aturan_bila_model_error(caplog):
+def test_fallback_memakai_news2_bila_model_error(caplog):
     hasil = FallbackClassifier(utama=_ClassifierRusak(), cadangan=RuleBasedClassifier(AMBANG)).klasifikasi(NORMAL)
     assert hasil.sumber == SumberRekomendasi.ATURAN
-    assert "memakai aturan cadangan" in caplog.text
+    assert hasil.model is None
+    assert hasil.peluang is None
+    assert "memakai NEWS2 saja" in caplog.text
 
 
-def test_fallback_memakai_aturan_bila_model_tidak_ada():
-    hasil = buat_klasifikator(None, AMBANG).klasifikasi(NORMAL)
+def test_fallback_memakai_news2_bila_model_tidak_ada():
+    hasil = buat_klasifikator(None, AMBANG).klasifikasi(SYOK)
     assert hasil.sumber == SumberRekomendasi.ATURAN
+    assert hasil.risk_level == RiskLevel.KRITIS
+    assert hasil.penjelasan_json()["faktor"] == []
 
 
-def test_fallback_memakai_model_bila_tersedia(model):
-    assert buat_klasifikator(model, AMBANG).klasifikasi(NORMAL).sumber == SumberRekomendasi.MODEL
+def test_penilaian_memakai_model_bila_tersedia(model):
+    hasil = buat_klasifikator(model, AMBANG).klasifikasi(NORMAL)
+    assert hasil.sumber == SumberRekomendasi.MODEL
+    assert hasil.peluang == Decimal(str(round(hasil.model.peluang, 4)))
+
+
+@pytest.mark.parametrize(
+    ("news2", "model", "akhir"),
+    [
+        (RiskLevel.KRITIS, RiskLevel.RENDAH, RiskLevel.KRITIS),
+        (RiskLevel.RENDAH, RiskLevel.TINGGI, RiskLevel.TINGGI),
+        (RiskLevel.SEDANG, RiskLevel.SEDANG, RiskLevel.SEDANG),
+    ],
+)
+def test_level_akhir_adalah_yang_tertinggi(news2, model, akhir):
+    hasil_news2 = RuleBasedClassifier(AMBANG).klasifikasi(NORMAL)
+    hasil = HasilPenilaian(
+        news2=replace(hasil_news2, level=news2), model=HasilModel(peluang=0.5, level=model, faktor=[], versi="uji")
+    )
+    assert hasil.risk_level == akhir
+    assert level_tertinggi(news2, model) == akhir
+
+
+def test_penjelasan_json(model):
+    isi = buat_klasifikator(model, AMBANG).klasifikasi(SYOK).penjelasan_json()
+    assert set(isi) == {
+        "versi_model",
+        "skor_news2",
+        "level_news2",
+        "komponen_news2",
+        "peluang_perburukan",
+        "level_model",
+        "faktor",
+    }
+    assert isi["level_news2"] == "kritis"
+    assert isi["komponen_news2"][0] == {
+        "fitur": "laju_napas",
+        "label": "Laju napas 28 x/menit",
+        "nilai": 28,
+        "kontribusi": 3,
+        "arah": "naik",
+    }
+    assert len(isi["faktor"]) == 3
 
 
 # ---------------------------------------------------------------- label dan format
@@ -445,18 +410,20 @@ def test_fallback_memakai_model_bila_tersedia(model):
 @pytest.mark.parametrize(
     ("nama", "nilai", "label"),
     [
-        ("Saturation", 88.0, "Saturasi oksigen 88%"),
-        ("BT", 37.5, "Suhu tubuh 37,5 °C"),
-        ("SBP", 168, "Tekanan darah sistolik 168 mmHg"),
-        ("DBP", 102, "Tekanan darah diastolik 102 mmHg"),
-        ("HR", 118, "Nadi 118 x/menit"),
-        ("RR", 28, "Laju napas 28 x/menit"),
-        ("NRS_pain", 7, "Skala nyeri 7"),
-        ("Age", 45, "Usia 45 tahun"),
-        ("Sex", "laki_laki", "Jenis kelamin laki-laki"),
-        ("Mental", "P", "Tingkat kesadaran P (respons terhadap nyeri)"),
-        ("kategori_keluhan", "Nyeri dada", "Kategori keluhan: Nyeri dada"),
+        ("saturasi", 88.0, "Saturasi oksigen 88%"),
+        ("suhu", 37.5, "Suhu tubuh 37,5 °C"),
+        ("td_sistolik", 168, "Tekanan darah sistolik 168 mmHg"),
+        ("td_diastolik", 102, "Tekanan darah diastolik 102 mmHg"),
+        ("nadi", 118, "Nadi 118 x/menit"),
+        ("laju_napas", 28, "Laju napas 28 x/menit"),
+        ("usia", 45, "Usia 45 tahun"),
+        ("jenis_kelamin", "laki_laki", "Jenis kelamin laki-laki"),
         ("map", 124.33, "Tekanan arteri rata-rata 124,3 mmHg"),
+        ("laktat", 4.2, "Laktat 4,2 mmol/L"),
+        ("kreatinin", 1.25, "Kreatinin 1,25 mg/dL"),
+        ("trombosit", 95, "Trombosit 95 ribu/µL"),
+        ("leukosit", 18.4, "Leukosit 18,4 ribu/µL"),
+        ("bilirubin", 2.0, "Bilirubin total 2 mg/dL"),
         ("shock_index", 0.7, "Shock index 0,7"),
         ("shock_index", 1.25, "Shock index 1,25"),
     ],
@@ -473,16 +440,17 @@ def test_format_angka(nilai, desimal, teks):
     assert format_angka(nilai, desimal) == teks
 
 
-def test_dari_shap_membuang_kategori_bernilai_nol():
-    nama = ("kategori__kategori_keluhan_Demam", "kategori__kategori_keluhan_Pusing", "angka__HR")
-    faktor = PenyusunPenjelasan.dari_shap([0.9, 0.2, -0.1], nama, [0, 1, 80], {"HR": 80})
-    assert [f.label for f in faktor] == ["Kategori keluhan: Pusing", "Nadi 80 x/menit"]
-    assert [f.arah for f in faktor] == ["naik", "turun"]
+def test_dari_shap_membuang_nilai_kosong_walau_kontribusinya_terbesar():
+    nama = ("num__laktat", "nadi", "laju_napas", "suhu", "saturasi")
+    nilai = {"laktat": None, "nadi": 80, "laju_napas": 16, "suhu": 36.8, "saturasi": 98.0}
+    faktor = PenyusunPenjelasan.dari_shap([0.9, 0.2, -0.3, 0.1, 0.05], nama, nilai)
+    assert [f.fitur for f in faktor] == ["laju_napas", "nadi", "suhu"]
+    assert [f.arah for f in faktor] == ["turun", "naik", "naik"]
 
 
 def test_faktor_ke_json():
-    assert Faktor("HR", "Nadi 80 x/menit", 80, 0.1, "naik").ke_json() == {
-        "fitur": "HR",
+    assert Faktor("nadi", "Nadi 80 x/menit", 80, 0.1, "naik").ke_json() == {
+        "fitur": "nadi",
         "label": "Nadi 80 x/menit",
         "nilai": 80,
         "kontribusi": 0.1,

@@ -2,7 +2,6 @@
 library;
 
 import 'api/generated/models/pasien_triase.dart';
-import 'api/generated/models/status_kunjungan.dart';
 import 'api/generated/models/triase_detail.dart';
 
 abstract final class Rute {
@@ -21,28 +20,29 @@ abstract final class Rute {
   static String riwayatPasien(String idPasien) => '/pasien/$idPasien/riwayat';
 }
 
-/// Dibawa ke halaman Hasil dan Penjelasan.
+/// Dibawa ke halaman Hasil Penilaian.
 class InfoHasil {
-  const InfoHasil({this.detail, this.statusKunjungan});
+  const InfoHasil({this.detail});
 
   /// Detail yang baru saja diterima, supaya halaman tidak perlu memuat ulang.
   final TriaseDetail? detail;
-
-  /// Status kunjungan saat halaman dibuka. Tombol status kunjungan untuk dokter hanya muncul bila diketahui.
-  final StatusKunjungan? statusKunjungan;
 }
 
-/// Dibawa ke Form Triase.
+/// Dibawa ke Form Observasi.
 class InfoFormTriase {
   const InfoFormTriase({
     required this.pasien,
+    this.nomorBed,
     this.waktuDatang,
     this.triaseUlang = false,
     this.ringkasanEirSiap = false,
   });
 
   final PasienTriase pasien;
+  final String? nomorBed;
   final DateTime? waktuDatang;
+
+  /// true untuk observasi berikutnya; false untuk penilaian awal saat pasien baru masuk ICU.
   final bool triaseUlang;
   final bool ringkasanEirSiap;
 }

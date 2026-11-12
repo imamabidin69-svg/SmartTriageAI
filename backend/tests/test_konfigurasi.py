@@ -1,4 +1,4 @@
-"""GET dan PATCH /admin/konfigurasi, cache konfigurasi, dan audit perubahan (FR-05, NFR-06)."""
+"""GET dan PATCH /admin/konfigurasi (ambang NEWS2 dan interval observasi ICU), cache, dan audit (FR-05, NFR-06)."""
 
 from decimal import Decimal
 
@@ -22,15 +22,16 @@ def test_admin_membaca_konfigurasi_bawaan(client, masuk):
     respons = client.get(URL, headers=header)
     assert respons.status_code == 200
     assert respons.get_json() == {
-        "versi_model": "smarttriage-rf-v1.0.0",
-        "ambang_kritis": 6,
-        "ambang_tinggi": 4,
-        "ambang_sedang": 2,
-        "batas_tunggu_tinggi": 10,
-        "batas_tunggu_sedang": 30,
-        "batas_tunggu_rendah": 60,
+        "versi_model": "rf-icu-physionet2019-v1",
+        "ambang_kritis": 7,
+        "ambang_tinggi": 5,
+        "ambang_sedang": 3,
+        "batas_tunggu_kritis": 15,
+        "batas_tunggu_tinggi": 30,
+        "batas_tunggu_sedang": 60,
+        "batas_tunggu_rendah": 120,
         "ambang_keyakinan": 0.85,
-        "versi_model_termuat": "smarttriage-rf-v1.0.0",
+        "versi_model_termuat": "rf-icu-physionet2019-v1",
     }
 
 
@@ -38,32 +39,32 @@ def test_admin_membaca_konfigurasi_bawaan(client, masuk):
 def test_hanya_admin_yang_boleh(client, masuk, peran):
     _, header = masuk(peran)
     assert client.get(URL, headers=header).status_code == 403
-    assert client.patch(URL, json={"ambang_kritis": 7}, headers=header).status_code == 403
+    assert client.patch(URL, json={"ambang_kritis": 8}, headers=header).status_code == 403
 
 
 def test_patch_sebagian_mengubah_dan_mencatat_audit(client, masuk, sesi_db):
     admin, header = masuk(Peran.ADMIN)
-    respons = client.patch(URL, json={"batas_tunggu_sedang": 20, "ambang_kritis": 7}, headers=header)
+    respons = client.patch(URL, json={"batas_tunggu_sedang": 45, "ambang_kritis": 8}, headers=header)
 
     assert respons.status_code == 200
     isi = respons.get_json()
-    assert isi["batas_tunggu_sedang"] == 20
-    assert isi["ambang_kritis"] == 7
-    assert isi["ambang_tinggi"] == 4
+    assert isi["batas_tunggu_sedang"] == 45
+    assert isi["ambang_kritis"] == 8
+    assert isi["ambang_tinggi"] == 5
     baris = sesi_db.get(Konfigurasi, 1)
     sesi_db.refresh(baris)
-    assert (baris.batas_tunggu_sedang, baris.ambang_kritis) == (20, 7)
+    assert (baris.batas_tunggu_sedang, baris.ambang_kritis) == (45, 8)
 
     [log] = _log_konfigurasi(sesi_db)
     assert log.id_aktor == admin.id_pengguna
     assert log.id_triase is None
     # Urutan catatan mengikuti urutan kolom, bukan urutan field di request.
-    assert log.catatan == "ambang_kritis: 6 -> 7; batas_tunggu_sedang: 30 -> 20"
+    assert log.catatan == "ambang_kritis: 7 -> 8; batas_tunggu_sedang: 60 -> 45"
 
 
 def test_patch_tanpa_perubahan_tidak_dicatat(client, masuk, sesi_db):
     _, header = masuk(Peran.ADMIN)
-    respons = client.patch(URL, json={"ambang_kritis": 6, "ambang_keyakinan": 0.85}, headers=header)
+    respons = client.patch(URL, json={"ambang_kritis": 7, "ambang_keyakinan": 0.85}, headers=header)
     assert respons.status_code == 200
     assert _log_konfigurasi(sesi_db) == []
 
@@ -90,36 +91,71 @@ def test_patch_kosong_ditolak(client, masuk):
     ("isi", "errors"),
     [
         (
-            {"ambang_tinggi": 6},
-            [{"field": "ambang_tinggi", "pesan": "Ambang tinggi harus lebih kecil dari ambang kritis (6)."}],
-        ),
-        (
-            {"ambang_kritis": 3},
-            [{"field": "ambang_kritis", "pesan": "Ambang kritis harus lebih besar dari ambang tinggi (4)."}],
-        ),
-        (
-            {"ambang_sedang": 5},
-            [{"field": "ambang_sedang", "pesan": "Ambang sedang harus lebih kecil dari ambang tinggi (4)."}],
-        ),
-        (
-            {"ambang_kritis": 4, "ambang_tinggi": 4},
-            [{"field": "ambang_kritis", "pesan": "Ambang kritis harus lebih besar dari ambang tinggi (4)."}],
-        ),
-        (
-            {"batas_tunggu_tinggi": 45},
+            {"ambang_tinggi": 7},
             [
                 {
-                    "field": "batas_tunggu_tinggi",
-                    "pesan": "Batas tunggu tinggi tidak boleh lebih besar dari batas tunggu sedang (30 menit).",
+                    "field": "ambang_tinggi",
+                    "pesan": "Ambang NEWS2 tinggi harus lebih kecil dari ambang NEWS2 kritis (7).",
                 }
             ],
         ),
         (
-            {"batas_tunggu_rendah": 25},
+            {"ambang_kritis": 4},
+            [
+                {
+                    "field": "ambang_kritis",
+                    "pesan": "Ambang NEWS2 kritis harus lebih besar dari ambang NEWS2 tinggi (5).",
+                }
+            ],
+        ),
+        (
+            {"ambang_sedang": 6},
+            [
+                {
+                    "field": "ambang_sedang",
+                    "pesan": "Ambang NEWS2 sedang harus lebih kecil dari ambang NEWS2 tinggi (5).",
+                }
+            ],
+        ),
+        (
+            {"ambang_kritis": 5, "ambang_tinggi": 5},
+            [
+                {
+                    "field": "ambang_kritis",
+                    "pesan": "Ambang NEWS2 kritis harus lebih besar dari ambang NEWS2 tinggi (5).",
+                }
+            ],
+        ),
+        (
+            {"batas_tunggu_kritis": 40},
+            [
+                {
+                    "field": "batas_tunggu_kritis",
+                    "pesan": (
+                        "Interval observasi kritis tidak boleh lebih besar dari interval observasi tinggi (30 menit)."
+                    ),
+                }
+            ],
+        ),
+        (
+            {"batas_tunggu_tinggi": 90},
+            [
+                {
+                    "field": "batas_tunggu_tinggi",
+                    "pesan": (
+                        "Interval observasi tinggi tidak boleh lebih besar dari interval observasi sedang (60 menit)."
+                    ),
+                }
+            ],
+        ),
+        (
+            {"batas_tunggu_rendah": 45},
             [
                 {
                     "field": "batas_tunggu_rendah",
-                    "pesan": "Batas tunggu rendah tidak boleh lebih kecil dari batas tunggu sedang (30 menit).",
+                    "pesan": (
+                        "Interval observasi rendah tidak boleh lebih kecil dari interval observasi sedang (60 menit)."
+                    ),
                 }
             ],
         ),
@@ -137,23 +173,24 @@ def test_urutan_ambang_dan_batas_tunggu_diperiksa(client, masuk, sesi_db, isi, e
 
 def test_batas_tunggu_boleh_sama_antar_level(client, masuk):
     _, header = masuk(Peran.ADMIN)
-    respons = client.patch(URL, json={"batas_tunggu_tinggi": 30}, headers=header)
+    respons = client.patch(URL, json={"batas_tunggu_kritis": 30, "batas_tunggu_sedang": 30}, headers=header)
     assert respons.status_code == 200
 
 
 @pytest.mark.parametrize(
     ("isi", "pesan"),
     [
-        ({"ambang_kritis": 19}, "Ambang kritis maksimal 18."),
-        ({"ambang_sedang": 0}, "Ambang sedang minimal 1."),
-        ({"batas_tunggu_rendah": 1441}, "Batas tunggu rendah maksimal 1440 menit."),
+        ({"ambang_kritis": 21}, "Ambang NEWS2 kritis maksimal 20."),
+        ({"ambang_sedang": 0}, "Ambang NEWS2 sedang minimal 1."),
+        ({"batas_tunggu_rendah": 1441}, "Interval observasi rendah maksimal 1440 menit."),
+        ({"batas_tunggu_kritis": 0}, "Interval observasi kritis minimal 1 menit."),
         ({"ambang_keyakinan": 1.5}, "Ambang keyakinan maksimal 1."),
         ({"ambang_keyakinan": 0.855}, "Ambang keyakinan maksimal 2 angka di belakang koma."),
         # Admin yang mengira nilainya persen tetap mendapat pesan batas yang jelas.
         ({"ambang_keyakinan": 85}, "Ambang keyakinan maksimal 1."),
         ({"ambang_keyakinan": 0.30000000000000004}, "Ambang keyakinan maksimal 2 angka di belakang koma."),
-        ({"ambang_kritis": None}, "Ambang kritis harus berupa bilangan bulat."),
-        ({"ambang_kritis": 6.5}, "Ambang kritis harus berupa bilangan bulat."),
+        ({"ambang_kritis": None}, "Ambang NEWS2 kritis harus berupa bilangan bulat."),
+        ({"ambang_kritis": 6.5}, "Ambang NEWS2 kritis harus berupa bilangan bulat."),
         ({"versi_model": ""}, "Versi model wajib diisi."),
     ],
 )
@@ -171,7 +208,7 @@ def test_versi_model_harus_sama_dengan_model_termuat(client, masuk):
     assert respons.get_json()["errors"] == [
         {
             "field": "versi_model",
-            "pesan": "Versi model harus sama dengan model yang sedang dimuat (smarttriage-rf-v1.0.0).",
+            "pesan": "Versi model harus sama dengan model yang sedang dimuat (rf-icu-physionet2019-v1).",
         }
     ]
 
@@ -181,9 +218,11 @@ def test_versi_model_tidak_bisa_diubah_tanpa_model(app_tanpa_model, buat_penggun
 
     klien = app_tanpa_model.test_client()
     header = header_masuk(klien, buat_pengguna(Peran.ADMIN).email)
-    respons = klien.patch(URL, json={"versi_model": "smarttriage-rf-v1.0.0"}, headers=header)
+    respons = klien.patch(URL, json={"versi_model": "rf-icu-physionet2019-v1"}, headers=header)
     assert respons.status_code == 422
-    assert respons.get_json()["errors"][0]["pesan"] == "Model triase belum dimuat, jadi versi model belum bisa diubah."
+    assert respons.get_json()["errors"][0]["pesan"] == (
+        "Model perburukan belum dimuat, jadi versi model belum bisa diubah."
+    )
     assert klien.get(URL, headers=header).get_json()["versi_model_termuat"] is None
 
 
@@ -201,13 +240,13 @@ class _Jam:
 def test_cache_menyimpan_nilai_sampai_kedaluwarsa(sesi_db):
     jam = _Jam()
     cache = CacheKonfigurasi(60, jam=jam)
-    assert cache.ambil().ambang_kritis == 6
+    assert cache.ambil().ambang_kritis == 7
 
     baris = sesi_db.get(Konfigurasi, 1)
     baris.ambang_kritis = 9
     sesi_db.commit()
     jam.waktu += 59
-    assert cache.ambil().ambang_kritis == 6
+    assert cache.ambil().ambang_kritis == 7
     jam.waktu += 1
     assert cache.ambil().ambang_kritis == 9
 
@@ -216,7 +255,7 @@ def test_cache_dikosongkan_setelah_patch(app, client, masuk, monkeypatch):
     cache = CacheKonfigurasi(3600)
     monkeypatch.setitem(app.extensions, "cache_konfigurasi", cache)
     _, header = masuk(Peran.ADMIN)
-    assert client.get(URL, headers=header).get_json()["ambang_kritis"] == 6
+    assert client.get(URL, headers=header).get_json()["ambang_kritis"] == 7
     client.patch(URL, json={"ambang_kritis": 8}, headers=header)
     assert client.get(URL, headers=header).get_json()["ambang_kritis"] == 8
 
@@ -228,11 +267,11 @@ def test_cache_tanpa_baris_konfigurasi(sesi_db):
         CacheKonfigurasi(0).ambil()
 
 
-def test_batas_tunggu_per_level():
-    nilai = NilaiKonfigurasi("v", 6, 4, 2, 10, 30, 60, Decimal("0.85"))
-    assert nilai.batas_tunggu(RiskLevel.TINGGI) == 10
-    assert nilai.batas_tunggu(RiskLevel.SEDANG) == 30
-    assert nilai.batas_tunggu(RiskLevel.RENDAH) == 60
-    # Pasien kritis harus segera ditangani, jadi tidak punya batas tunggu.
-    assert nilai.batas_tunggu(RiskLevel.KRITIS) is None
-    assert nilai.ambang_aturan.kritis == 6
+def test_interval_observasi_per_level():
+    nilai = NilaiKonfigurasi("v", 7, 5, 3, 15, 30, 60, 120, Decimal("0.85"))
+    assert nilai.batas_tunggu(RiskLevel.KRITIS) == 15
+    assert nilai.batas_tunggu(RiskLevel.TINGGI) == 30
+    assert nilai.batas_tunggu(RiskLevel.SEDANG) == 60
+    assert nilai.batas_tunggu(RiskLevel.RENDAH) == 120
+    ambang = nilai.ambang_news2
+    assert (ambang.kritis, ambang.tinggi, ambang.sedang) == (7, 5, 3)

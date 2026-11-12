@@ -348,7 +348,7 @@
         "tags": [
           "Admin"
         ],
-        "summary": "Membaca konfigurasi triase",
+        "summary": "Membaca konfigurasi penilaian ICU",
         "operationId": "admin_ambil_konfigurasi_konfigurasi_get",
         "responses": {
           "422": {
@@ -405,8 +405,8 @@
         "tags": [
           "Admin"
         ],
-        "summary": "Mengubah sebagian konfigurasi triase",
-        "description": "Hanya field yang dikirim yang diubah. Setiap perubahan dicatat di log audit. Ambang harus berurutan (kritis > tinggi > sedang) dan batas tunggu tidak menurun (tinggi <= sedang <= rendah).",
+        "summary": "Mengubah sebagian konfigurasi penilaian ICU",
+        "description": "Hanya field yang dikirim yang diubah. Setiap perubahan dicatat di log audit. Ambang skor NEWS2 harus berurutan (kritis > tinggi > sedang) dan interval observasi tidak menurun (kritis <= tinggi <= sedang <= rendah).",
         "operationId": "admin_ubah_konfigurasi_konfigurasi_patch",
         "requestBody": {
           "content": {
@@ -835,8 +835,8 @@
         "tags": [
           "Kunjungan"
         ],
-        "summary": "Registrasi singkat dan pembuatan kunjungan",
-        "description": "Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru. Pasien dengan NIK yang sudah terdaftar dipakai ulang bila nama dan jenis kelaminnya sama.",
+        "summary": "Mencatat pasien masuk ICU",
+        "description": "Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru, lalu nomor bed, asal ruangan, dan diagnosis masuk. Pasien dengan NIK yang sudah terdaftar dipakai ulang bila nama dan jenis kelaminnya sama. Bed yang masih ditempati pasien lain dibalas 422 pada field nomor_bed.",
         "operationId": "kunjungan_registrasi_kunjungan_post",
         "requestBody": {
           "content": {
@@ -915,8 +915,8 @@
         "tags": [
           "Kunjungan"
         ],
-        "summary": "Menandai pasien mulai diperiksa atau selesai",
-        "description": "Dokter mengubah status menunggu ke ditangani (pasien keluar dari daftar tunggu), ditangani ke selesai, atau menunggu ke selesai untuk pasien yang batal diperiksa. Perubahan lain dibalas 409.",
+        "summary": "Mengubah status pasien ICU",
+        "description": "Dokter menandai pasien mulai tindakan atau operasi (ditangani), kembali dipantau setelah tindakan (menunggu), atau keluar ICU (selesai). Pasien yang sedang tindakan tetap tampil di papan prioritas di urutan paling bawah. Perubahan lain dibalas 409.",
         "operationId": "kunjungan_ubah_status_kunjungan__uuid_id_kunjungan__status_patch",
         "parameters": [
           {
@@ -1017,8 +1017,8 @@
         "tags": [
           "Kunjungan"
         ],
-        "summary": "Membuat tautan Eir untuk kode QR",
-        "description": "Khusus kunjungan yang masih menunggu dan risk level terakhirnya rendah. Token berlaku dua jam dan ditampilkan sebagai kode QR untuk pasien atau keluarga. Kunjungan lain dibalas 409.",
+        "summary": "Membuat tautan Eir untuk keluarga pasien",
+        "description": "Untuk pasien yang masih di ICU, apa pun levelnya. Token berlaku dua jam dan ditampilkan sebagai kode QR untuk keluarga. Pasien yang sudah keluar ICU dibalas 409.",
         "operationId": "kunjungan_tautan_eir_kunjungan__uuid_id_kunjungan__tautan_eir_post",
         "parameters": [
           {
@@ -1109,8 +1109,8 @@
         "tags": [
           "Kunjungan"
         ],
-        "summary": "Membaca ringkasan Eir terakhir sebagai draf form triase",
-        "description": "Sesi Eir terbaru untuk kunjungan ini (keputusan E1), berisi ringkasan, transkrip, dan tanda bahaya bila sesi dihentikan. Ringkasan masih draf dan wajib diperiksa perawat sebelum dipakai di form triase. 404 bila kunjungan belum punya sesi Eir.",
+        "summary": "Membaca ringkasan riwayat dari keluarga lewat Eir",
+        "description": "Sesi Eir terbaru untuk pasien ini (keputusan E1), berisi ringkasan riwayat (kronologi, penyakit, obat rutin, alergi, informasi lain), transkrip, dan informasi penting yang ditandai. Ringkasan berasal dari keterangan keluarga dan wajib diperiksa perawat. 404 bila pasien belum punya sesi Eir.",
         "operationId": "kunjungan_ringkasan_eir_kunjungan__uuid_id_kunjungan__ringkasan_eir_get",
         "parameters": [
           {
@@ -1191,8 +1191,8 @@
         "tags": [
           "Triase"
         ],
-        "summary": "Input triase dan rekomendasi risk level",
-        "description": "Menyimpan triase berstatus menunggu validasi beserta rekomendasi risk level dan tiga faktor penjelas. Triase pertama pada kunjungan dicatat sebagai awal, berikutnya sebagai ulang. Nilai tanda vital yang tidak wajar dikembalikan di field peringatan tanpa menolak request.",
+        "summary": "Mencatat observasi pasien ICU dan menilai prioritasnya",
+        "description": "Menghitung skor NEWS2 dan peluang perburukan 6 jam dari model Random Forest, lalu memakai level yang lebih tinggi dari keduanya. Observasi pertama (awal) dan observasi yang levelnya naik dibanding level final terakhir berstatus menunggu persetujuan dokter; selain itu langsung berstatus tercatat. Nilai yang tidak wajar dikembalikan di field peringatan tanpa menolak request. Pasien yang sudah keluar ICU dibalas 409.",
         "operationId": "triase_buat_triase_kunjungan__uuid_id_kunjungan__triase_post",
         "parameters": [
           {
@@ -1293,7 +1293,7 @@
         "tags": [
           "Triase"
         ],
-        "summary": "Detail triase beserta penjelasan rekomendasi",
+        "summary": "Detail observasi beserta penjelasan penilaian",
         "operationId": "triase_detail_triase_triase__uuid_id_triase__get",
         "parameters": [
           {
@@ -1374,8 +1374,8 @@
         "tags": [
           "Triase"
         ],
-        "summary": "Menyetujui, mengoreksi, atau mengajukan review hasil triase",
-        "description": "Perawat boleh menyetujui hasil non-kritis atau mengajukan review; dokter boleh menyetujui atau mengoreksi semua tingkat. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui atau dikoreksi, sudah digantikan triase ulang, atau kunjungannya sudah selesai dibalas 409. Setiap aksi dicatat di log audit dalam transaksi yang sama.",
+        "summary": "Persetujuan dokter: menyetujui, mengoreksi, atau mengajukan review",
+        "description": "Hanya dokter yang boleh menyetujui atau mengoreksi level; perawat hanya boleh mengajukan review. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Penilaian yang sudah final (disetujui, dikoreksi, atau tercatat), sudah digantikan observasi yang lebih baru, atau pasiennya sudah keluar ICU dibalas 409. Setiap aksi dicatat di log audit dalam transaksi yang sama.",
         "operationId": "triase_validasi_triase_triase__uuid_id_triase__validasi_post",
         "parameters": [
           {
@@ -1476,8 +1476,8 @@
         "tags": [
           "Triase"
         ],
-        "summary": "Riwayat triase pasien",
-        "description": "Triase awal dan ulang dari semua kunjungan pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim.",
+        "summary": "Riwayat observasi pasien",
+        "description": "Observasi dari semua masa rawat ICU pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim.",
         "operationId": "triase_riwayat_pasien_pasien__uuid_id_pasien__riwayat_get",
         "parameters": [
           {
@@ -1670,8 +1670,8 @@
         "tags": [
           "Antrean"
         ],
-        "summary": "Daftar tunggu pasien beserta penanda triase ulang",
-        "description": "Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu. ringkasan_eir_siap bernilai true bila sesi Eir terakhir selesai dengan ringkasan dan belum ada triase sesudahnya.",
+        "summary": "Papan prioritas pasien ICU",
+        "description": "Semua pasien yang belum keluar ICU beserta penilaian terakhirnya, sudah diurutkan menurut prioritas penanganan: Kritis, belum dinilai, Tinggi, Sedang, Rendah; di level yang sama yang menunggu persetujuan dokter dan yang observasinya terlambat lebih dulu, lalu peluang perburukan dan skor NEWS2 tertinggi. Pasien yang sedang menjalani tindakan ditaruh paling bawah. Lama dihitung sejak observasi terakhir dan dibandingkan dengan interval observasi level tersebut.",
         "operationId": "antrean_daftar_tunggu_daftar_tunggu_get",
         "responses": {
           "200": {
@@ -1733,8 +1733,8 @@
         "tags": [
           "Antrean"
         ],
-        "summary": "Peringatan kritis, level naik, dan tanda bahaya Eir",
-        "description": "Triase kritis yang belum divalidasi, triase ulang yang levelnya naik dan belum divalidasi, serta sesi Eir yang dihentikan karena tanda bahaya tetapi belum diikuti triase baru. Hanya kunjungan yang masih menunggu.",
+        "summary": "Peringatan persetujuan dokter, observasi terlambat, dan informasi penting Eir",
+        "description": "Penilaian awal atau kenaikan level yang belum disetujui dokter, observasi yang melewati intervalnya, dan informasi penting dari keluarga lewat Eir yang belum diikuti observasi baru. Hanya pasien yang masih di ICU.",
         "operationId": "antrean_peringatan_peringatan_get",
         "responses": {
           "200": {
@@ -2165,7 +2165,7 @@
           "Eir"
         ],
         "summary": "Mengirim jawaban ke Eir",
-        "description": "Setiap jawaban diperiksa aturan tanda bahaya sebelum LLM dipanggil. Bila cocok, sesi dihentikan (status dihentikan), perawat mendapat peringatan, dan pesan berisi arahan menemui perawat. Setelah 15 jawaban, atau saat jawaban sudah cukup, ringkasan dibuat otomatis (status selesai). Bila Groq tidak menjawab, respons 503 dan jawaban tetap tersimpan. Maksimal 20 pesan per menit per sesi.",
+        "description": "Setiap jawaban diperiksa aturan informasi penting (misalnya alergi obat atau obat pengencer darah) sebelum LLM dipanggil. Bila cocok, labelnya dicatat di sesi dan perawat mendapat peringatan, tetapi percakapan tetap berjalan. Setelah 15 jawaban, atau saat jawaban sudah cukup, ringkasan dibuat otomatis (status selesai). Bila Groq tidak menjawab, respons 503 dan jawaban tetap tersimpan. Maksimal 20 pesan per menit per sesi.",
         "operationId": "eir_kirim_pesan_eir_sesi__uuid_id_sesi__pesan_post",
         "parameters": [
           {
@@ -2393,7 +2393,7 @@
           "Eir"
         ],
         "summary": "Menyelesaikan sesi dan membuat ringkasan",
-        "description": "Boleh dipanggil setelah minimal tujuh jawaban. Ringkasan dibuat LLM dengan JSON Schema, divalidasi, lalu disimpan sebagai draf untuk perawat (GET /kunjungan/{id}/ringkasan-eir). Bila Groq tidak menjawab, respons 503 dan sesi tetap berjalan sehingga bisa dicoba lagi.",
+        "description": "Boleh dipanggil setelah minimal tujuh jawaban. Ringkasan dibuat LLM dengan JSON Schema, divalidasi, lalu disimpan untuk perawat (GET /kunjungan/{id}/ringkasan-eir). Bila Groq tidak menjawab, respons 503 dan sesi tetap berjalan sehingga bisa dicoba lagi.",
         "operationId": "eir_selesai_eir_sesi__uuid_id_sesi__selesai_post",
         "parameters": [
           {
@@ -2666,6 +2666,7 @@
           "ambang_kritis",
           "ambang_tinggi",
           "ambang_sedang",
+          "batas_tunggu_kritis",
           "batas_tunggu_tinggi",
           "batas_tunggu_sedang",
           "batas_tunggu_rendah",
@@ -2688,6 +2689,10 @@
           },
           "ambang_sedang": {
             "title": "Ambang Sedang",
+            "type": "integer"
+          },
+          "batas_tunggu_kritis": {
+            "title": "Batas Tunggu Kritis",
             "type": "integer"
           },
           "batas_tunggu_tinggi": {
@@ -2733,23 +2738,34 @@
           },
           "ambang_kritis": {
             "title": "Ambang Kritis",
-            "maximum": 18,
+            "maximum": 20,
             "minimum": 1.0,
             "type": "integer",
+            "description": "Skor NEWS2.",
             "default": null
           },
           "ambang_tinggi": {
             "title": "Ambang Tinggi",
-            "maximum": 18,
+            "maximum": 20,
             "minimum": 1.0,
             "type": "integer",
+            "description": "Skor NEWS2.",
             "default": null
           },
           "ambang_sedang": {
             "title": "Ambang Sedang",
-            "maximum": 18,
+            "maximum": 20,
             "minimum": 1.0,
             "type": "integer",
+            "description": "Skor NEWS2.",
+            "default": null
+          },
+          "batas_tunggu_kritis": {
+            "title": "Batas Tunggu Kritis",
+            "maximum": 1440,
+            "minimum": 1.0,
+            "type": "integer",
+            "description": "Interval observasi dalam menit.",
             "default": null
           },
           "batas_tunggu_tinggi": {
@@ -2757,7 +2773,7 @@
             "maximum": 1440,
             "minimum": 1.0,
             "type": "integer",
-            "description": "Dalam menit.",
+            "description": "Interval observasi dalam menit.",
             "default": null
           },
           "batas_tunggu_sedang": {
@@ -2765,7 +2781,7 @@
             "maximum": 1440,
             "minimum": 1.0,
             "type": "integer",
-            "description": "Dalam menit.",
+            "description": "Interval observasi dalam menit.",
             "default": null
           },
           "batas_tunggu_rendah": {
@@ -2773,7 +2789,7 @@
             "maximum": 1440,
             "minimum": 1.0,
             "type": "integer",
-            "description": "Dalam menit.",
+            "description": "Interval observasi dalam menit.",
             "default": null
           },
           "ambang_keyakinan": {
@@ -3043,7 +3059,7 @@
                 "type": "null"
               }
             ],
-            "description": "Kunjungan yang masih menunggu atau sedang ditangani."
+            "description": "Masa rawat ICU yang belum selesai, bila ada."
           }
         }
       },
@@ -3054,7 +3070,8 @@
           "id_pasien",
           "pasien_baru",
           "status",
-          "waktu_datang"
+          "waktu_datang",
+          "nomor_bed"
         ],
         "type": "object",
         "properties": {
@@ -3079,6 +3096,17 @@
             "title": "Waktu Datang",
             "type": "string",
             "format": "date-time"
+          },
+          "nomor_bed": {
+            "title": "Nomor Bed",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -3093,6 +3121,9 @@
       },
       "RegistrasiRequest": {
         "title": "RegistrasiRequest",
+        "required": [
+          "nomor_bed"
+        ],
         "type": "object",
         "properties": {
           "id_pasien": {
@@ -3184,10 +3215,50 @@
               }
             ],
             "default": null
+          },
+          "nomor_bed": {
+            "title": "Nomor Bed",
+            "maxLength": 10,
+            "minLength": 1,
+            "type": "string",
+            "description": "Bed ICU yang ditempati, misalnya ICU-3. Satu bed untuk satu pasien."
+          },
+          "asal_ruangan": {
+            "title": "Asal Ruangan",
+            "anyOf": [
+              {
+                "enum": [
+                  "IGD",
+                  "Kamar operasi",
+                  "Rawat inap",
+                  "Rujukan rumah sakit lain",
+                  "Lainnya"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "diagnosis_masuk": {
+            "title": "Diagnosis Masuk",
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "additionalProperties": false,
-        "description": "Registrasi singkat (Desain Gambar 2.5).\n\nBila id_pasien diisi, pasien lama dipakai dan isian identitas lain diabaikan tanpa divalidasi\n(keputusan K8), karena form bisa saja masih membawa isian dari pencarian sebelumnya. Bila tidak,\nnama, jenis kelamin, dan tanggal lahir atau perkiraan usia wajib diisi; pemeriksaan ini dilakukan\nKunjunganService supaya pesannya tetap per field."
+        "description": "Pasien masuk ICU (Desain Gambar 2.5, disesuaikan untuk ICU): identitas, nomor bed, asal, dan diagnosis.\n\nBila id_pasien diisi, pasien lama dipakai dan isian identitas lain diabaikan tanpa divalidasi\n(keputusan K8), karena form bisa saja masih membawa isian dari pencarian sebelumnya. Bila tidak,\nnama, jenis kelamin, dan tanggal lahir atau perkiraan usia wajib diisi; pemeriksaan ini dilakukan\nKunjunganService supaya pesannya tetap per field."
       },
       "StatusKunjunganResponse": {
         "title": "StatusKunjunganResponse",
@@ -3230,11 +3301,12 @@
           "status": {
             "title": "Status",
             "enum": [
+              "menunggu",
               "ditangani",
               "selesai"
             ],
             "type": "string",
-            "description": "ditangani saat dokter mulai memeriksa, selesai saat pemeriksaan berakhir atau pasien batal."
+            "description": "ditangani saat pasien mulai menjalani tindakan atau operasi, menunggu saat kembali dipantau setelah tindakan, selesai saat pasien keluar ICU (pindah ruangan, pulang, atau meninggal)."
           }
         },
         "additionalProperties": false
@@ -3322,18 +3394,19 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Informasi penting yang ditandai Eir, misalnya alergi obat atau obat pengencer darah."
           },
           "ringkasan": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/RingkasanTriase"
+                "$ref": "#/components/schemas/RingkasanKeluarga"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Draf form triase; wajib diperiksa perawat sebelum dipakai."
+            "description": "Ringkasan riwayat dari keluarga; wajib diperiksa perawat."
           },
           "transkrip": {
             "title": "Transkrip",
@@ -3372,31 +3445,6 @@
           }
         }
       },
-      "KategoriKeluhan": {
-        "title": "KategoriKeluhan",
-        "enum": [
-          "Penurunan kesadaran atau kejang",
-          "Nyeri dada",
-          "Sesak napas atau batuk",
-          "Perdarahan",
-          "Gangguan saraf",
-          "Nyeri perut",
-          "Demam",
-          "Pusing",
-          "Nyeri kepala",
-          "Mual, muntah, atau diare",
-          "Cedera atau luka",
-          "Jantung berdebar",
-          "Kulit atau alergi",
-          "Mata, telinga, hidung, atau tenggorokan",
-          "Nyeri punggung, pinggang, atau anggota gerak",
-          "Lemas atau kelemahan umum",
-          "Keluhan kemih atau kandungan",
-          "Lainnya"
-        ],
-        "type": "string",
-        "description": "18 kategori keluhan, sama persis dengan kategori saat model Random Forest dilatih."
-      },
       "PengisiEir": {
         "title": "PengisiEir",
         "enum": [
@@ -3405,39 +3453,49 @@
         ],
         "type": "string"
       },
-      "RingkasanTriase": {
-        "title": "RingkasanTriase",
+      "RingkasanKeluarga": {
+        "title": "RingkasanKeluarga",
         "required": [
-          "keluhan_utama",
-          "gejala",
-          "onset",
-          "kategori_keluhan"
+          "kronologi",
+          "riwayat_penyakit",
+          "obat_rutin",
+          "alergi",
+          "informasi_lain"
         ],
         "type": "object",
         "properties": {
-          "keluhan_utama": {
-            "title": "Keluhan Utama",
-            "maxLength": 200,
+          "kronologi": {
+            "title": "Kronologi",
+            "maxLength": 1000,
             "minLength": 1,
             "type": "string"
           },
-          "gejala": {
-            "title": "Gejala",
-            "maxLength": 2000,
+          "riwayat_penyakit": {
+            "title": "Riwayat Penyakit",
+            "maxLength": 1000,
             "minLength": 1,
             "type": "string"
           },
-          "onset": {
-            "title": "Onset",
-            "maxLength": 200,
+          "obat_rutin": {
+            "title": "Obat Rutin",
+            "maxLength": 1000,
             "minLength": 1,
             "type": "string"
           },
-          "kategori_keluhan": {
-            "$ref": "#/components/schemas/KategoriKeluhan"
+          "alergi": {
+            "title": "Alergi",
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "informasi_lain": {
+            "title": "Informasi Lain",
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
           }
         },
-        "description": "Desain Gambar 2.23. Ringkasan dari LLM yang divalidasi sebelum menjadi draf form triase."
+        "description": "Desain Gambar 2.23, disesuaikan untuk ICU. Ringkasan riwayat dari keluarga yang divalidasi sebelum disimpan.\n\nIsinya hanya keterangan keluarga dan wajib diperiksa perawat; \"Tidak disebutkan\" bila topik itu tidak dibahas."
       },
       "StatusSesiEir": {
         "title": "StatusSesiEir",
@@ -3455,13 +3513,19 @@
           "id_kunjungan",
           "jenis",
           "pasien",
-          "keluhan_utama",
-          "gejala",
-          "kategori_keluhan",
-          "skala_nyeri",
+          "nomor_bed",
+          "status_kunjungan",
           "tingkat_kesadaran",
+          "oksigen_tambahan",
           "tanda_vital",
+          "lab",
+          "ventilator",
+          "vasopresor",
+          "catatan",
           "sumber_tanda_vital",
+          "skor_news2",
+          "peluang_perburukan",
+          "level_sebelumnya",
           "risk_level",
           "sumber_rekomendasi",
           "penjelasan_ai",
@@ -3490,43 +3554,81 @@
           "pasien": {
             "$ref": "#/components/schemas/PasienTriase"
           },
-          "keluhan_utama": {
-            "title": "Keluhan Utama",
-            "type": "string"
-          },
-          "gejala": {
-            "title": "Gejala",
-            "type": "string"
-          },
-          "kategori_keluhan": {
+          "nomor_bed": {
+            "title": "Nomor Bed",
             "anyOf": [
               {
-                "$ref": "#/components/schemas/KategoriKeluhan"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ]
           },
-          "skala_nyeri": {
-            "title": "Skala Nyeri",
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "status_kunjungan": {
+            "$ref": "#/components/schemas/StatusKunjungan",
+            "description": "Status pasien saat ini: dirawat, sedang tindakan, keluar."
           },
           "tingkat_kesadaran": {
             "$ref": "#/components/schemas/TingkatKesadaran"
           },
+          "oksigen_tambahan": {
+            "title": "Oksigen Tambahan",
+            "type": "boolean"
+          },
           "tanda_vital": {
             "$ref": "#/components/schemas/TandaVitalResponse"
           },
+          "lab": {
+            "$ref": "#/components/schemas/HasilLabResponse"
+          },
+          "ventilator": {
+            "title": "Ventilator",
+            "type": "boolean"
+          },
+          "vasopresor": {
+            "title": "Vasopresor",
+            "type": "boolean"
+          },
+          "catatan": {
+            "title": "Catatan",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sumber_tanda_vital": {
             "$ref": "#/components/schemas/SumberTandaVital"
+          },
+          "skor_news2": {
+            "title": "Skor News2",
+            "type": "integer"
+          },
+          "peluang_perburukan": {
+            "title": "Peluang Perburukan",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "level_sebelumnya": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskLevel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Level observasi sebelumnya di masa rawat yang sama."
           },
           "risk_level": {
             "$ref": "#/components/schemas/RiskLevel"
@@ -3619,6 +3721,9 @@
                 "type": "integer"
               },
               {
+                "type": "boolean"
+              },
+              {
                 "type": "null"
               }
             ]
@@ -3626,7 +3731,7 @@
           "kontribusi": {
             "title": "Kontribusi",
             "type": "number",
-            "description": "Nilai SHAP untuk hasil model, atau poin aturan untuk aturan cadangan."
+            "description": "Nilai SHAP untuk faktor model, atau poin untuk komponen NEWS2."
           },
           "arah": {
             "title": "Arah",
@@ -3636,7 +3741,75 @@
               "netral"
             ],
             "type": "string",
-            "description": "Untuk sumber model: naik berarti faktor ini mendukung level yang direkomendasikan, turun berarti melawannya. Untuk sumber aturan: naik berarti menambah poin risiko; netral bila tidak ada aturan yang terpicu."
+            "description": "Faktor model: naik berarti menaikkan peluang perburukan. Komponen NEWS2 selalu naik."
+          }
+        }
+      },
+      "HasilLabResponse": {
+        "title": "HasilLabResponse",
+        "required": [
+          "laktat",
+          "kreatinin",
+          "trombosit",
+          "leukosit",
+          "bilirubin"
+        ],
+        "type": "object",
+        "properties": {
+          "laktat": {
+            "title": "Laktat",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kreatinin": {
+            "title": "Kreatinin",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trombosit": {
+            "title": "Trombosit",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "leukosit": {
+            "title": "Leukosit",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bilirubin": {
+            "title": "Bilirubin",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -3706,8 +3879,12 @@
         "title": "PenjelasanResponse",
         "required": [
           "versi_model",
-          "faktor",
-          "probabilitas"
+          "skor_news2",
+          "level_news2",
+          "komponen_news2",
+          "peluang_perburukan",
+          "level_model",
+          "faktor"
         ],
         "type": "object",
         "properties": {
@@ -3722,26 +3899,50 @@
               }
             ]
           },
-          "faktor": {
-            "title": "Faktor",
+          "skor_news2": {
+            "title": "Skor News2",
+            "type": "integer"
+          },
+          "level_news2": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "komponen_news2": {
+            "title": "Komponen News2",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FaktorResponse"
-            }
+            },
+            "description": "Parameter NEWS2 yang menyumbang poin."
           },
-          "probabilitas": {
-            "title": "Probabilitas",
+          "peluang_perburukan": {
+            "title": "Peluang Perburukan",
             "anyOf": [
               {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "number"
-                }
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Peluang memburuk dalam 6 jam (0-1); null tanpa model."
+          },
+          "level_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskLevel"
               },
               {
                 "type": "null"
               }
             ]
+          },
+          "faktor": {
+            "title": "Faktor",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FaktorResponse"
+            },
+            "description": "Tiga faktor SHAP terbesar dari model; kosong tanpa model."
           }
         }
       },
@@ -3788,7 +3989,8 @@
           "menunggu",
           "disetujui",
           "menunggu_review_dokter",
-          "dikoreksi"
+          "dikoreksi",
+          "tercatat"
         ],
         "type": "string"
       },
@@ -3861,42 +4063,50 @@
       "TriaseInput": {
         "title": "TriaseInput",
         "required": [
-          "keluhan_utama",
-          "gejala",
-          "kategori_keluhan",
-          "skala_nyeri",
           "tingkat_kesadaran",
+          "oksigen_tambahan",
           "tanda_vital"
         ],
         "type": "object",
         "properties": {
-          "keluhan_utama": {
-            "title": "Keluhan Utama",
-            "maxLength": 200,
-            "minLength": 1,
-            "type": "string"
-          },
-          "gejala": {
-            "title": "Gejala",
-            "maxLength": 2000,
-            "minLength": 10,
-            "type": "string"
-          },
-          "kategori_keluhan": {
-            "$ref": "#/components/schemas/KategoriKeluhan"
-          },
-          "skala_nyeri": {
-            "title": "Skala Nyeri",
-            "maximum": 10,
-            "minimum": 0.0,
-            "type": "integer"
-          },
           "tingkat_kesadaran": {
             "$ref": "#/components/schemas/TingkatKesadaran",
             "description": "AVPU: A sadar penuh, V suara, P nyeri, U tidak respons."
           },
+          "oksigen_tambahan": {
+            "title": "Oksigen Tambahan",
+            "type": "boolean",
+            "description": "true bila pasien mendapat oksigen tambahan (nasal, masker, ventilator)."
+          },
           "tanda_vital": {
             "$ref": "#/components/schemas/TandaVital"
+          },
+          "lab": {
+            "$ref": "#/components/schemas/HasilLab"
+          },
+          "ventilator": {
+            "title": "Ventilator",
+            "type": "boolean",
+            "default": false
+          },
+          "vasopresor": {
+            "title": "Vasopresor",
+            "type": "boolean",
+            "default": false
+          },
+          "catatan": {
+            "title": "Catatan",
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 0,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "id_pemindaian": {
             "title": "Id Pemindaian",
@@ -3910,7 +4120,118 @@
           }
         },
         "additionalProperties": false,
-        "description": "Isian form triase (Desain Gambar 2.8). Kategori keluhan dan skala nyeri wajib (keputusan K3)."
+        "description": "Observasi pasien ICU. Tanda vital, kesadaran, dan oksigen wajib karena dipakai NEWS2; sisanya opsional."
+      },
+      "HasilLab": {
+        "title": "HasilLab",
+        "type": "object",
+        "properties": {
+          "laktat": {
+            "title": "Laktat",
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "maximum": 30.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "mmol/L"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "kreatinin": {
+            "title": "Kreatinin",
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "maximum": 25.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "mg/dL"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "trombosit": {
+            "title": "Trombosit",
+            "anyOf": [
+              {
+                "maximum": 2000,
+                "minimum": 0.0,
+                "type": "integer",
+                "description": "ribu/µL"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "leukosit": {
+            "title": "Leukosit",
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "maximum": 300.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "ribu/µL"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "bilirubin": {
+            "title": "Bilirubin",
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "maximum": 60.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "mg/dL"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "additionalProperties": false,
+        "description": "Hasil laboratorium terakhir. Semuanya boleh kosong; yang kosong diisi median oleh model."
       },
       "TandaVital": {
         "title": "TandaVital",
@@ -4064,8 +4385,8 @@
           "id_triase",
           "jenis",
           "waktu_triase",
-          "keluhan_utama",
-          "kategori_keluhan",
+          "skor_news2",
+          "peluang_perburukan",
           "risk_level",
           "sumber_rekomendasi",
           "status_validasi",
@@ -4089,14 +4410,15 @@
             "type": "string",
             "format": "date-time"
           },
-          "keluhan_utama": {
-            "title": "Keluhan Utama",
-            "type": "string"
+          "skor_news2": {
+            "title": "Skor News2",
+            "type": "integer"
           },
-          "kategori_keluhan": {
+          "peluang_perburukan": {
+            "title": "Peluang Perburukan",
             "anyOf": [
               {
-                "$ref": "#/components/schemas/KategoriKeluhan"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -4139,7 +4461,9 @@
           "id_kunjungan",
           "waktu_datang",
           "waktu_ditangani",
-          "status"
+          "status",
+          "nomor_bed",
+          "diagnosis_masuk"
         ],
         "type": "object",
         "properties": {
@@ -4167,6 +4491,28 @@
           },
           "status": {
             "$ref": "#/components/schemas/StatusKunjungan"
+          },
+          "nomor_bed": {
+            "title": "Nomor Bed",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "diagnosis_masuk": {
+            "title": "Diagnosis Masuk",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -4295,6 +4641,9 @@
         "required": [
           "id_kunjungan",
           "pasien",
+          "nomor_bed",
+          "diagnosis_masuk",
+          "status",
           "waktu_datang",
           "triase_terakhir",
           "lama_menunggu_menit",
@@ -4314,6 +4663,32 @@
           "pasien": {
             "$ref": "#/components/schemas/PasienTriase"
           },
+          "nomor_bed": {
+            "title": "Nomor Bed",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "diagnosis_masuk": {
+            "title": "Diagnosis Masuk",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusKunjungan",
+            "description": "menunggu: dirawat; ditangani: sedang tindakan atau operasi."
+          },
           "waktu_datang": {
             "title": "Waktu Datang",
             "type": "string",
@@ -4332,7 +4707,7 @@
           "lama_menunggu_menit": {
             "title": "Lama Menunggu Menit",
             "type": "integer",
-            "description": "Sejak triase terakhir, atau sejak datang bila belum ditriase."
+            "description": "Menit sejak observasi terakhir, atau sejak masuk bila belum dinilai."
           },
           "batas_tunggu_menit": {
             "title": "Batas Tunggu Menit",
@@ -4344,20 +4719,21 @@
                 "type": "null"
               }
             ],
-            "description": "Batas dari konfigurasi; null untuk kritis dan belum ditriase."
+            "description": "Interval observasi level ini; null bila belum dinilai."
           },
           "status_tanda": {
             "title": "Status Tanda",
             "enum": [
-              "belum_ditriase",
-              "perlu_triase_ulang",
+              "belum_dinilai",
+              "observasi_terlambat",
               "normal"
             ],
             "type": "string"
           },
           "menunggu_validasi": {
             "title": "Menunggu Validasi",
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Ada penilaian awal atau kenaikan level yang belum disetujui dokter."
           },
           "review_diajukan": {
             "title": "Review Diajukan",
@@ -4366,9 +4742,10 @@
           "ringkasan_eir_siap": {
             "title": "Ringkasan Eir Siap",
             "type": "boolean",
-            "description": "Sesi Eir terakhir selesai dengan ringkasan yang belum dipakai untuk triase berikutnya."
+            "description": "Keluarga sudah menyelesaikan sesi Eir dan ringkasannya bisa dibaca."
           }
-        }
+        },
+        "description": "Satu pasien di papan prioritas ICU. Urutan daftar sudah merupakan urutan prioritas penanganan."
       },
       "TriaseTerakhir": {
         "title": "TriaseTerakhir",
@@ -4377,7 +4754,8 @@
           "jenis",
           "risk_level",
           "status_validasi",
-          "keluhan_utama",
+          "skor_news2",
+          "peluang_perburukan",
           "waktu_triase"
         ],
         "type": "object",
@@ -4396,9 +4774,20 @@
           "status_validasi": {
             "$ref": "#/components/schemas/StatusValidasi"
           },
-          "keluhan_utama": {
-            "title": "Keluhan Utama",
-            "type": "string"
+          "skor_news2": {
+            "title": "Skor News2",
+            "type": "integer"
+          },
+          "peluang_perburukan": {
+            "title": "Peluang Perburukan",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "waktu_triase": {
             "title": "Waktu Triase",
@@ -4440,9 +4829,9 @@
           "jenis": {
             "title": "Jenis",
             "enum": [
-              "kritis_belum_divalidasi",
-              "level_naik",
-              "tanda_bahaya_eir"
+              "menunggu_persetujuan",
+              "observasi_terlambat",
+              "informasi_penting_eir"
             ],
             "type": "string"
           },
@@ -4790,7 +5179,7 @@
           "pesan": {
             "title": "Pesan",
             "type": "string",
-            "description": "Pertanyaan berikutnya, penutup, atau arahan menemui perawat."
+            "description": "Pertanyaan berikutnya atau penutup."
           },
           "jumlah_jawaban": {
             "title": "Jumlah Jawaban",

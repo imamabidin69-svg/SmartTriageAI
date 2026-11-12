@@ -1,33 +1,25 @@
-"""Penyusun penjelasan rekomendasi: tiga faktor SHAP terbesar atau daftar aturan yang terpicu (FR-05).
+"""Penyusun penjelasan penilaian: tiga faktor SHAP terbesar dan komponen NEWS2 yang menyumbang poin (FR-05).
 
-Penjelasan dihitung dari model, bukan dibuat LLM. Hasil model dan hasil aturan cadangan memakai
-struktur Faktor yang sama, sehingga antarmuka cukup punya satu cara menampilkan (Desain baris 257).
-Arti `arah` dibaca bersama sumber_rekomendasi: untuk model, "naik" berarti faktor itu mendukung level
-yang direkomendasikan (nilai SHAP positif) dan "turun" berarti melawannya; untuk aturan, "naik" berarti
-menambah poin risiko.
+Penjelasan dihitung dari model dan rumus NEWS2, bukan dibuat LLM. Keduanya memakai struktur Faktor yang
+sama, sehingga antarmuka cukup punya satu cara menampilkan (Desain baris 257). Untuk faktor model, "naik"
+berarti faktor itu menaikkan peluang perburukan (nilai SHAP positif) dan "turun" berarti menurunkannya.
+Untuk komponen NEWS2, kontribusi berisi poin dan arahnya selalu "naik".
 """
 
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Any
 
-from app.models.enums import JenisKelamin, TingkatKesadaran
+from app.models.enums import JenisKelamin
 
 JUMLAH_FAKTOR_MODEL = 3
-AWALAN_KATEGORI = "kategori__kategori_keluhan_"
 
-KETERANGAN_AVPU = {
-    TingkatKesadaran.SADAR_PENUH: "sadar penuh",
-    TingkatKesadaran.RESPONS_SUARA: "respons terhadap suara",
-    TingkatKesadaran.RESPONS_NYERI: "respons terhadap nyeri",
-    TingkatKesadaran.TIDAK_RESPONS: "tidak respons",
-}
 LABEL_JENIS_KELAMIN = {JenisKelamin.LAKI_LAKI: "laki-laki", JenisKelamin.PEREMPUAN: "perempuan"}
 
 
 @dataclass(frozen=True)
 class Faktor:
-    """Satu faktor penjelas. `kontribusi` berisi nilai SHAP untuk model atau poin aturan untuk aturan cadangan."""
+    """Satu faktor penjelas. `kontribusi` berisi nilai SHAP untuk model atau poin NEWS2 untuk komponen NEWS2."""
 
     fitur: str | None
     label: str
@@ -47,32 +39,34 @@ def format_angka(nilai: float | int | Decimal, desimal: int = 1) -> str:
     return f"{angka:.{desimal}f}".rstrip("0").replace(".", ",")
 
 
+# Templat label dan jumlah desimal untuk setiap fitur model.
+TEMPLAT_FITUR = {
+    "nadi": ("Nadi {} x/menit", 1),
+    "saturasi": ("Saturasi oksigen {}%", 1),
+    "suhu": ("Suhu tubuh {} °C", 1),
+    "td_sistolik": ("Tekanan darah sistolik {} mmHg", 1),
+    "td_diastolik": ("Tekanan darah diastolik {} mmHg", 1),
+    "map": ("Tekanan arteri rata-rata {} mmHg", 1),
+    "laju_napas": ("Laju napas {} x/menit", 1),
+    "laktat": ("Laktat {} mmol/L", 1),
+    "kreatinin": ("Kreatinin {} mg/dL", 2),
+    "trombosit": ("Trombosit {} ribu/µL", 1),
+    "leukosit": ("Leukosit {} ribu/µL", 1),
+    "bilirubin": ("Bilirubin total {} mg/dL", 1),
+    "usia": ("Usia {} tahun", 1),
+    "shock_index": ("Shock index {}", 2),
+}
+
+
 class LabelFitur:
     """Label yang dipahami tenaga medis untuk setiap fitur model, misalnya "Saturasi oksigen 88%"."""
 
     @staticmethod
     def label(nama: str, nilai: Any) -> str:
-        if nama == "kategori_keluhan":
-            return f"Kategori keluhan: {nilai}"
-        if nama == "Mental":
-            avpu = TingkatKesadaran(nilai)
-            return f"Tingkat kesadaran {avpu.value} ({KETERANGAN_AVPU[avpu]})"
-        if nama == "Sex":
+        if nama == "jenis_kelamin":
             return f"Jenis kelamin {LABEL_JENIS_KELAMIN[JenisKelamin(nilai)]}"
-        templat = {
-            "Age": "Usia {} tahun",
-            "NRS_pain": "Skala nyeri {}",
-            "SBP": "Tekanan darah sistolik {} mmHg",
-            "DBP": "Tekanan darah diastolik {} mmHg",
-            "HR": "Nadi {} x/menit",
-            "RR": "Laju napas {} x/menit",
-            "BT": "Suhu tubuh {} °C",
-            "Saturation": "Saturasi oksigen {}%",
-            "map": "Tekanan arteri rata-rata {} mmHg",
-        }
-        if nama == "shock_index":
-            return f"Shock index {format_angka(nilai, 2)}"
-        return templat[nama].format(format_angka(nilai))
+        templat, desimal = TEMPLAT_FITUR[nama]
+        return templat.format(format_angka(nilai, desimal))
 
 
 class PenyusunPenjelasan:
@@ -80,25 +74,19 @@ class PenyusunPenjelasan:
     def dari_shap(
         kontribusi: Any,
         nama_fitur_transformasi: tuple[str, ...],
-        nilai_transformasi: Any,
         nilai_asli: dict[str, Any],
     ) -> list[Faktor]:
-        """Tiga faktor dengan |SHAP| terbesar untuk level yang diprediksi.
+        """Tiga faktor dengan |SHAP| terbesar terhadap peluang perburukan.
 
-        Kolom one-hot kategori yang bernilai 0 dibuang (sama seperti prototipe), begitu juga fitur
-        yang nilainya kosong lalu diisi median oleh imputer, karena itu bukan data pasien yang sebenarnya.
+        Fitur yang nilainya kosong lalu diisi median oleh imputer dibuang, karena itu bukan data pasien
+        yang sebenarnya (misalnya hasil lab yang belum diperiksa).
         """
         kandidat: list[tuple[float, str, Any]] = []
         for i, nama in enumerate(nama_fitur_transformasi):
-            if nama.startswith(AWALAN_KATEGORI):
-                if nilai_transformasi[i] == 0:
-                    continue
-                fitur, nilai = "kategori_keluhan", nama.removeprefix(AWALAN_KATEGORI)
-            else:
-                fitur = nama.split("__", 1)[-1]
-                nilai = nilai_asli.get(fitur)
-                if nilai is None:
-                    continue
+            fitur = nama.split("__", 1)[-1]
+            nilai = nilai_asli.get(fitur)
+            if nilai is None:
+                continue
             kandidat.append((float(kontribusi[i]), fitur, nilai))
 
         kandidat.sort(key=lambda item: abs(item[0]), reverse=True)
@@ -112,20 +100,3 @@ class PenyusunPenjelasan:
             )
             for nilai_shap, fitur, nilai in kandidat[:JUMLAH_FAKTOR_MODEL]
         ]
-
-    @staticmethod
-    def dari_aturan(aturan_terpicu: list[Faktor]) -> list[Faktor]:
-        """Semua aturan yang terpicu, diurutkan dari poin terbesar."""
-        if not aturan_terpicu:
-            return [
-                Faktor(
-                    fitur=None,
-                    # Tidak mengklaim tanda vital normal: aturan cadangan tidak memeriksa, misalnya, suhu rendah
-                    # atau diastolik, yang tetap bisa muncul sebagai peringatan di respons yang sama.
-                    label="Tidak ada aturan risiko cadangan yang terpicu",
-                    nilai=None,
-                    kontribusi=0,
-                    arah="netral",
-                )
-            ]
-        return sorted(aturan_terpicu, key=lambda faktor: faktor.kontribusi, reverse=True)

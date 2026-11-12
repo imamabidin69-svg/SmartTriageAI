@@ -16,7 +16,7 @@ class StatusKunjunganRequest {
   
   factory StatusKunjunganRequest.fromJson(Map<String, Object?> json) => _$StatusKunjunganRequestFromJson(json);
   
-  /// ditangani saat dokter mulai memeriksa, selesai saat pemeriksaan berakhir atau pasien batal.
+  /// ditangani saat pasien mulai menjalani tindakan atau operasi, menunggu saat kembali dipantau setelah tindakan, selesai saat pasien keluar ICU (pindah ruangan, pulang, atau meninggal).
   final StatusKunjunganRequestStatus status;
 
   Map<String, Object?> toJson() => _$StatusKunjunganRequestToJson(this);

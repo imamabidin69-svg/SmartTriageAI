@@ -14,7 +14,7 @@ void main() {
   setUpAll(daftarkanNilaiCadangan);
   setUp(() => repo = RepoTiruan());
 
-  testWidgets('kartu pasien, ringkasan level, dan tanda seperti mockup Gambar 7.1', (tester) async {
+  testWidgets('kartu pasien ICU, ringkasan level, keterisian bed, dan penanda', (tester) async {
     aturAntrean(
       repo,
       items: [
@@ -23,9 +23,11 @@ void main() {
           nama: 'Sri Wahyuni',
           level: 'kritis',
           idTriaseTerakhir: idTriaseKritis,
-          keluhan: 'Sesak napas sejak pagi',
+          bed: 'ICU-1',
+          skor: 11,
+          peluang: 0.8123,
           lama: 3,
-          batas: null,
+          batas: 15,
           tanda: 'normal',
         ),
         jsonItemTunggu(),
@@ -33,20 +35,33 @@ void main() {
           id: 'k3',
           nama: 'Dewi Anggraini',
           level: 'sedang',
-          keluhan: 'Demam tiga hari',
+          bed: 'ICU-3',
+          diagnosis: null,
+          skor: 3,
+          peluang: null,
           lama: 18,
-          batas: 30,
+          batas: 60,
           tanda: 'normal',
+          menungguValidasi: false,
           eirSiap: true,
         ),
-        jsonItemTunggu(id: 'k4', nama: 'Agus Pratama', level: null, lama: 75, batas: null, tanda: 'belum_ditriase'),
+        jsonItemTunggu(
+          id: 'k4',
+          nama: 'Agus Pratama',
+          level: null,
+          bed: 'ICU-8',
+          lama: 75,
+          batas: null,
+          tanda: 'belum_dinilai',
+        ),
         jsonItemTunggu(
           id: 'k5',
           nama: 'Hartini',
           level: 'rendah',
-          keluhan: 'Luka lecet',
+          bed: 'ICU-5',
+          status: 'ditangani',
           lama: 20,
-          batas: 60,
+          batas: 120,
           tanda: 'normal',
           review: true,
           statusValidasi: 'menunggu_review_dokter',
@@ -57,28 +72,32 @@ void main() {
     final semantik = tester.ensureSemantics();
     await jalankanAplikasi(tester, repo);
 
-    // Ringkasan level dalam satu baris angka, jumlah pasien, dan jam terakhir diperbarui.
-    for (final label in ['Kritis: 1', 'Tinggi: 1', 'Sedang: 1', 'Rendah: 1', 'Belum ditriase: 1']) {
+    // Ringkasan level dalam satu baris angka, keterisian bed, dan jam terakhir diperbarui.
+    for (final label in ['Kritis: 1', 'Tinggi: 1', 'Sedang: 1', 'Rendah: 1', 'Belum dinilai: 1']) {
       expect(find.bySemanticsLabel('$label pasien'), findsOneWidget, reason: label);
     }
-    expect(find.text('5 pasien menunggu'), findsOneWidget);
+    expect(find.text('5 dari 8 bed terisi'), findsOneWidget);
     expect(find.textContaining('Diperbarui '), findsOneWidget);
+    expect(find.text('Prioritas Pasien ICU'), findsOneWidget);
 
     expect(find.text('Peringatan'), findsWidgets);
-    expect(find.text('Sri Wahyuni: risk level kritis (SpO2 88%)'), findsOneWidget);
-    expect(find.text('Tunggu 3 mnt'), findsOneWidget);
-    expect(find.text('segera'), findsOneWidget);
-    expect(find.text('Menunggu dokter'), findsOneWidget);
-    expect(find.text('Perlu triase ulang'), findsOneWidget);
-    expect(find.text('Tunggu 12 mnt'), findsOneWidget);
-    expect(find.text('lewat batas 10 mnt'), findsOneWidget);
-    expect(find.text('45 th · L · datang 08.42'), findsWidgets);
+    expect(find.text('Sri Wahyuni: Level naik dari Tinggi ke Kritis dan menunggu persetujuan dokter.'), findsOneWidget);
+    expect(find.text('ICU-1'), findsOneWidget);
+    expect(find.text('NEWS2 11 · peluang memburuk 81%'), findsOneWidget);
+    expect(find.text('Observasi 3 mnt lalu'), findsOneWidget);
+    expect(find.text('interval 15 mnt'), findsOneWidget);
+    expect(find.text('Menunggu persetujuan dokter'), findsNWidgets(2));
+    expect(find.text('Observasi terlambat'), findsOneWidget);
+    expect(find.text('lewat interval 30 mnt'), findsOneWidget);
+    expect(find.text('45 th · L · Syok sepsis'), findsWidgets);
     await tester.scrollUntilVisible(find.text('Hartini'), 200);
+    expect(find.text('NEWS2 3'), findsOneWidget);
     expect(find.text('Ringkasan Eir siap'), findsOneWidget);
-    expect(find.text('batas 30 mnt'), findsOneWidget);
-    expect(find.text('Belum ditriase'), findsOneWidget);
-    expect(find.text('Tunggu 1 jam 15 mnt'), findsOneWidget);
-    expect(find.text('Menunggu review dokter'), findsOneWidget);
+    expect(find.text('Belum dinilai'), findsOneWidget);
+    expect(find.text('Belum dinilai · masuk 08.42'), findsOneWidget);
+    expect(find.text('Masuk 1 jam 15 mnt lalu'), findsOneWidget);
+    expect(find.text('Review diajukan'), findsOneWidget);
+    expect(find.text('Sedang tindakan'), findsOneWidget);
     // Badge jumlah peringatan di kepala halaman.
     expect(find.byTooltip('1 peringatan'), findsOneWidget);
     await tutupAplikasi(tester);
@@ -100,7 +119,7 @@ void main() {
     gagal = false;
     await tester.tap(find.text('Coba lagi'));
     await tester.pumpAndSettle();
-    expect(find.text('Tidak ada pasien yang menunggu dokter.'), findsOneWidget);
+    expect(find.text('Belum ada pasien yang dirawat di ICU.'), findsOneWidget);
     await tutupAplikasi(tester);
   });
 
@@ -113,19 +132,19 @@ void main() {
     await tester.pump(const Duration(seconds: 15));
     await tester.pumpAndSettle();
     verify(() => repo.daftarTunggu()).called(1);
-    expect(find.textContaining('Risk level kritis: Sri Wahyuni'), findsOneWidget);
+    expect(find.textContaining('Menunggu persetujuan dokter: Sri Wahyuni'), findsOneWidget);
 
     // Peringatan yang sama tidak dimunculkan lagi.
     await tester.pump(const Duration(seconds: 15));
     await tester.pumpAndSettle();
     expect(find.byType(SnackBar), findsOneWidget);
 
-    // Toast bisa langsung membuka hasil triase pasien.
+    // Toast bisa langsung membuka hasil penilaian pasien.
     when(() => repo.detailTriase(idTriaseKritis))
         .thenAnswer((_) async => triaseDetail(id: idTriaseKritis, level: 'kritis'));
     await tester.tap(find.text('Lihat'));
     await tester.pumpAndSettle();
-    expect(find.text('Hasil Triase'), findsOneWidget);
+    expect(find.text('Hasil Penilaian'), findsOneWidget);
     await tutupAplikasi(tester);
   });
 
@@ -135,7 +154,7 @@ void main() {
     when(() => repo.peringatan()).thenAnswer(
       (_) async => [
         peringatan(),
-        peringatan(jenis: 'tanda_bahaya_eir', nama: 'Hartini', alasan: 'nyeri dada hebat', idTriaseItem: null),
+        peringatan(jenis: 'informasi_penting_eir', nama: 'Hartini', alasan: 'Alergi obat', idTriaseItem: null),
       ],
     );
     await tester.pump(const Duration(seconds: 15));
@@ -185,29 +204,33 @@ void main() {
       repo,
       daftarPeringatan: [
         peringatan(
-          jenis: 'tanda_bahaya_eir',
+          jenis: 'informasi_penting_eir',
           nama: 'Hartini',
-          alasan: 'nyeri dada hebat',
+          alasan: 'Alergi obat',
           idTriaseItem: null,
           idKunjunganItem: idKunjungan,
         ),
       ],
     );
     when(() => repo.ringkasanEir(idKunjungan)).thenAnswer(
-      (_) async => ringkasanEir(status: 'dihentikan', denganRingkasan: false, tandaBahaya: 'Nyeri dada hebat'),
+      (_) async => ringkasanEir(
+        status: 'berjalan',
+        denganRingkasan: false,
+        tandaBahaya: 'Alergi obat; Memakai obat pengencer darah',
+      ),
     );
     await jalankanAplikasi(tester, repo);
 
     await tester.tap(find.byTooltip('1 peringatan'));
     await tester.pumpAndSettle();
-    expect(find.text('Hartini: Tanda bahaya dari Eir'), findsOneWidget);
-    await tester.tap(find.text('Hartini: Tanda bahaya dari Eir'));
+    expect(find.text('Hartini: Informasi penting dari keluarga'), findsOneWidget);
+    await tester.tap(find.text('Hartini: Informasi penting dari keluarga'));
     await tester.pumpAndSettle();
     expect(find.text('Percakapan Eir'), findsOneWidget);
-    expect(find.text('Nyeri dada hebat'), findsOneWidget);
+    expect(find.text('• Alergi obat\n• Memakai obat pengencer darah'), findsOneWidget);
     await kembali(tester);
 
-    await tester.tap(find.text('Hartini: nyeri dada hebat'));
+    await tester.tap(find.text('Hartini: Alergi obat'));
     await tester.pumpAndSettle();
     expect(find.text('Percakapan Eir'), findsOneWidget);
     await tutupAplikasi(tester);
@@ -222,79 +245,75 @@ void main() {
     await tutupAplikasi(tester);
   });
 
-  testWidgets('perawat membuka hasil, form triase ulang, dan kode QR dari kartu', (tester) async {
+  testWidgets('perawat membuka hasil, form observasi, dan kode QR dari kartu', (tester) async {
     aturAntrean(
       repo,
       items: [
         jsonItemTunggu(),
-        jsonItemTunggu(
-          id: 'k5',
-          nama: 'Hartini',
-          level: 'rendah',
-          keluhan: 'Luka lecet',
-          tanda: 'normal',
-          batas: 60,
-          lama: 20,
-        ),
-        jsonItemTunggu(id: 'k4', nama: 'Agus Pratama', level: null, tanda: 'belum_ditriase', batas: null),
+        jsonItemTunggu(id: 'k4', nama: 'Agus Pratama', level: null, bed: 'ICU-8', tanda: 'belum_dinilai', batas: null),
       ],
     );
     when(() => repo.detailTriase(idTriase)).thenAnswer((_) async => triaseDetail());
-    when(() => repo.tautanEir('k5')).thenAnswer((_) async => tautanEir());
+    when(() => repo.tautanEir(idKunjungan)).thenAnswer((_) async => tautanEir());
     await jalankanAplikasi(tester, repo);
 
     await tester.tap(find.text('Budi Santoso'));
     await tester.pumpAndSettle();
-    expect(find.text('Hasil Triase'), findsOneWidget);
+    expect(find.text('Hasil Penilaian'), findsOneWidget);
     await kembali(tester);
 
-    await tester.tap(find.text('Triase ulang'));
+    await tester.tap(find.text('Observasi'));
     await tester.pumpAndSettle();
-    expect(find.text('Form Triase'), findsOneWidget);
-    expect(find.text('Triase ulang'), findsOneWidget);
+    expect(find.text('Observasi Pasien'), findsOneWidget);
+    expect(find.text('Observasi · Bed ICU-2'), findsOneWidget);
     await kembali(tester);
 
-    await ketuk(tester, find.text('Kode QR Eir'));
+    await ketuk(tester, find.text('QR Eir').first);
     expect(find.textContaining('Berlaku sampai'), findsOneWidget);
     await kembali(tester);
 
+    await ketuk(tester, find.text('Nilai awal'));
+    expect(find.text('Penilaian Awal'), findsOneWidget);
+    await kembali(tester);
+
     await ketuk(tester, find.text('Agus Pratama'));
-    expect(find.text('Form Triase'), findsOneWidget);
+    expect(find.text('Penilaian Awal'), findsOneWidget);
     await tutupAplikasi(tester);
   });
 
-  testWidgets('dokter tidak melihat tombol triase dan tab Triase Baru', (tester) async {
+  testWidgets('dokter tidak melihat tombol observasi dan tab Pasien Masuk', (tester) async {
     aturAntrean(
       repo,
       items: [
         jsonItemTunggu(),
-        jsonItemTunggu(id: 'k4', nama: 'Agus Pratama', level: null, tanda: 'belum_ditriase', batas: null),
+        jsonItemTunggu(id: 'k4', nama: 'Agus Pratama', level: null, tanda: 'belum_dinilai', batas: null),
       ],
     );
     await jalankanAplikasi(tester, repo, peran: 'dokter');
-    expect(find.text('Triase Baru'), findsNothing);
-    expect(find.text('Triase ulang'), findsNothing);
+    expect(find.text('Pasien Masuk'), findsNothing);
+    expect(find.text('Observasi'), findsNothing);
+    expect(find.text('QR Eir'), findsNothing);
     await ketuk(tester, find.text('Agus Pratama'));
-    expect(find.text('Pasien ini belum ditriase perawat.'), findsOneWidget);
+    expect(find.text('Pasien ini belum dinilai perawat.'), findsOneWidget);
 
-    // Navigasi bawah dokter: Daftar Tunggu, Riwayat, Profil.
+    // Navigasi bawah dokter: Prioritas, Riwayat, Profil.
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
     expect(find.text('dr. Bagus Kurniawan'), findsOneWidget);
     await tester.tap(find.text('Riwayat'));
     await tester.pumpAndSettle();
     expect(find.text('Riwayat Pasien'), findsOneWidget);
-    await tester.tap(find.text('Daftar Tunggu'));
+    await tester.tap(find.text('Prioritas'));
     await tester.pumpAndSettle();
-    expect(find.text('Daftar Tunggu IGD'), findsOneWidget);
+    expect(find.text('Prioritas Pasien ICU'), findsOneWidget);
     await tutupAplikasi(tester);
   });
 
   test('kunci peringatan membedakan jenis, kunjungan, triase, dan sesi', () {
     final a = peringatan();
-    final b = peringatan(jenis: 'level_naik');
+    final b = peringatan(jenis: 'observasi_terlambat');
     expect(kunciPeringatan(a), isNot(kunciPeringatan(b)));
     expect(kunciPeringatan(a), kunciPeringatan(peringatan()));
-    expect(ItemPeringatanJenis.kritisBelumDivalidasi.json, 'kritis_belum_divalidasi');
+    expect(ItemPeringatanJenis.menungguPersetujuan.json, 'menunggu_persetujuan');
   });
 }

@@ -21,10 +21,7 @@ pytestmark = [pytest.mark.tanpa_rollback, pytest.mark.usefixtures("data_nyata")]
 
 JEDA = 0.4
 ISIAN_TRIASE = {
-    "keluhan_utama": "Pusing",
-    "gejala": "Pusing berputar sejak pagi tanpa muntah",
-    "kategori_keluhan": "Pusing",
-    "skala_nyeri": 2,
+    "oksigen_tambahan": False,
     "tingkat_kesadaran": "A",
     "tanda_vital": {"td_sistolik": 120, "td_diastolik": 80, "nadi": 80, "laju_napas": 18, "suhu": 36.8, "saturasi": 98},
 }
@@ -101,7 +98,10 @@ def test_dua_registrasi_pasien_yang_sama_hanya_satu_kunjungan_aktif(app, monkeyp
     monkeypatch.setattr(AuditLogger, "catat", _dengan_jeda(AuditLogger.catat))
 
     respons = _bersamaan(
-        app, lambda klien: klien.post("/api/v1/kunjungan", json={"id_pasien": str(id_pasien)}, headers=header)
+        app,
+        lambda klien: klien.post(
+            "/api/v1/kunjungan", json={"id_pasien": str(id_pasien), "nomor_bed": "ICU-1"}, headers=header
+        ),
     )
     assert sorted(r.status_code for r in respons) == [201, 409]
     with app.app_context():
@@ -113,12 +113,34 @@ def test_dua_registrasi_nik_baru_yang_sama_hanya_satu_berhasil(app, monkeypatch)
     email, _ = _siapkan(app)
     header = header_masuk(app.test_client(), email)
     monkeypatch.setattr(AuditLogger, "catat", _dengan_jeda(AuditLogger.catat))
-    isi = {"nama": "Pasien Baru", "perkiraan_usia": 30, "jenis_kelamin": "laki_laki", "nik": "3577010101990001"}
+    isi = {
+        "nama": "Pasien Baru",
+        "perkiraan_usia": 30,
+        "jenis_kelamin": "laki_laki",
+        "nik": "3577010101990001",
+        "nomor_bed": "ICU-2",
+    }
 
     respons = _bersamaan(app, lambda klien: klien.post("/api/v1/kunjungan", json=isi, headers=header))
     assert sorted(r.status_code for r in respons) == [201, 409]
     with app.app_context():
         assert db.session.query(Pasien).filter_by(nik="3577010101990001").count() == 1
+
+
+def test_dua_pasien_ke_bed_yang_sama_hanya_satu_berhasil(app, monkeypatch):
+    email, _ = _siapkan(app)
+    header = header_masuk(app.test_client(), email)
+    monkeypatch.setattr(AuditLogger, "catat", _dengan_jeda(AuditLogger.catat))
+    nama = ["Pasien A", "Pasien B"]
+
+    def kirim(klien):
+        isi = {"nama": nama.pop(), "perkiraan_usia": 30, "jenis_kelamin": "laki_laki", "nomor_bed": "ICU-3"}
+        return klien.post("/api/v1/kunjungan", json=isi, headers=header)
+
+    respons = _bersamaan(app, kirim)
+    assert sorted(r.status_code for r in respons) == [201, 422]
+    with app.app_context():
+        assert db.session.query(Kunjungan).filter_by(nomor_bed="ICU-3").count() == 1
 
 
 def _dokter(app):

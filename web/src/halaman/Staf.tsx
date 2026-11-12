@@ -363,7 +363,7 @@ export function HalamanStaf() {
           <div className="space-y-4">
             <p className="text-sm text-teks">
               {aksi.staf.is_active
-                ? `${aksi.staf.nama} langsung tidak bisa masuk setelah akun dinonaktifkan. Data triase yang pernah dibuatnya tetap tersimpan.`
+                ? `${aksi.staf.nama} langsung tidak bisa masuk setelah akun dinonaktifkan. Data observasi yang pernah dibuatnya tetap tersimpan.`
                 : `${aksi.staf.nama} bisa masuk lagi dengan password yang terakhir dipakai.`}
             </p>
             {galatUbah ? <Alert jenis="galat">{pesanError(galatUbah)}</Alert> : null}

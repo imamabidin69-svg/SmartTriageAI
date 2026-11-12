@@ -19,21 +19,42 @@ RegistrasiRequest _$RegistrasiRequestFromJson(Map<String, dynamic> json) =>
           : JenisKelamin.fromJson(json['jenis_kelamin'] as String),
       nik: json['nik'] as String?,
       noTelepon: json['no_telepon'] as String?,
+      nomorBed: json['nomor_bed'] as String,
+      asalRuangan: json['asal_ruangan'] == null
+          ? null
+          : RegistrasiRequestAsalRuangan.fromJson(
+              json['asal_ruangan'] as String,
+            ),
+      diagnosisMasuk: json['diagnosis_masuk'] as String?,
     );
 
-Map<String, dynamic> _$RegistrasiRequestToJson(RegistrasiRequest instance) =>
-    <String, dynamic>{
-      'id_pasien': instance.idPasien,
-      'nama': instance.nama,
-      'tanggal_lahir': instance.tanggalLahir?.toIso8601String(),
-      'perkiraan_usia': instance.perkiraanUsia,
-      'jenis_kelamin': _$JenisKelaminEnumMap[instance.jenisKelamin],
-      'nik': instance.nik,
-      'no_telepon': instance.noTelepon,
-    };
+Map<String, dynamic> _$RegistrasiRequestToJson(
+  RegistrasiRequest instance,
+) => <String, dynamic>{
+  'id_pasien': instance.idPasien,
+  'nama': instance.nama,
+  'tanggal_lahir': instance.tanggalLahir?.toIso8601String(),
+  'perkiraan_usia': instance.perkiraanUsia,
+  'jenis_kelamin': _$JenisKelaminEnumMap[instance.jenisKelamin],
+  'nik': instance.nik,
+  'no_telepon': instance.noTelepon,
+  'nomor_bed': instance.nomorBed,
+  'asal_ruangan': _$RegistrasiRequestAsalRuanganEnumMap[instance.asalRuangan],
+  'diagnosis_masuk': instance.diagnosisMasuk,
+};
 
 const _$JenisKelaminEnumMap = {
   JenisKelamin.lakiLaki: 'laki_laki',
   JenisKelamin.perempuan: 'perempuan',
   JenisKelamin.$unknown: r'$unknown',
+};
+
+const _$RegistrasiRequestAsalRuanganEnumMap = {
+  RegistrasiRequestAsalRuangan.igd: 'IGD',
+  RegistrasiRequestAsalRuangan.kamarOperasi: 'Kamar operasi',
+  RegistrasiRequestAsalRuangan.rawatInap: 'Rawat inap',
+  RegistrasiRequestAsalRuangan.rujukanRumahSakitLain:
+      'Rujukan rumah sakit lain',
+  RegistrasiRequestAsalRuangan.lainnya: 'Lainnya',
+  RegistrasiRequestAsalRuangan.$unknown: r'$unknown',
 };

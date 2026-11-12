@@ -4,7 +4,6 @@ import contextlib
 import io
 import threading
 import uuid
-from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -13,10 +12,9 @@ from werkzeug.test import encode_multipart
 
 from app.ai.eir.agen import PENUTUP, PERTANYAAN_PEMBUKA
 from app.ai.eir.llm import LlmTidakTersediaError, LlmTiruan
-from app.ai.eir.tanda_bahaya import ARAHAN_TANDA_BAHAYA
 from app.extensions import db
 from app.models import Kunjungan, Pasien, SesiEir
-from app.models.enums import JenisKelamin, PengisiEir, Peran, RiskLevel, StatusKunjungan, StatusSesiEir
+from app.models.enums import JenisKelamin, PengisiEir, Peran, RiskLevel, StatusKunjungan, StatusSesiEir, StatusValidasi
 from app.services.eir_service import jenis_audio
 from app.utils.errors import Tipe, ValidasiGagalError
 
@@ -69,9 +67,9 @@ def perawat(masuk):
 
 
 @pytest.fixture
-def kunjungan_hijau(buat_kunjungan, buat_triase):
+def pasien_icu(buat_kunjungan, buat_triase):
     kunjungan = buat_kunjungan(nama="Rina Marlina", nik="3201234567890123", no_telepon="081234567890")
-    buat_triase(kunjungan, RiskLevel.RENDAH)
+    buat_triase(kunjungan, RiskLevel.RENDAH, StatusValidasi.DISETUJUI)
     return kunjungan
 
 
@@ -84,9 +82,9 @@ def _buka(client, token, pengisi="pasien", setuju=True):
 
 
 @pytest.fixture
-def sesi(client, perawat, kunjungan_hijau, llm):
+def sesi(client, perawat, pasien_icu, llm):
     """Sesi Eir yang sudah dibuka: (id_sesi, header token sesi)."""
-    token = _tautan(client, perawat, kunjungan_hijau).get_json()["token"]
+    token = _tautan(client, perawat, pasien_icu).get_json()["token"]
     isi = _buka(client, token).get_json()
     return isi["id_sesi"], {"X-Token-Eir": isi["token_sesi"]}
 
@@ -122,8 +120,8 @@ def _ambil_sesi(id_sesi) -> SesiEir:
 # ---------------------------------------------------------------- tautan Eir (perawat)
 
 
-def test_perawat_membuat_tautan_untuk_zona_hijau(client, perawat, kunjungan_hijau):
-    respons = _tautan(client, perawat, kunjungan_hijau)
+def test_perawat_membuat_tautan_untuk_keluarga_pasien_icu(client, perawat, pasien_icu):
+    respons = _tautan(client, perawat, pasien_icu)
     assert respons.status_code == 201
     isi = respons.get_json()
     assert isi["url"] == f"http://localhost/eir#t={isi['token']}"
@@ -131,8 +129,8 @@ def test_perawat_membuat_tautan_untuk_zona_hijau(client, perawat, kunjungan_hija
 
 
 @pytest.mark.parametrize("peran", [Peran.DOKTER, Peran.ADMIN])
-def test_tautan_hanya_untuk_perawat(client, masuk, kunjungan_hijau, peran):
-    assert _tautan(client, masuk(peran), kunjungan_hijau).status_code == 403
+def test_tautan_hanya_untuk_perawat(client, masuk, pasien_icu, peran):
+    assert _tautan(client, masuk(peran), pasien_icu).status_code == 403
 
 
 def test_tautan_kunjungan_tidak_ada(client, perawat):
@@ -141,36 +139,31 @@ def test_tautan_kunjungan_tidak_ada(client, perawat):
 
 
 @pytest.mark.parametrize(
-    ("level", "status", "pesan"),
+    ("level", "status"),
     [
-        (None, StatusKunjungan.MENUNGGU, "belum ditriase"),
-        (RiskLevel.SEDANG, StatusKunjungan.MENUNGGU, "risk level terakhir rendah"),
-        (RiskLevel.RENDAH, StatusKunjungan.DITANGANI, "masih menunggu"),
+        (None, StatusKunjungan.MENUNGGU),
+        (RiskLevel.KRITIS, StatusKunjungan.MENUNGGU),
+        (RiskLevel.TINGGI, StatusKunjungan.DITANGANI),
     ],
 )
-def test_tautan_ditolak_bila_bukan_zona_hijau(client, perawat, buat_kunjungan, buat_triase, level, status, pesan):
+def test_tautan_untuk_semua_level_selama_masih_di_icu(client, perawat, buat_kunjungan, buat_triase, level, status):
     kunjungan = buat_kunjungan(status=status)
     if level is not None:
         buat_triase(kunjungan, level)
-    respons = _tautan(client, perawat, kunjungan)
+    assert _tautan(client, perawat, kunjungan).status_code == 201
+
+
+def test_tautan_ditolak_bila_pasien_sudah_keluar_icu(client, perawat, buat_kunjungan):
+    respons = _tautan(client, perawat, buat_kunjungan(status=StatusKunjungan.SELESAI))
     assert respons.status_code == 409
-    assert pesan in respons.get_json()["detail"]
-
-
-def test_level_terakhir_yang_dipakai(client, perawat, buat_kunjungan, buat_triase):
-    # Waktu dibuat eksplisit: dalam satu transaksi tes, now() selalu sama sehingga urutannya tidak pasti.
-    kunjungan = buat_kunjungan()
-    sekarang = datetime.now(UTC)
-    buat_triase(kunjungan, RiskLevel.RENDAH, waktu=sekarang - timedelta(minutes=30))
-    buat_triase(kunjungan, RiskLevel.TINGGI, waktu=sekarang)
-    assert _tautan(client, perawat, kunjungan).status_code == 409
+    assert "sudah keluar dari ICU" in respons.get_json()["detail"]
 
 
 # ---------------------------------------------------------------- membuka sesi (pasien atau keluarga)
 
 
-def test_buka_sesi_dengan_persetujuan(client, perawat, kunjungan_hijau, llm):
-    token = _tautan(client, perawat, kunjungan_hijau).get_json()["token"]
+def test_buka_sesi_dengan_persetujuan(client, perawat, pasien_icu, llm):
+    token = _tautan(client, perawat, pasien_icu).get_json()["token"]
     respons = _buka(client, token, pengisi="keluarga")
     assert respons.status_code == 201
     isi = respons.get_json()
@@ -180,14 +173,14 @@ def test_buka_sesi_dengan_persetujuan(client, perawat, kunjungan_hijau, llm):
     assert (sesi.pengisi.value, sesi.status, sesi.id_kunjungan) == (
         "keluarga",
         StatusSesiEir.BERJALAN,
-        kunjungan_hijau.id_kunjungan,
+        pasien_icu.id_kunjungan,
     )
     assert sesi.waktu_persetujuan is not None
     assert sesi.transkrip[0]["peran"] == "eir"
 
 
-def test_persetujuan_wajib(client, perawat, kunjungan_hijau):
-    token = _tautan(client, perawat, kunjungan_hijau).get_json()["token"]
+def test_persetujuan_wajib(client, perawat, pasien_icu):
+    token = _tautan(client, perawat, pasien_icu).get_json()["token"]
     respons = _buka(client, token, setuju=False)
     assert respons.status_code == 422
     assert respons.get_json()["errors"] == [
@@ -195,20 +188,20 @@ def test_persetujuan_wajib(client, perawat, kunjungan_hijau):
     ]
 
 
-def test_buka_sesi_token_rusak_atau_kedaluwarsa(app, client, perawat, kunjungan_hijau, monkeypatch):
+def test_buka_sesi_token_rusak_atau_kedaluwarsa(app, client, perawat, pasien_icu, monkeypatch):
     respons = _buka(client, "bukan-token")
     assert respons.status_code == 401
     assert respons.get_json()["type"] == Tipe.TOKEN_TIDAK_VALID
-    token = _tautan(client, perawat, kunjungan_hijau).get_json()["token"]
+    token = _tautan(client, perawat, pasien_icu).get_json()["token"]
     monkeypatch.setitem(app.config, "UMUR_TOKEN_EIR_DETIK", -1)
     respons = _buka(client, token)
     assert respons.status_code == 401
     assert respons.get_json()["type"] == Tipe.TOKEN_KEDALUWARSA
 
 
-def test_buka_sesi_ditolak_bila_pasien_sudah_dipanggil(client, perawat, kunjungan_hijau, sesi_db):
-    token = _tautan(client, perawat, kunjungan_hijau).get_json()["token"]
-    kunjungan_hijau.status = StatusKunjungan.DITANGANI
+def test_buka_sesi_ditolak_bila_pasien_sudah_keluar_icu(client, perawat, pasien_icu, sesi_db):
+    token = _tautan(client, perawat, pasien_icu).get_json()["token"]
+    pasien_icu.status = StatusKunjungan.SELESAI
     sesi_db.commit()
     assert _buka(client, token).status_code == 409
 
@@ -238,24 +231,23 @@ def test_identitas_tidak_dikirim_ke_llm(client, sesi, llm):
     assert "Rina" in _ambil_sesi(sesi[0]).transkrip[1]["teks"]
 
 
-def test_tanda_bahaya_menghentikan_sesi_dan_memicu_peringatan(client, sesi, llm, masuk):
-    # SKPL TC-14: percakapan dihentikan tanpa memanggil LLM dan perawat menerima peringatan.
-    respons = _pesan(client, sesi, "dada saya seperti ditekan")
+def test_informasi_penting_dicatat_dan_memicu_peringatan(client, sesi, llm, masuk):
+    # SKPL TC-14 untuk ICU: alergi obat ditandai untuk perawat tanpa menghentikan percakapan.
+    respons = _pesan(client, sesi, "Bapak alergi amoxicillin, dulu badannya bentol")
     assert respons.status_code == 200
-    assert respons.get_json()["status"] == "dihentikan"
-    assert respons.get_json()["pesan"] == ARAHAN_TANDA_BAHAYA
-    assert llm.panggilan == []
+    assert respons.get_json()["status"] == "berjalan"
+    assert respons.get_json()["pesan"].startswith("Terima kasih, informasi ini kami tandai")
+    assert _ambil_sesi(sesi[0]).tanda_bahaya == "Alergi obat"
     peringatan = client.get("/api/v1/peringatan", headers=masuk(Peran.PERAWAT)[1]).get_json()["items"]
-    assert [p["jenis"] for p in peringatan] == ["tanda_bahaya_eir"]
-    assert "Nyeri dada seperti ditekan" in peringatan[0]["alasan"]
-    respons = _pesan(client, sesi, "halo")
-    assert respons.status_code == 409
-    assert respons.get_json()["status_sesi"] == "dihentikan"
+    assert [p["jenis"] for p in peringatan] == ["informasi_penting_eir"]
+    assert peringatan[0]["alasan"] == "Informasi penting dari keluarga lewat Eir: Alergi obat"
+    assert _pesan(client, sesi, "minum amlodipin tiap pagi").status_code == 200
 
 
-def test_tanda_bahaya_tetap_berjalan_saat_groq_mati(client, sesi, pakai_llm):
+def test_informasi_penting_tetap_tercatat_saat_groq_mati(client, sesi, pakai_llm):
     pakai_llm(LlmUji(gagal=True))
-    assert _pesan(client, sesi, "anak saya kejang").get_json()["status"] == "dihentikan"
+    assert _pesan(client, sesi, "bapak rutin minum warfarin").status_code == 503
+    assert _ambil_sesi(sesi[0]).tanda_bahaya == "Memakai obat pengencer darah"
 
 
 def test_groq_mati_jawaban_tetap_tersimpan(client, sesi, pakai_llm):
@@ -320,8 +312,8 @@ def test_pesan_tanpa_token_valid(client, sesi, header, pesan):
     assert pesan in respons.get_json()["detail"]
 
 
-def test_token_sesi_lain_ditolak(client, perawat, kunjungan_hijau, sesi):
-    token = _tautan(client, perawat, kunjungan_hijau).get_json()["token"]
+def test_token_sesi_lain_ditolak(client, perawat, pasien_icu, sesi):
+    token = _tautan(client, perawat, pasien_icu).get_json()["token"]
     sesi_lain = _buka(client, token).get_json()
     respons = _pesan(client, (sesi[0], {"X-Token-Eir": sesi_lain["token_sesi"]}))
     assert respons.status_code == 401
@@ -335,8 +327,8 @@ def test_sesi_tidak_ditemukan(app, client):
     assert _pesan(client, (str(id_sesi), {"X-Token-Eir": token})).status_code == 404
 
 
-def test_pesan_ditolak_bila_pasien_sudah_dipanggil(client, sesi, kunjungan_hijau, sesi_db):
-    kunjungan_hijau.status = StatusKunjungan.DITANGANI
+def test_pesan_ditolak_bila_pasien_sudah_dipanggil(client, sesi, pasien_icu, sesi_db):
+    pasien_icu.status = StatusKunjungan.DITANGANI
     sesi_db.commit()
     respons = _pesan(client, sesi)
     assert respons.status_code == 409
@@ -381,8 +373,8 @@ def test_selesai_butuh_tujuh_jawaban(client, sesi):
 def test_selesai_membuat_ringkasan_untuk_perawat(app, client, sesi, monkeypatch, masuk):
     # SKPL TC-15: ringkasan masuk ke data pasien dan menunggu pemeriksaan perawat.
     monkeypatch.setitem(app.config, "EIR_MIN_JAWABAN", 2)
-    _pesan(client, sesi, "perut sakit sejak semalam")
-    _pesan(client, sesi, "nyerinya di kanan bawah")
+    _pesan(client, sesi, "sesak sejak semalam lalu tidak bisa dibangunkan")
+    _pesan(client, sesi, "punya darah tinggi")
     respons = _selesai(client, sesi)
     assert respons.status_code == 200
     assert (respons.get_json()["status"], respons.get_json()["pesan"]) == ("selesai", PENUTUP)
@@ -393,8 +385,13 @@ def test_selesai_membuat_ringkasan_untuk_perawat(app, client, sesi, monkeypatch,
         f"/api/v1/kunjungan/{tersimpan.id_kunjungan}/ringkasan-eir", headers=masuk(Peran.PERAWAT)[1]
     ).get_json()
     assert ringkasan["status"] == "selesai"
-    assert ringkasan["ringkasan"]["keluhan_utama"] == "perut sakit sejak semalam"
-    assert ringkasan["ringkasan"]["kategori_keluhan"] == "Lainnya"
+    assert ringkasan["ringkasan"] == {
+        "kronologi": "sesak sejak semalam lalu tidak bisa dibangunkan",
+        "riwayat_penyakit": "punya darah tinggi",
+        "obat_rutin": "Tidak disebutkan",
+        "alergi": "Tidak disebutkan",
+        "informasi_lain": "Tidak disebutkan",
+    }
     assert [i["peran"] for i in ringkasan["transkrip"]] == ["eir", "pengisi", "eir", "pengisi", "eir", "eir"]
 
 
@@ -422,9 +419,10 @@ def test_suara_diubah_ke_teks_lalu_diproses(client, sesi, llm):
     assert _ambil_sesi(sesi[0]).transkrip[1]["teks"] == "pusing sejak pagi"
 
 
-def test_suara_dengan_tanda_bahaya(client, sesi, pakai_llm):
-    pakai_llm(LlmUji(teks_suara="bapak saya tiba-tiba bicaranya pelo"))
-    assert _suara(client, sesi).get_json()["status"] == "dihentikan"
+def test_suara_dengan_informasi_penting(client, sesi, pakai_llm):
+    pakai_llm(LlmUji(teks_suara="ibu sedang hamil empat bulan"))
+    assert _suara(client, sesi).get_json()["status"] == "berjalan"
+    assert _ambil_sesi(sesi[0]).tanda_bahaya == "Sedang hamil atau baru melahirkan"
 
 
 @pytest.mark.parametrize(
@@ -477,8 +475,10 @@ def test_suara_gagal_diubah(client, sesi, pakai_llm, llm_uji, kode):
     assert _ambil_sesi(sesi[0]).jumlah_jawaban == 0
 
 
-def test_suara_untuk_sesi_yang_berakhir_tidak_dikirim_ke_groq(client, sesi, llm):
-    _pesan(client, sesi, "anak saya kejang")
+def test_suara_untuk_sesi_yang_berakhir_tidak_dikirim_ke_groq(app, client, sesi, llm, monkeypatch):
+    monkeypatch.setitem(app.config, "EIR_MIN_JAWABAN", 1)
+    _pesan(client, sesi, "sesak sejak semalam")
+    assert _selesai(client, sesi).status_code == 200
     assert _suara(client, sesi).status_code == 409
     assert llm.audio == []
 
@@ -503,34 +503,32 @@ def test_jenis_audio(awal, jenis):
 # ---------------------------------------------------------------- ringkasan untuk perawat (keputusan E1)
 
 
-def test_ringkasan_eir_untuk_dokter_dan_404(client, masuk, sesi, kunjungan_hijau, buat_kunjungan):
-    _pesan(client, sesi, "dada saya seperti ditekan")
+def test_ringkasan_eir_untuk_dokter_dan_404(client, masuk, sesi, pasien_icu, buat_kunjungan):
+    _pesan(client, sesi, "alergi udang")
     dokter = masuk(Peran.DOKTER)[1]
-    isi = client.get(f"/api/v1/kunjungan/{kunjungan_hijau.id_kunjungan}/ringkasan-eir", headers=dokter).get_json()
-    assert (isi["status"], isi["ringkasan"]) == ("dihentikan", None)
-    assert isi["tanda_bahaya"] == "Nyeri dada seperti ditekan atau menjalar"
+    isi = client.get(f"/api/v1/kunjungan/{pasien_icu.id_kunjungan}/ringkasan-eir", headers=dokter).get_json()
+    assert (isi["status"], isi["ringkasan"]) == ("berjalan", None)
+    assert isi["tanda_bahaya"] == "Alergi makanan atau bahan lain"
 
     tanpa_sesi = buat_kunjungan()
     respons = client.get(f"/api/v1/kunjungan/{tanpa_sesi.id_kunjungan}/ringkasan-eir", headers=dokter)
     assert respons.status_code == 404
     assert "belum punya sesi" in respons.get_json()["detail"]
     respons = client.get(f"/api/v1/kunjungan/{uuid.uuid4()}/ringkasan-eir", headers=dokter)
-    assert respons.get_json()["detail"] == "Kunjungan tidak ditemukan."
+    assert respons.get_json()["detail"] == "Pasien ICU tidak ditemukan."
 
 
-def test_ringkasan_eir_mengambil_sesi_terbaru(client, perawat, kunjungan_hijau, llm):
-    token = _tautan(client, perawat, kunjungan_hijau).get_json()["token"]
+def test_ringkasan_eir_mengambil_sesi_terbaru(client, perawat, pasien_icu, llm):
+    token = _tautan(client, perawat, pasien_icu).get_json()["token"]
     pertama = _buka(client, token).get_json()["id_sesi"]
     kedua = _buka(client, token, pengisi="keluarga").get_json()["id_sesi"]
     assert pertama != kedua
-    isi = client.get(f"/api/v1/kunjungan/{kunjungan_hijau.id_kunjungan}/ringkasan-eir", headers=perawat[1]).get_json()
+    isi = client.get(f"/api/v1/kunjungan/{pasien_icu.id_kunjungan}/ringkasan-eir", headers=perawat[1]).get_json()
     assert (isi["id_sesi"], isi["pengisi"]) == (kedua, "keluarga")
 
 
-def test_ringkasan_eir_ditolak_untuk_admin(client, masuk, kunjungan_hijau):
-    respons = client.get(
-        f"/api/v1/kunjungan/{kunjungan_hijau.id_kunjungan}/ringkasan-eir", headers=masuk(Peran.ADMIN)[1]
-    )
+def test_ringkasan_eir_ditolak_untuk_admin(client, masuk, pasien_icu):
+    respons = client.get(f"/api/v1/kunjungan/{pasien_icu.id_kunjungan}/ringkasan-eir", headers=masuk(Peran.ADMIN)[1])
     assert respons.status_code == 403
 
 

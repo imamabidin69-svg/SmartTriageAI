@@ -6,7 +6,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 import 'item_transkrip.dart';
 import 'pengisi_eir.dart';
-import 'ringkasan_triase.dart';
+import 'ringkasan_keluarga.dart';
 import 'status_sesi_eir.dart';
 
 part 'ringkasan_eir_response.g.dart';
@@ -37,11 +37,13 @@ class RingkasanEirResponse {
   final DateTime waktuPersetujuan;
   @JsonKey(name: 'waktu_selesai')
   final DateTime? waktuSelesai;
+
+  /// Informasi penting yang ditandai Eir, misalnya alergi obat atau obat pengencer darah.
   @JsonKey(name: 'tanda_bahaya')
   final String? tandaBahaya;
 
-  /// Draf form triase; wajib diperiksa perawat sebelum dipakai.
-  final RingkasanTriase? ringkasan;
+  /// Ringkasan riwayat dari keluarga; wajib diperiksa perawat.
+  final RingkasanKeluarga? ringkasan;
   final List<ItemTranskrip> transkrip;
 
   Map<String, Object?> toJson() => _$RingkasanEirResponseToJson(this);

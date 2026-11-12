@@ -111,7 +111,7 @@ class _HalamanLoginState extends ConsumerState<HalamanLogin> {
                             ),
                             const SizedBox(height: 6),
                             const Text(
-                              'Untuk perawat dan dokter IGD.',
+                              'Untuk perawat dan dokter ICU.',
                               style: TextStyle(color: Warna.teksRedup, fontSize: 16),
                             ),
                             const SizedBox(height: 24),
@@ -157,7 +157,7 @@ class _HalamanLoginState extends ConsumerState<HalamanLogin> {
                             TombolProses(label: 'Masuk', sibuk: _sibuk, onPressed: _masuk),
                             const SizedBox(height: 14),
                             const Text(
-                              'Lupa password? Minta admin IGD untuk mengatur ulang.',
+                              'Lupa password? Minta admin ICU untuk mengatur ulang.',
                               style: TextStyle(color: Warna.teksRedup, fontSize: 14),
                             ),
                             const Spacer(),

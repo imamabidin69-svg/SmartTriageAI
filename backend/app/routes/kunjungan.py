@@ -63,10 +63,11 @@ def cari_pasien(query: CariPasienQuery):
 
 @kunjungan_bp.post(
     "/kunjungan",
-    summary="Registrasi singkat dan pembuatan kunjungan",
+    summary="Mencatat pasien masuk ICU",
     description=(
-        "Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru. Pasien dengan NIK yang sudah "
-        "terdaftar dipakai ulang bila nama dan jenis kelaminnya sama."
+        "Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru, lalu nomor bed, asal ruangan, dan "
+        "diagnosis masuk. Pasien dengan NIK yang sudah terdaftar dipakai ulang bila nama dan jenis kelaminnya "
+        "sama. Bed yang masih ditempati pasien lain dibalas 422 pada field nomor_bed."
     ),
     responses={201: KunjunganDibuatResponse, **respons_problem_doc(401, 403, 409)},
 )
@@ -81,16 +82,18 @@ def registrasi(body: RegistrasiRequest):
         pasien_baru=hasil.pasien_baru,
         status=kunjungan.status,
         waktu_datang=kunjungan.waktu_datang,
+        nomor_bed=kunjungan.nomor_bed,
     )
     return jsonify(respons.model_dump(mode="json")), 201
 
 
 @kunjungan_bp.patch(
     "/kunjungan/<uuid:id_kunjungan>/status",
-    summary="Menandai pasien mulai diperiksa atau selesai",
+    summary="Mengubah status pasien ICU",
     description=(
-        "Dokter mengubah status menunggu ke ditangani (pasien keluar dari daftar tunggu), ditangani ke selesai, "
-        "atau menunggu ke selesai untuk pasien yang batal diperiksa. Perubahan lain dibalas 409."
+        "Dokter menandai pasien mulai tindakan atau operasi (ditangani), kembali dipantau setelah tindakan "
+        "(menunggu), atau keluar ICU (selesai). Pasien yang sedang tindakan tetap tampil di papan prioritas di "
+        "urutan paling bawah. Perubahan lain dibalas 409."
     ),
     responses={200: StatusKunjunganResponse, **respons_problem_doc(401, 403, 404, 409)},
 )
@@ -106,10 +109,10 @@ def ubah_status(path: KunjunganPath, body: StatusKunjunganRequest):
 
 @kunjungan_bp.post(
     "/kunjungan/<uuid:id_kunjungan>/tautan-eir",
-    summary="Membuat tautan Eir untuk kode QR",
+    summary="Membuat tautan Eir untuk keluarga pasien",
     description=(
-        "Khusus kunjungan yang masih menunggu dan risk level terakhirnya rendah. Token berlaku dua jam dan "
-        "ditampilkan sebagai kode QR untuk pasien atau keluarga. Kunjungan lain dibalas 409."
+        "Untuk pasien yang masih di ICU, apa pun levelnya. Token berlaku dua jam dan ditampilkan sebagai kode QR "
+        "untuk keluarga. Pasien yang sudah keluar ICU dibalas 409."
     ),
     responses={201: TautanEirResponse, **respons_problem_doc(401, 403, 404, 409)},
 )
@@ -125,11 +128,11 @@ def tautan_eir(path: KunjunganPath):
 
 @kunjungan_bp.get(
     "/kunjungan/<uuid:id_kunjungan>/ringkasan-eir",
-    summary="Membaca ringkasan Eir terakhir sebagai draf form triase",
+    summary="Membaca ringkasan riwayat dari keluarga lewat Eir",
     description=(
-        "Sesi Eir terbaru untuk kunjungan ini (keputusan E1), berisi ringkasan, transkrip, dan tanda bahaya bila "
-        "sesi dihentikan. Ringkasan masih draf dan wajib diperiksa perawat sebelum dipakai di form triase. "
-        "404 bila kunjungan belum punya sesi Eir."
+        "Sesi Eir terbaru untuk pasien ini (keputusan E1), berisi ringkasan riwayat (kronologi, penyakit, obat "
+        "rutin, alergi, informasi lain), transkrip, dan informasi penting yang ditandai. Ringkasan berasal dari "
+        "keterangan keluarga dan wajib diperiksa perawat. 404 bila pasien belum punya sesi Eir."
     ),
     responses={200: RingkasanEirResponse, **respons_problem_doc(401, 403, 404)},
 )

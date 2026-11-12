@@ -1,4 +1,4 @@
-/** Format angka dan waktu gaya Indonesia. Waktu dari server berupa UTC; IGD memakai WIB. */
+/** Format angka dan waktu gaya Indonesia. Waktu dari server berupa UTC; rumah sakit memakai WIB. */
 
 const ZONA_WIB = "Asia/Jakarta";
 

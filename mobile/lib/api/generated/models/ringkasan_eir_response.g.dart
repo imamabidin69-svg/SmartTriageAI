@@ -20,7 +20,7 @@ RingkasanEirResponse _$RingkasanEirResponseFromJson(
   tandaBahaya: json['tanda_bahaya'] as String?,
   ringkasan: json['ringkasan'] == null
       ? null
-      : RingkasanTriase.fromJson(json['ringkasan'] as Map<String, dynamic>),
+      : RingkasanKeluarga.fromJson(json['ringkasan'] as Map<String, dynamic>),
   transkrip: (json['transkrip'] as List<dynamic>)
       .map((e) => ItemTranskrip.fromJson(e as Map<String, dynamic>))
       .toList(),

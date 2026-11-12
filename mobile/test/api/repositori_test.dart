@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -101,9 +102,10 @@ void main() {
           };
     final daftar = await repo.daftarTunggu();
     expect(daftar.items.single.ringkasanEirSiap, isTrue);
-    expect(daftar.items.single.statusTanda, ItemDaftarTungguStatusTanda.perluTriaseUlang);
+    expect(daftar.items.single.statusTanda, ItemDaftarTungguStatusTanda.observasiTerlambat);
+    expect(daftar.items.single.nomorBed, 'ICU-2');
     final items = await repo.peringatan();
-    expect(items.single.jenis, ItemPeringatanJenis.kritisBelumDivalidasi);
+    expect(items.single.jenis, ItemPeringatanJenis.menungguPersetujuan);
     expect(terakhir().path, '/api/v1/peringatan');
   });
 
@@ -123,8 +125,12 @@ void main() {
       jenisKelamin: JenisKelamin.perempuan,
       nik: null,
       noTelepon: null,
+      nomorBed: 'ICU-2',
+      asalRuangan: RegistrasiRequestAsalRuangan.igd,
+      diagnosisMasuk: 'Syok sepsis',
     );
-    expect((await repo.registrasi(data)).idKunjungan, idKunjungan);
+    expect((await repo.registrasi(data)).nomorBed, 'ICU-2');
+    expect((terakhir().data as Map)['asal_ruangan'], 'IGD');
     expect(terakhir().path, '/api/v1/kunjungan');
 
     jawaban = (_) => {'id_kunjungan': idKunjungan, 'status': 'ditangani', 'waktu_ditangani': null};
@@ -138,23 +144,24 @@ void main() {
     expect(terakhir().path, '/api/v1/kunjungan/$idKunjungan/tautan-eir');
 
     jawaban = (_) => ringkasanEir().toJson();
-    expect((await repo.ringkasanEir(idKunjungan)).ringkasan!.kategoriKeluhan, KategoriKeluhan.demam);
+    expect((await repo.ringkasanEir(idKunjungan)).ringkasan!.alergi, 'Alergi amoxicillin');
   });
 
   test('triase, validasi, riwayat, dan pemindaian', () async {
     jawaban = (_) => jsonTriaseDetail();
     const input = TriaseInput(
-      keluhanUtama: 'Nyeri dada',
-      gejala: 'Nyeri dada sejak pagi',
-      kategoriKeluhan: KategoriKeluhan.nyeriDada,
-      skalaNyeri: 7,
       tingkatKesadaran: TingkatKesadaran.a,
+      oksigenTambahan: true,
+      catatan: null,
+      lab: HasilLab(laktat: 3.4, kreatinin: null, trombosit: null, leukosit: null, bilirubin: null),
       tandaVital: TandaVital(tdSistolik: 158, tdDiastolik: 96, nadi: 104, lajuNapas: 22, suhu: 37.2, saturasi: 95),
       idPemindaian: [],
     );
     expect((await repo.buatTriase(idKunjungan, input)).riskLevel, RiskLevel.tinggi);
     expect(terakhir().path, '/api/v1/kunjungan/$idKunjungan/triase');
-    expect((await repo.detailTriase(idTriase)).penjelasanAi.faktor, hasLength(4));
+    final kirim = jsonDecode(jsonEncode(terakhir().data)) as Map;
+    expect((kirim['oksigen_tambahan'], (kirim['lab'] as Map)['laktat']), (true, 3.4));
+    expect((await repo.detailTriase(idTriase)).penjelasanAi.faktor, hasLength(3));
     expect(terakhir().path, '/api/v1/triase/$idTriase');
     await repo.validasi(
       idTriase,

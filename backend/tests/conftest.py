@@ -196,13 +196,14 @@ def buat_kunjungan(sesi_db: scoped_session, buat_pengguna: Callable[..., Penggun
         nama: str = "Pasien Simulasi",
         waktu_datang: datetime | None = None,
         status: StatusKunjungan = StatusKunjungan.MENUNGGU,
+        nomor_bed: str | None = None,
         **pasien: Any,
     ) -> Kunjungan:
         data_pasien = {"perkiraan_usia": 40, "jenis_kelamin": JenisKelamin.PEREMPUAN, **pasien}
         baru = Pasien(didaftarkan_oleh=perawat.id_pengguna, nama=nama, **data_pasien)
         sesi_db.add(baru)
         sesi_db.flush()
-        kunjungan = Kunjungan(id_pasien=baru.id_pasien, status=status)
+        kunjungan = Kunjungan(id_pasien=baru.id_pasien, status=status, nomor_bed=nomor_bed)
         if waktu_datang is not None:
             kunjungan.waktu_datang = waktu_datang
         sesi_db.add(kunjungan)
@@ -210,6 +211,17 @@ def buat_kunjungan(sesi_db: scoped_session, buat_pengguna: Callable[..., Penggun
         return kunjungan
 
     return _buat
+
+
+PENJELASAN_KOSONG = {
+    "versi_model": None,
+    "skor_news2": 0,
+    "level_news2": "rendah",
+    "komponen_news2": [],
+    "peluang_perburukan": None,
+    "level_model": None,
+    "faktor": [],
+}
 
 
 @pytest.fixture
@@ -223,6 +235,7 @@ def buat_triase(sesi_db: scoped_session, buat_pengguna: Callable[..., Pengguna])
         status: StatusValidasi = StatusValidasi.MENUNGGU,
         waktu: datetime | None = None,
         jenis: JenisTriase | None = None,
+        **kolom: Any,
     ) -> Triase:
         if jenis is None:
             sudah_ada = sesi_db.query(Triase).filter_by(id_kunjungan=kunjungan.id_kunjungan).count()
@@ -231,9 +244,6 @@ def buat_triase(sesi_db: scoped_session, buat_pengguna: Callable[..., Pengguna])
             id_kunjungan=kunjungan.id_kunjungan,
             jenis=jenis,
             dibuat_oleh=perawat.id_pengguna,
-            keluhan_utama="Pusing",
-            gejala="Pusing berputar sejak pagi tanpa muntah",
-            skala_nyeri=3,
             tingkat_kesadaran=TingkatKesadaran.SADAR_PENUH,
             td_sistolik=120,
             td_diastolik=80,
@@ -244,8 +254,9 @@ def buat_triase(sesi_db: scoped_session, buat_pengguna: Callable[..., Pengguna])
             sumber_tanda_vital=SumberTandaVital.MANUAL,
             risk_level=risk_level,
             sumber_rekomendasi=SumberRekomendasi.MODEL,
-            penjelasan_ai={"versi_model": None, "faktor": [], "probabilitas": None},
+            penjelasan_ai=PENJELASAN_KOSONG,
             status_validasi=status,
+            **{"skor_news2": 0, **kolom},
         )
         if waktu is not None:
             triase.waktu_triase = waktu

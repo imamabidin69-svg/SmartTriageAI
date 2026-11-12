@@ -304,13 +304,7 @@ def test_tanpa_login(client):
 # ---------------------------------------------------------------- alur sampai triase dan rekap
 
 
-ISIAN_TRIASE = {
-    "keluhan_utama": "Pusing",
-    "gejala": "Pusing berputar sejak pagi tanpa muntah",
-    "kategori_keluhan": "Pusing",
-    "skala_nyeri": 2,
-    "tingkat_kesadaran": "A",
-}
+ISIAN_TRIASE = {"tingkat_kesadaran": "A", "oksigen_tambahan": False}
 
 
 def test_hasil_pemindaian_dipakai_form_triase_dan_masuk_rekap(client, perawat, kunjungan, sesi_db):

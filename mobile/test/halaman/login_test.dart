@@ -18,7 +18,7 @@ void main() {
 
   testWidgets('belum login diarahkan ke halaman Masuk, lalu masuk ke daftar tunggu (TC-01)', (tester) async {
     await jalankanAplikasi(tester, repo, peran: null);
-    expect(find.text('Untuk perawat dan dokter IGD.'), findsOneWidget);
+    expect(find.text('Untuk perawat dan dokter ICU.'), findsOneWidget);
 
     when(() => repo.masuk('perawat@smarttriage.demo', 'rahasia123')).thenAnswer((_) async => pengguna('perawat'));
     await tester.enterText(find.widgetWithText(TextFormField, 'Email'), ' perawat@smarttriage.demo ');
@@ -26,7 +26,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Daftar Tunggu IGD'), findsOneWidget);
+    expect(find.text('Prioritas Pasien ICU'), findsOneWidget);
     expect(find.text('Budi Santoso'), findsOneWidget);
     await tutupAplikasi(tester);
   });
@@ -103,9 +103,9 @@ void main() {
     expect(find.text('Tidak dapat terhubung.'), findsOneWidget);
     await tester.tap(find.text('Coba lagi'));
     await tester.pumpAndSettle();
-    expect(find.text('Daftar Tunggu IGD'), findsOneWidget);
+    expect(find.text('Prioritas Pasien ICU'), findsOneWidget);
     // Dokter tidak melihat tab Triase Baru.
-    expect(find.text('Triase Baru'), findsNothing);
+    expect(find.text('Pasien Masuk'), findsNothing);
     await tutupAplikasi(tester);
   });
 
@@ -115,7 +115,7 @@ void main() {
         .thenThrow(const GalatApi(status: 401, tipe: GalatApi.tipeTidakTerautentikasi, judul: 'Sesi berakhir'));
     when(() => repo.hapusSesi()).thenAnswer((_) async {});
     await jalankanAplikasi(tester, repo, aturSesi: false);
-    expect(find.text('Untuk perawat dan dokter IGD.'), findsOneWidget);
+    expect(find.text('Untuk perawat dan dokter ICU.'), findsOneWidget);
     verify(() => repo.hapusSesi()).called(1);
     await tutupAplikasi(tester);
   });
@@ -125,7 +125,7 @@ void main() {
     when(() => repo.saya()).thenAnswer((_) async => pengguna('admin'));
     when(() => repo.hapusSesi()).thenAnswer((_) async {});
     await jalankanAplikasi(tester, repo, aturSesi: false);
-    expect(find.text('Untuk perawat dan dokter IGD.'), findsOneWidget);
+    expect(find.text('Untuk perawat dan dokter ICU.'), findsOneWidget);
     await tutupAplikasi(tester);
   });
 }

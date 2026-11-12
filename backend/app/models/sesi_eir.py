@@ -44,11 +44,11 @@ class SesiEir(db.Model):
         item = {"peran": peran, "teks": teks, "waktu": waktu.astimezone(UTC).isoformat()}
         self.transkrip = [*(self.transkrip or []), item]
 
-    def hentikan(self, alasan: str, waktu: datetime) -> None:
-        """Sesi dihentikan karena tanda bahaya; peringatan muncul di GET /peringatan."""
-        self.status = StatusSesiEir.DIHENTIKAN
-        self.tanda_bahaya = alasan
-        self.waktu_selesai = waktu
+    def tandai_informasi(self, label: list[str]) -> None:
+        """Menambah label informasi penting tanpa duplikat. Kolom tanda_bahaya dari SKPL dipakai untuk ini;
+        isinya muncul sebagai peringatan untuk perawat di GET /peringatan."""
+        lama = [b for b in (self.tanda_bahaya or "").split("; ") if b]
+        self.tanda_bahaya = "; ".join(dict.fromkeys([*lama, *label]))
 
     def selesaikan(self, ringkasan: dict[str, Any], waktu: datetime) -> None:
         self.status = StatusSesiEir.SELESAI

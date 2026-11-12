@@ -14,6 +14,7 @@ KunjunganDibuatResponse _$KunjunganDibuatResponseFromJson(
   pasienBaru: json['pasien_baru'] as bool,
   status: StatusKunjungan.fromJson(json['status'] as String),
   waktuDatang: DateTime.parse(json['waktu_datang'] as String),
+  nomorBed: json['nomor_bed'] as String?,
 );
 
 Map<String, dynamic> _$KunjunganDibuatResponseToJson(
@@ -24,6 +25,7 @@ Map<String, dynamic> _$KunjunganDibuatResponseToJson(
   'pasien_baru': instance.pasienBaru,
   'status': _$StatusKunjunganEnumMap[instance.status]!,
   'waktu_datang': instance.waktuDatang.toIso8601String(),
+  'nomor_bed': instance.nomorBed,
 };
 
 const _$StatusKunjunganEnumMap = {

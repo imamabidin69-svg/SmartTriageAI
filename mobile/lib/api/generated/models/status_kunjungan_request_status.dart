@@ -4,9 +4,11 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-/// ditangani saat dokter mulai memeriksa, selesai saat pemeriksaan berakhir atau pasien batal.
+/// ditangani saat pasien mulai menjalani tindakan atau operasi, menunggu saat kembali dipantau setelah tindakan, selesai saat pasien keluar ICU (pindah ruangan, pulang, atau meninggal).
 @JsonEnum()
 enum StatusKunjunganRequestStatus {
+  @JsonValue('menunggu')
+  menunggu('menunggu'),
   @JsonValue('ditangani')
   ditangani('ditangani'),
   @JsonValue('selesai')

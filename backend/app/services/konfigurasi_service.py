@@ -1,4 +1,4 @@
-"""Konfigurasi triase: ambang aturan cadangan, batas waktu tunggu, dan ambang keyakinan (FR-05, FR-07).
+"""Konfigurasi penilaian ICU: ambang NEWS2, interval observasi per level, dan ambang keyakinan (FR-05, FR-07).
 
 Nilainya dibaca lewat CacheKonfigurasi yang menyimpan salinan di memori proses selama 60 detik
 (Desain baris 380). Setelah PATCH, cache di worker yang memproses perubahan langsung dikosongkan;
@@ -13,7 +13,7 @@ from decimal import Decimal
 from flask import current_app
 from sqlalchemy import select
 
-from app.ai.klasifikasi import AmbangAturan
+from app.ai.news2 import AmbangNews2
 from app.ai.registry import ModelRegistry
 from app.extensions import db
 from app.models import Konfigurasi, Pengguna
@@ -33,6 +33,7 @@ class NilaiKonfigurasi:
     ambang_kritis: int
     ambang_tinggi: int
     ambang_sedang: int
+    batas_tunggu_kritis: int
     batas_tunggu_tinggi: int
     batas_tunggu_sedang: int
     batas_tunggu_rendah: int
@@ -43,16 +44,17 @@ class NilaiKonfigurasi:
         return cls(**{kolom.name: getattr(baris, kolom.name) for kolom in fields(cls)})
 
     @property
-    def ambang_aturan(self) -> AmbangAturan:
-        return AmbangAturan(kritis=self.ambang_kritis, tinggi=self.ambang_tinggi, sedang=self.ambang_sedang)
+    def ambang_news2(self) -> AmbangNews2:
+        return AmbangNews2(kritis=self.ambang_kritis, tinggi=self.ambang_tinggi, sedang=self.ambang_sedang)
 
-    def batas_tunggu(self, level: RiskLevel) -> int | None:
-        """Batas tunggu dalam menit. Kritis tidak punya batas karena harus segera ditangani."""
+    def batas_tunggu(self, level: RiskLevel) -> int:
+        """Interval observasi dalam menit untuk level tersebut."""
         return {
+            RiskLevel.KRITIS: self.batas_tunggu_kritis,
             RiskLevel.TINGGI: self.batas_tunggu_tinggi,
             RiskLevel.SEDANG: self.batas_tunggu_sedang,
             RiskLevel.RENDAH: self.batas_tunggu_rendah,
-        }.get(level)
+        }[level]
 
 
 class KonfigurasiTidakAdaError(RuntimeError):
@@ -86,7 +88,16 @@ def cache_konfigurasi() -> CacheKonfigurasi:
 
 # Pasangan (lebih besar, lebih kecil) yang harus berurutan, sama dengan CHECK di basis data.
 URUTAN_AMBANG = (("ambang_kritis", "ambang_tinggi"), ("ambang_tinggi", "ambang_sedang"))
-URUTAN_BATAS_TUNGGU = (("batas_tunggu_sedang", "batas_tunggu_tinggi"), ("batas_tunggu_rendah", "batas_tunggu_sedang"))
+URUTAN_BATAS_TUNGGU = (
+    ("batas_tunggu_tinggi", "batas_tunggu_kritis"),
+    ("batas_tunggu_sedang", "batas_tunggu_tinggi"),
+    ("batas_tunggu_rendah", "batas_tunggu_sedang"),
+)
+
+
+def _kecil(label: str) -> str:
+    """Huruf pertama dikecilkan untuk di tengah kalimat, tanpa mengubah singkatan seperti NEWS2."""
+    return label[:1].lower() + label[1:]
 
 
 class KonfigurasiService:
@@ -127,28 +138,28 @@ class KonfigurasiService:
         for besar, kecil in URUTAN_AMBANG:
             if gabungan[besar] <= gabungan[kecil]:
                 if besar in baru:
-                    pesan = f"{label[besar]} harus lebih besar dari {label[kecil].lower()} ({gabungan[kecil]})."
+                    pesan = f"{label[besar]} harus lebih besar dari {_kecil(label[kecil])} ({gabungan[kecil]})."
                     galat.append({"field": besar, "pesan": pesan})
                 else:
-                    pesan = f"{label[kecil]} harus lebih kecil dari {label[besar].lower()} ({gabungan[besar]})."
+                    pesan = f"{label[kecil]} harus lebih kecil dari {_kecil(label[besar])} ({gabungan[besar]})."
                     galat.append({"field": kecil, "pesan": pesan})
 
         for besar, kecil in URUTAN_BATAS_TUNGGU:
             if gabungan[besar] < gabungan[kecil]:
                 if besar in baru:
                     pesan = (
-                        f"{label[besar]} tidak boleh lebih kecil dari {label[kecil].lower()} ({gabungan[kecil]} menit)."
+                        f"{label[besar]} tidak boleh lebih kecil dari {_kecil(label[kecil])} ({gabungan[kecil]} menit)."
                     )
                     galat.append({"field": besar, "pesan": pesan})
                 else:
                     pesan = (
-                        f"{label[kecil]} tidak boleh lebih besar dari {label[besar].lower()} ({gabungan[besar]} menit)."
+                        f"{label[kecil]} tidak boleh lebih besar dari {_kecil(label[besar])} ({gabungan[besar]} menit)."
                     )
                     galat.append({"field": kecil, "pesan": pesan})
 
         if "versi_model" in baru and baru["versi_model"] != self.registry.versi_model:
             if self.registry.versi_model is None:
-                pesan = "Model triase belum dimuat, jadi versi model belum bisa diubah."
+                pesan = "Model perburukan belum dimuat, jadi versi model belum bisa diubah."
             else:
                 pesan = f"Versi model harus sama dengan model yang sedang dimuat ({self.registry.versi_model})."
             galat.append({"field": "versi_model", "pesan": pesan})

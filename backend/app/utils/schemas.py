@@ -21,13 +21,12 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 
-from app.ai.klasifikasi import SKOR_MAKSIMUM_ATURAN
+from app.ai.news2 import SKOR_MAKSIMUM as SKOR_MAKSIMUM_NEWS2
 from app.models.enums import (
     AksiAudit,
     JenisAlat,
     JenisKelamin,
     JenisTriase,
-    KategoriKeluhan,
     PengisiEir,
     Peran,
     RiskLevel,
@@ -198,7 +197,7 @@ class PasienRingkas(BaseModel):
     perkiraan_usia: int | None
     usia: int | None
     nik_tersamar: str | None = Field(description="Hanya empat digit terakhir NIK yang ditampilkan.")
-    id_kunjungan_aktif: uuid.UUID | None = Field(description="Kunjungan yang masih menunggu atau sedang ditangani.")
+    id_kunjungan_aktif: uuid.UUID | None = Field(description="Masa rawat ICU yang belum selesai, bila ada.")
 
 
 class DaftarPasienResponse(BaseModel):
@@ -208,8 +207,22 @@ class DaftarPasienResponse(BaseModel):
 FIELD_IDENTITAS = ("nama", "tanggal_lahir", "perkiraan_usia", "jenis_kelamin", "nik", "no_telepon")
 
 
+def _cek_nomor_bed(nilai: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 -]{0,9}", nilai):
+        raise PydanticCustomError(
+            "kustom_nomor_bed", "Nomor bed hanya boleh berisi huruf, angka, spasi, dan tanda hubung."
+        )
+    return nilai.upper()
+
+
+NomorBed = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10), AfterValidator(_cek_nomor_bed)
+]
+AsalRuangan = Literal["IGD", "Kamar operasi", "Rawat inap", "Rujukan rumah sakit lain", "Lainnya"]
+
+
 class RegistrasiRequest(SkemaDasar):
-    """Registrasi singkat (Desain Gambar 2.5).
+    """Pasien masuk ICU (Desain Gambar 2.5, disesuaikan untuk ICU): identitas, nomor bed, asal, dan diagnosis.
 
     Bila id_pasien diisi, pasien lama dipakai dan isian identitas lain diabaikan tanpa divalidasi
     (keputusan K8), karena form bisa saja masih membawa isian dari pencarian sebelumnya. Bila tidak,
@@ -224,6 +237,9 @@ class RegistrasiRequest(SkemaDasar):
     jenis_kelamin: JenisKelamin | None = None
     nik: Annotated[Nik | None, BeforeValidator(_kosong_jadi_none)] = None
     no_telepon: Annotated[NoTelepon | None, BeforeValidator(_kosong_jadi_none)] = None
+    nomor_bed: NomorBed = Field(description="Bed ICU yang ditempati, misalnya ICU-3. Satu bed untuk satu pasien.")
+    asal_ruangan: AsalRuangan | None = None
+    diagnosis_masuk: Annotated[Teks(1, 200) | None, BeforeValidator(_kosong_jadi_none)] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -239,6 +255,7 @@ class KunjunganDibuatResponse(BaseModel):
     pasien_baru: bool
     status: StatusKunjungan
     waktu_datang: datetime
+    nomor_bed: str | None
 
 
 class KunjunganPath(BaseModel):
@@ -275,15 +292,36 @@ class TandaVital(SkemaDasar):
     saturasi: Annotated[Decimal, Field(ge=0, le=100), AfterValidator(_satu_desimal)]
 
 
-class TriaseInput(SkemaDasar):
-    """Isian form triase (Desain Gambar 2.8). Kategori keluhan dan skala nyeri wajib (keputusan K3)."""
+def _dua_desimal_lab(nilai: Decimal) -> Decimal:
+    return nilai.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    keluhan_utama: Teks(1, 200)
-    gejala: Teks(10, 2000)
-    kategori_keluhan: KategoriKeluhan
-    skala_nyeri: Annotated[int, Field(ge=0, le=10)]
+
+class HasilLab(SkemaDasar):
+    """Hasil laboratorium terakhir. Semuanya boleh kosong; yang kosong diisi median oleh model."""
+
+    laktat: Annotated[Decimal, Field(ge=0, le=30, description="mmol/L"), AfterValidator(_satu_desimal)] | None = None
+    kreatinin: Annotated[Decimal, Field(ge=0, le=25, description="mg/dL"), AfterValidator(_dua_desimal_lab)] | None = (
+        None
+    )
+    trombosit: Annotated[int, Field(ge=0, le=2000, description="ribu/µL")] | None = None
+    leukosit: Annotated[Decimal, Field(ge=0, le=300, description="ribu/µL"), AfterValidator(_satu_desimal)] | None = (
+        None
+    )
+    bilirubin: Annotated[Decimal, Field(ge=0, le=60, description="mg/dL"), AfterValidator(_satu_desimal)] | None = None
+
+
+class TriaseInput(SkemaDasar):
+    """Observasi pasien ICU. Tanda vital, kesadaran, dan oksigen wajib karena dipakai NEWS2; sisanya opsional."""
+
     tingkat_kesadaran: TingkatKesadaran = Field(description="AVPU: A sadar penuh, V suara, P nyeri, U tidak respons.")
+    oksigen_tambahan: bool = Field(
+        description="true bila pasien mendapat oksigen tambahan (nasal, masker, ventilator)."
+    )
     tanda_vital: TandaVital
+    lab: HasilLab = Field(default_factory=HasilLab)
+    ventilator: bool = False
+    vasopresor: bool = False
+    catatan: Annotated[Teks(0, 500) | None, BeforeValidator(_kosong_jadi_none)] = None
     id_pemindaian: Annotated[list[uuid.UUID], Field(max_length=4), AfterValidator(_tanpa_duplikat)] = Field(
         default_factory=list, description="Hasil POST /pemindaian yang nilainya dipakai di form ini."
     )
@@ -305,21 +343,29 @@ class TandaVitalResponse(BaseModel):
 class FaktorResponse(BaseModel):
     fitur: str | None
     label: str
-    nilai: str | float | int | None
-    kontribusi: float = Field(description="Nilai SHAP untuk hasil model, atau poin aturan untuk aturan cadangan.")
+    nilai: str | float | int | bool | None
+    kontribusi: float = Field(description="Nilai SHAP untuk faktor model, atau poin untuk komponen NEWS2.")
     arah: Literal["naik", "turun", "netral"] = Field(
-        description=(
-            "Untuk sumber model: naik berarti faktor ini mendukung level yang direkomendasikan, turun berarti "
-            "melawannya. Untuk sumber aturan: naik berarti menambah poin risiko; netral bila tidak ada aturan "
-            "yang terpicu."
-        )
+        description="Faktor model: naik berarti menaikkan peluang perburukan. Komponen NEWS2 selalu naik."
     )
 
 
 class PenjelasanResponse(BaseModel):
     versi_model: str | None
-    faktor: list[FaktorResponse]
-    probabilitas: dict[RiskLevel, float] | None
+    skor_news2: int
+    level_news2: RiskLevel
+    komponen_news2: list[FaktorResponse] = Field(description="Parameter NEWS2 yang menyumbang poin.")
+    peluang_perburukan: float | None = Field(description="Peluang memburuk dalam 6 jam (0-1); null tanpa model.")
+    level_model: RiskLevel | None
+    faktor: list[FaktorResponse] = Field(description="Tiga faktor SHAP terbesar dari model; kosong tanpa model.")
+
+
+class HasilLabResponse(BaseModel):
+    laktat: float | None
+    kreatinin: float | None
+    trombosit: int | None
+    leukosit: float | None
+    bilirubin: float | None
 
 
 class PasienTriase(BaseModel):
@@ -336,13 +382,19 @@ class TriaseDetail(BaseModel):
     id_kunjungan: uuid.UUID
     jenis: JenisTriase
     pasien: PasienTriase
-    keluhan_utama: str
-    gejala: str
-    kategori_keluhan: KategoriKeluhan | None
-    skala_nyeri: int | None
+    nomor_bed: str | None
+    status_kunjungan: StatusKunjungan = Field(description="Status pasien saat ini: dirawat, sedang tindakan, keluar.")
     tingkat_kesadaran: TingkatKesadaran
+    oksigen_tambahan: bool
     tanda_vital: TandaVitalResponse
+    lab: HasilLabResponse
+    ventilator: bool
+    vasopresor: bool
+    catatan: str | None
     sumber_tanda_vital: SumberTandaVital
+    skor_news2: int
+    peluang_perburukan: float | None
+    level_sebelumnya: RiskLevel | None = Field(description="Level observasi sebelumnya di masa rawat yang sama.")
     risk_level: RiskLevel
     sumber_rekomendasi: SumberRekomendasi
     penjelasan_ai: PenjelasanResponse
@@ -362,8 +414,8 @@ def _dua_desimal(nilai: Decimal) -> Decimal:
     return nilai.quantize(Decimal("0.01")) + Decimal("0")
 
 
-AmbangKonfigurasi = Annotated[int, Field(ge=1, le=SKOR_MAKSIMUM_ATURAN)]
-BatasTunggu = Annotated[int, Field(ge=1, le=1440, description="Dalam menit.")]
+AmbangKonfigurasi = Annotated[int, Field(ge=1, le=SKOR_MAKSIMUM_NEWS2, description="Skor NEWS2.")]
+BatasTunggu = Annotated[int, Field(ge=1, le=1440, description="Interval observasi dalam menit.")]
 
 
 class KonfigurasiPatch(SkemaDasar):
@@ -373,6 +425,7 @@ class KonfigurasiPatch(SkemaDasar):
     ambang_kritis: AmbangKonfigurasi = Field(default=None)
     ambang_tinggi: AmbangKonfigurasi = Field(default=None)
     ambang_sedang: AmbangKonfigurasi = Field(default=None)
+    batas_tunggu_kritis: BatasTunggu = Field(default=None)
     batas_tunggu_tinggi: BatasTunggu = Field(default=None)
     batas_tunggu_sedang: BatasTunggu = Field(default=None)
     batas_tunggu_rendah: BatasTunggu = Field(default=None)
@@ -392,6 +445,7 @@ class KonfigurasiResponse(BaseModel):
     ambang_kritis: int
     ambang_tinggi: int
     ambang_sedang: int
+    batas_tunggu_kritis: int
     batas_tunggu_tinggi: int
     batas_tunggu_sedang: int
     batas_tunggu_rendah: int
@@ -446,8 +500,11 @@ class ValidasiRequest(SkemaDasar):
 
 
 class StatusKunjunganRequest(SkemaDasar):
-    status: Literal["ditangani", "selesai"] = Field(
-        description="ditangani saat dokter mulai memeriksa, selesai saat pemeriksaan berakhir atau pasien batal."
+    status: Literal["menunggu", "ditangani", "selesai"] = Field(
+        description=(
+            "ditangani saat pasien mulai menjalani tindakan atau operasi, menunggu saat kembali dipantau setelah "
+            "tindakan, selesai saat pasien keluar ICU (pindah ruangan, pulang, atau meninggal)."
+        )
     )
 
 
@@ -462,23 +519,27 @@ class TriaseTerakhir(BaseModel):
     jenis: JenisTriase
     risk_level: RiskLevel
     status_validasi: StatusValidasi
-    keluhan_utama: str
+    skor_news2: int
+    peluang_perburukan: float | None
     waktu_triase: datetime
 
 
 class ItemDaftarTunggu(BaseModel):
+    """Satu pasien di papan prioritas ICU. Urutan daftar sudah merupakan urutan prioritas penanganan."""
+
     id_kunjungan: uuid.UUID
     pasien: PasienTriase
+    nomor_bed: str | None
+    diagnosis_masuk: str | None
+    status: StatusKunjungan = Field(description="menunggu: dirawat; ditangani: sedang tindakan atau operasi.")
     waktu_datang: datetime
     triase_terakhir: TriaseTerakhir | None
-    lama_menunggu_menit: int = Field(description="Sejak triase terakhir, atau sejak datang bila belum ditriase.")
-    batas_tunggu_menit: int | None = Field(description="Batas dari konfigurasi; null untuk kritis dan belum ditriase.")
-    status_tanda: Literal["belum_ditriase", "perlu_triase_ulang", "normal"]
-    menunggu_validasi: bool
+    lama_menunggu_menit: int = Field(description="Menit sejak observasi terakhir, atau sejak masuk bila belum dinilai.")
+    batas_tunggu_menit: int | None = Field(description="Interval observasi level ini; null bila belum dinilai.")
+    status_tanda: Literal["belum_dinilai", "observasi_terlambat", "normal"]
+    menunggu_validasi: bool = Field(description="Ada penilaian awal atau kenaikan level yang belum disetujui dokter.")
     review_diajukan: bool
-    ringkasan_eir_siap: bool = Field(
-        description="Sesi Eir terakhir selesai dengan ringkasan yang belum dipakai untuk triase berikutnya."
-    )
+    ringkasan_eir_siap: bool = Field(description="Keluarga sudah menyelesaikan sesi Eir dan ringkasannya bisa dibaca.")
 
 
 class DaftarTungguResponse(BaseModel):
@@ -492,7 +553,7 @@ class PasienPeringatan(BaseModel):
 
 
 class ItemPeringatan(BaseModel):
-    jenis: Literal["kritis_belum_divalidasi", "level_naik", "tanda_bahaya_eir"]
+    jenis: Literal["menunggu_persetujuan", "observasi_terlambat", "informasi_penting_eir"]
     id_kunjungan: uuid.UUID
     id_triase: uuid.UUID | None
     id_sesi: uuid.UUID | None
@@ -593,14 +654,16 @@ class KunjunganRiwayat(BaseModel):
     waktu_datang: datetime
     waktu_ditangani: datetime | None
     status: StatusKunjungan
+    nomor_bed: str | None
+    diagnosis_masuk: str | None
 
 
 class ItemRiwayat(BaseModel):
     id_triase: uuid.UUID
     jenis: JenisTriase
     waktu_triase: datetime
-    keluhan_utama: str
-    kategori_keluhan: KategoriKeluhan | None
+    skor_news2: int
+    peluang_perburukan: float | None
     risk_level: RiskLevel
     sumber_rekomendasi: SumberRekomendasi
     status_validasi: StatusValidasi
@@ -693,13 +756,17 @@ def _wajib_setuju(nilai: bool) -> bool:
     return nilai
 
 
-class RingkasanTriase(BaseModel):
-    """Desain Gambar 2.23. Ringkasan dari LLM yang divalidasi sebelum menjadi draf form triase."""
+class RingkasanKeluarga(BaseModel):
+    """Desain Gambar 2.23, disesuaikan untuk ICU. Ringkasan riwayat dari keluarga yang divalidasi sebelum disimpan.
 
-    keluhan_utama: Teks(1, 200)
-    gejala: Teks(1, 2000)
-    onset: Teks(1, 200)
-    kategori_keluhan: KategoriKeluhan
+    Isinya hanya keterangan keluarga dan wajib diperiksa perawat; "Tidak disebutkan" bila topik itu tidak dibahas.
+    """
+
+    kronologi: Teks(1, 1000)
+    riwayat_penyakit: Teks(1, 1000)
+    obat_rutin: Teks(1, 1000)
+    alergi: Teks(1, 500)
+    informasi_lain: Teks(1, 1000)
 
 
 class TautanEirResponse(BaseModel):
@@ -735,7 +802,7 @@ class UnggahSuara(BaseModel):
 
 class BalasanEirResponse(BaseModel):
     status: StatusSesiEir
-    pesan: str = Field(description="Pertanyaan berikutnya, penutup, atau arahan menemui perawat.")
+    pesan: str = Field(description="Pertanyaan berikutnya atau penutup.")
     jumlah_jawaban: int
     boleh_selesai: bool = Field(description="true bila jawaban sudah cukup untuk menekan Selesai.")
     transkripsi: str | None = Field(None, description="Hasil ubah suara ke teks (khusus mode suara).")
@@ -754,6 +821,8 @@ class RingkasanEirResponse(BaseModel):
     status: StatusSesiEir
     waktu_persetujuan: datetime
     waktu_selesai: datetime | None
-    tanda_bahaya: str | None
-    ringkasan: RingkasanTriase | None = Field(description="Draf form triase; wajib diperiksa perawat sebelum dipakai.")
+    tanda_bahaya: str | None = Field(
+        description="Informasi penting yang ditandai Eir, misalnya alergi obat atau obat pengencer darah."
+    )
+    ringkasan: RingkasanKeluarga | None = Field(description="Ringkasan riwayat dari keluarga; wajib diperiksa perawat.")
     transkrip: list[ItemTranskrip]

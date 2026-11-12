@@ -14,7 +14,7 @@ import '../util/format.dart';
 import '../util/label.dart';
 import 'hasil.dart';
 
-/// Tab Riwayat: mencari pasien lalu membuka Riwayat Triase Pasien.
+/// Tab Riwayat: mencari pasien lalu membuka Riwayat Observasi Pasien.
 class HalamanCariRiwayat extends ConsumerStatefulWidget {
   const HalamanCariRiwayat({super.key});
 
@@ -114,7 +114,7 @@ class _HalamanCariRiwayatState extends ConsumerState<HalamanCariRiwayat> {
             )
           else
             const Text(
-              'Cari pasien untuk melihat triase awal dan triase ulangnya.',
+              'Cari pasien untuk melihat penilaian awal dan observasinya di ICU.',
               style: TextStyle(color: Warna.teksRedup),
             ),
         ],
@@ -123,7 +123,7 @@ class _HalamanCariRiwayatState extends ConsumerState<HalamanCariRiwayat> {
   }
 }
 
-/// Riwayat Triase Pasien (SKPL Tabel 7.1 no. 7, FR-09): rekam jejak triase awal dan triase ulang, terbaru dulu.
+/// Riwayat Observasi Pasien (SKPL Tabel 7.1 no. 7, FR-09): penilaian awal dan observasi di ICU, terbaru dulu.
 class HalamanRiwayatPasien extends ConsumerStatefulWidget {
   const HalamanRiwayatPasien({super.key, required this.idPasien, this.pasien});
 
@@ -176,7 +176,7 @@ class _HalamanRiwayatPasienState extends ConsumerState<HalamanRiwayatPasien> {
     final pasien = _pasien;
     final galat = _galat;
     return Scaffold(
-      appBar: AppBar(title: const Text('Riwayat Triase')),
+      appBar: AppBar(title: const Text('Riwayat Observasi')),
       body: !_selesaiPertama && galat != null
           ? TampilanGalat(galat, cobaLagi: _muat)
           : !_selesaiPertama
@@ -191,7 +191,7 @@ class _HalamanRiwayatPasienState extends ConsumerState<HalamanRiwayatPasien> {
                   if (_items.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('Pasien ini belum pernah ditriase.', style: TextStyle(color: Warna.teksRedup)),
+                      child: Text('Pasien ini belum pernah dinilai.', style: TextStyle(color: Warna.teksRedup)),
                     )
                   else ...[
                     const Divider(),
@@ -214,7 +214,7 @@ class _HalamanRiwayatPasienState extends ConsumerState<HalamanRiwayatPasien> {
   }
 }
 
-/// Satu triase di riwayat pasien: baris putih dengan garis warna level di kiri, seperti di daftar tunggu.
+/// Satu observasi di riwayat pasien: baris putih dengan garis warna level di kiri, seperti di papan prioritas.
 class _KartuRiwayat extends StatelessWidget {
   const _KartuRiwayat(this.item);
 
@@ -226,7 +226,7 @@ class _KartuRiwayat extends StatelessWidget {
     return Material(
       color: Colors.white,
       child: InkWell(
-        onTap: () => context.push(Rute.hasil(item.idTriase), extra: InfoHasil(statusKunjungan: item.kunjungan.status)),
+        onTap: () => context.push(Rute.hasil(item.idTriase)),
         child: Container(
           decoration: BoxDecoration(
             border: Border(
@@ -252,7 +252,18 @@ class _KartuRiwayat extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(item.keluhanUtama, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              Text(
+                [
+                  if (item.kunjungan.nomorBed != null) 'Bed ${item.kunjungan.nomorBed}',
+                  'NEWS2 ${item.skorNews2}',
+                  if (item.peluangPerburukan != null) 'peluang memburuk ${persenPeluang(item.peluangPerburukan!)}',
+                ].join(' · '),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              if (item.kunjungan.diagnosisMasuk != null) ...[
+                const SizedBox(height: 2),
+                Text(item.kunjungan.diagnosisMasuk!, style: const TextStyle(fontSize: 14)),
+              ],
               const SizedBox(height: 4),
               Text(
                 'TD ${tv.tdSistolik}/${tv.tdDiastolik} · nadi ${tv.nadi} · SpO₂ ${angka(tv.saturasi)}% · '

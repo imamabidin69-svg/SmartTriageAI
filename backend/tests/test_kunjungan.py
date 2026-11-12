@@ -1,4 +1,4 @@
-"""Pencarian pasien dan registrasi kunjungan (FR-02, Desain 2.2)."""
+"""Pencarian pasien dan pencatatan pasien masuk ICU (FR-02, Desain 2.2)."""
 
 import uuid
 from datetime import date, timedelta
@@ -14,7 +14,8 @@ from app.utils.waktu import hari_ini, hitung_usia, usia_pasien
 
 URL_KUNJUNGAN = "/api/v1/kunjungan"
 URL_PASIEN = "/api/v1/pasien"
-PASIEN_BARU = {"nama": "Budi Santoso", "perkiraan_usia": 45, "jenis_kelamin": "laki_laki"}
+BED = {"nomor_bed": "ICU-1"}
+PASIEN_BARU = {"nama": "Budi Santoso", "perkiraan_usia": 45, "jenis_kelamin": "laki_laki", **BED}
 
 
 @pytest.fixture
@@ -57,6 +58,60 @@ def test_registrasi_pasien_baru(client, perawat, sesi_db):
     # Log audit tidak menyalin nama dan NIK pasien.
     assert "Budi" not in log.catatan
     assert "3577" not in log.catatan
+    assert (isi["nomor_bed"], kunjungan.nomor_bed, kunjungan.asal_ruangan, kunjungan.diagnosis_masuk) == (
+        "ICU-1",
+        "ICU-1",
+        None,
+        None,
+    )
+
+
+def test_bed_asal_dan_diagnosis_disimpan(client, perawat, sesi_db):
+    _, header = perawat
+    isi = {
+        **PASIEN_BARU,
+        "nomor_bed": " icu-2 ",
+        "asal_ruangan": "Kamar operasi",
+        "diagnosis_masuk": "Pasca laparotomi",
+    }
+    respons = client.post(URL_KUNJUNGAN, json=isi, headers=header)
+    assert respons.status_code == 201
+    kunjungan = sesi_db.get(Kunjungan, uuid.UUID(respons.get_json()["id_kunjungan"]))
+    assert (kunjungan.nomor_bed, kunjungan.asal_ruangan, kunjungan.diagnosis_masuk) == (
+        "ICU-2",
+        "Kamar operasi",
+        "Pasca laparotomi",
+    )
+
+
+def test_nomor_bed_wajib(client, perawat):
+    _, header = perawat
+    isi = {k: v for k, v in PASIEN_BARU.items() if k != "nomor_bed"}
+    respons = client.post(URL_KUNJUNGAN, json=isi, headers=header)
+    assert respons.get_json()["errors"] == [{"field": "nomor_bed", "pesan": "Nomor bed wajib diisi."}]
+
+
+def test_bed_yang_masih_terisi_ditolak_lalu_boleh_setelah_pasien_keluar(client, perawat, sesi_db, buat_kunjungan):
+    _, header = perawat
+    lama = buat_kunjungan(nomor_bed="ICU-1", status=StatusKunjungan.DITANGANI)
+    respons = client.post(URL_KUNJUNGAN, json=PASIEN_BARU, headers=header)
+    assert respons.status_code == 422
+    assert respons.get_json()["errors"] == [
+        {"field": "nomor_bed", "pesan": "Bed ICU-1 masih ditempati pasien lain yang belum keluar ICU."}
+    ]
+    lama.status = StatusKunjungan.SELESAI
+    sesi_db.commit()
+    assert client.post(URL_KUNJUNGAN, json=PASIEN_BARU, headers=header).status_code == 201
+
+
+def test_bed_bentrok_saat_disimpan_tetap_dibalas_422(client, perawat, buat_kunjungan, monkeypatch):
+    """Meniru dua pasien masuk bersamaan ke bed yang sama: unique index menolak yang kalah."""
+    _, header = perawat
+    buat_kunjungan(nomor_bed="ICU-1")
+    monkeypatch.setattr(kunjungan_service.KunjunganService, "_periksa_bed", lambda self, bed: None)
+    respons = client.post(URL_KUNJUNGAN, json=PASIEN_BARU, headers=header)
+    assert respons.status_code == 422
+    assert respons.get_json()["errors"][0]["field"] == "nomor_bed"
 
 
 def test_nama_dirapikan_dan_isian_kosong_dianggap_tidak_diisi(client, perawat, sesi_db):
@@ -71,6 +126,7 @@ def test_nama_dirapikan_dan_isian_kosong_dianggap_tidak_diisi(client, perawat, s
 def test_registrasi_dengan_tanggal_lahir_dan_telepon(client, perawat, sesi_db):
     _, header = perawat
     isi = {"nama": "Wulan", "tanggal_lahir": "1995-08-17", "jenis_kelamin": "perempuan", "no_telepon": "+62 812-3456"}
+    isi |= BED
     respons = client.post(URL_KUNJUNGAN, json=isi, headers=header)
     assert respons.status_code == 201
     pasien = sesi_db.get(Pasien, uuid.UUID(respons.get_json()["id_pasien"]))
@@ -79,7 +135,7 @@ def test_registrasi_dengan_tanggal_lahir_dan_telepon(client, perawat, sesi_db):
 
 def test_identitas_pasien_baru_wajib_lengkap(client, perawat):
     _, header = perawat
-    respons = client.post(URL_KUNJUNGAN, json={}, headers=header)
+    respons = client.post(URL_KUNJUNGAN, json=BED, headers=header)
     assert respons.status_code == 422
     assert respons.get_json()["errors"] == [
         {"field": "nama", "pesan": "Nama wajib diisi."},
@@ -107,6 +163,13 @@ def test_identitas_pasien_baru_wajib_lengkap(client, perawat):
             "Tanggal lahir harus berupa tanggal dengan format YYYY-MM-DD.",
         ),
         ({"alamat": "Jl. Mawar"}, "alamat", "Field alamat tidak dikenal."),
+        (
+            {"nomor_bed": "ICU/1"},
+            "nomor_bed",
+            "Nomor bed hanya boleh berisi huruf, angka, spasi, dan tanda hubung.",
+        ),
+        ({"nomor_bed": "ICU-123456789"}, "nomor_bed", "Nomor bed maksimal 10 karakter."),
+        ({"diagnosis_masuk": "x" * 201}, "diagnosis_masuk", "Diagnosis masuk maksimal 200 karakter."),
     ],
 )
 def test_validasi_isian_registrasi(client, perawat, ubah, field, pesan):
@@ -131,7 +194,7 @@ def test_tanggal_lahir_tidak_boleh_di_masa_depan(client, perawat):
 def test_memilih_pasien_lama_dengan_id(client, perawat, sesi_db):
     pengguna, header = perawat
     pasien = _pasien(sesi_db, pengguna)
-    respons = client.post(URL_KUNJUNGAN, json={"id_pasien": str(pasien.id_pasien)}, headers=header)
+    respons = client.post(URL_KUNJUNGAN, json={**BED, "id_pasien": str(pasien.id_pasien)}, headers=header)
     assert respons.status_code == 201
     assert respons.get_json()["pasien_baru"] is False
     assert respons.get_json()["id_pasien"] == str(pasien.id_pasien)
@@ -141,7 +204,7 @@ def test_memilih_pasien_lama_dengan_id(client, perawat, sesi_db):
 
 def test_id_pasien_yang_tidak_ada_ditolak(client, perawat):
     _, header = perawat
-    respons = client.post(URL_KUNJUNGAN, json={"id_pasien": str(uuid.uuid4())}, headers=header)
+    respons = client.post(URL_KUNJUNGAN, json={**BED, "id_pasien": str(uuid.uuid4())}, headers=header)
     assert respons.status_code == 422
     assert respons.get_json()["errors"] == [{"field": "id_pasien", "pesan": "Pasien tidak ditemukan."}]
 
@@ -158,7 +221,7 @@ def test_identitas_lain_diabaikan_bila_pasien_dipilih(client, perawat, sesi_db, 
     """K8: form bisa masih membawa isian dari pencarian sebelumnya; yang dipakai hanya id_pasien."""
     pengguna, header = perawat
     pasien = _pasien(sesi_db, pengguna, nama="Pasien Lama", nik="3577010101800002")
-    respons = client.post(URL_KUNJUNGAN, json={"id_pasien": str(pasien.id_pasien), **isian_lain}, headers=header)
+    respons = client.post(URL_KUNJUNGAN, json={**BED, "id_pasien": str(pasien.id_pasien), **isian_lain}, headers=header)
     assert respons.status_code == 201
     sesi_db.refresh(pasien)
     assert (pasien.nama, pasien.nik, pasien.perkiraan_usia) == ("Pasien Lama", "3577010101800002", 50)
@@ -167,7 +230,9 @@ def test_identitas_lain_diabaikan_bila_pasien_dipilih(client, perawat, sesi_db, 
 def test_field_tidak_dikenal_tetap_ditolak_walau_pasien_dipilih(client, perawat, sesi_db):
     pengguna, header = perawat
     pasien = _pasien(sesi_db, pengguna)
-    respons = client.post(URL_KUNJUNGAN, json={"id_pasien": str(pasien.id_pasien), "alamat": "x"}, headers=header)
+    respons = client.post(
+        URL_KUNJUNGAN, json={**BED, "id_pasien": str(pasien.id_pasien), "alamat": "x"}, headers=header
+    )
     assert respons.get_json()["errors"] == [{"field": "alamat", "pesan": "Field alamat tidak dikenal."}]
 
 
@@ -189,7 +254,13 @@ def test_tab_di_nama_dirapikan_menjadi_spasi(client, perawat, sesi_db):
 def test_nik_terdaftar_dengan_identitas_sama_memakai_pasien_lama(client, perawat, sesi_db):
     pengguna, header = perawat
     pasien = _pasien(sesi_db, pengguna, nama="Siti Rahma", nik="3577010101800004")
-    isi = {"nama": "  siti  RAHMA", "jenis_kelamin": "perempuan", "perkiraan_usia": 51, "nik": "3577010101800004"}
+    isi = {
+        "nama": "  siti  RAHMA",
+        "jenis_kelamin": "perempuan",
+        "perkiraan_usia": 51,
+        "nik": "3577010101800004",
+        **BED,
+    }
     respons = client.post(URL_KUNJUNGAN, json=isi, headers=header)
     assert respons.status_code == 201
     assert respons.get_json()["pasien_baru"] is False
@@ -206,7 +277,7 @@ def test_nik_terdaftar_dengan_identitas_sama_memakai_pasien_lama(client, perawat
 def test_nik_terdaftar_atas_pasien_lain_dibalas_409(client, perawat, sesi_db, isi):
     pengguna, header = perawat
     _pasien(sesi_db, pengguna, nama="Siti Rahma", nik="3577010101800005")
-    respons = client.post(URL_KUNJUNGAN, json={**isi, "nik": "3577010101800005"}, headers=header)
+    respons = client.post(URL_KUNJUNGAN, json={**isi, **BED, "nik": "3577010101800005"}, headers=header)
     assert respons.status_code == 409
     assert respons.get_json()["type"] == Tipe.KONFLIK
     assert "NIK sudah terdaftar" in respons.get_json()["detail"]
@@ -220,7 +291,7 @@ def test_pasien_dengan_kunjungan_aktif_tidak_didaftarkan_lagi(client, perawat, s
     sesi_db.add(aktif)
     sesi_db.commit()
 
-    respons = client.post(URL_KUNJUNGAN, json={"id_pasien": str(pasien.id_pasien)}, headers=header)
+    respons = client.post(URL_KUNJUNGAN, json={**BED, "id_pasien": str(pasien.id_pasien)}, headers=header)
     assert respons.status_code == 409
     assert respons.get_json()["id_kunjungan_aktif"] == str(aktif.id_kunjungan)
     assert sesi_db.scalars(select(LogAudit)).all() == []
@@ -231,7 +302,7 @@ def test_pasien_yang_kunjungannya_selesai_boleh_datang_lagi(client, perawat, ses
     pasien = _pasien(sesi_db, pengguna)
     sesi_db.add(Kunjungan(id_pasien=pasien.id_pasien, status=StatusKunjungan.SELESAI))
     sesi_db.commit()
-    respons = client.post(URL_KUNJUNGAN, json={"id_pasien": str(pasien.id_pasien)}, headers=header)
+    respons = client.post(URL_KUNJUNGAN, json={**BED, "id_pasien": str(pasien.id_pasien)}, headers=header)
     assert respons.status_code == 201
 
 

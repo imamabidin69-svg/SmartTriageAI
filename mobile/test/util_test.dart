@@ -59,10 +59,21 @@ void main() {
       expect(periksaTandaVital('td_sistolik', '320'), isNull);
     });
 
-    test('skala nyeri, panjang teks, NIK, telepon, dan usia', () {
-      expect(periksaSkalaNyeri(''), 'Wajib diisi.');
-      expect(periksaSkalaNyeri('11'), 'Isi angka 0 sampai 10.');
-      expect(periksaSkalaNyeri('0'), isNull);
+    test('hasil lab dan nomor bed', () {
+      expect(periksaLab('laktat', ''), isNull);
+      expect(periksaLab('laktat', '3,4'), isNull);
+      expect(periksaLab('laktat', 'x'), 'Isi dengan angka.');
+      expect(periksaLab('laktat', '31'), 'Harus antara 0 dan 30.');
+      expect(periksaLab('trombosit', '140.5'), 'Isi dengan bilangan bulat.');
+      expect(periksaLab('kreatinin', '1,25'), isNull);
+      expect(periksaNomorBed(''), 'Nomor bed wajib diisi.');
+      expect(periksaNomorBed('ICU-3'), isNull);
+      expect(periksaNomorBed('ICU/3'), 'Hanya huruf, angka, spasi, dan tanda hubung.');
+      expect(periksaNomorBed('ICU-1234567'), 'Nomor bed maksimal 10 karakter.');
+      expect(persenPeluang(0.6512), '65%');
+    });
+
+    test('panjang teks, NIK, telepon, dan usia', () {
       expect(periksaPanjang('', min: 1, maks: 5, nama: 'Nama'), 'Nama wajib diisi.');
       expect(periksaPanjang('abcdef', min: 1, maks: 5, nama: 'Nama'), 'Nama maksimal 5 karakter.');
       expect(periksaNik(''), isNull);

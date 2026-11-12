@@ -1,8 +1,8 @@
-"""Peringatan untuk perawat dan dokter (FR-07, Desain baris 293, keputusan K10).
+"""Peringatan untuk perawat dan dokter ICU (FR-07, Desain baris 293, keputusan K10).
 
-Tiga jenis: triase kritis yang belum divalidasi, triase ulang yang levelnya naik, dan sesi Eir yang
-dihentikan karena tanda bahaya tetapi belum diikuti triase baru. Hanya kunjungan yang masih menunggu
-yang dihitung, sama dengan daftar tunggu; begitu dokter mulai memeriksa, peringatannya hilang.
+Tiga jenis: penilaian yang menunggu persetujuan dokter (penilaian awal atau level naik), observasi yang
+terlambat dari intervalnya, dan informasi penting dari keluarga lewat Eir (misalnya alergi obat) yang belum
+diikuti observasi baru. Hanya pasien yang masih di ICU yang dihitung, sama dengan papan prioritas.
 """
 
 import uuid
@@ -13,12 +13,20 @@ from sqlalchemy import and_, exists, func, select
 
 from app.extensions import db
 from app.models import Kunjungan, Pasien, SesiEir, Triase
-from app.models.enums import RiskLevel, StatusKunjungan, StatusSesiEir
-from app.services.daftar_tunggu_service import STATUS_BELUM_DIVALIDASI, URUTAN_LEVEL
+from app.models.enums import RiskLevel
+from app.services.daftar_tunggu_service import STATUS_BELUM_DIVALIDASI, STATUS_DI_ICU, DaftarTungguService
+from app.services.konfigurasi_service import NilaiKonfigurasi
 
-KRITIS_BELUM_DIVALIDASI = "kritis_belum_divalidasi"
-LEVEL_NAIK = "level_naik"
-TANDA_BAHAYA_EIR = "tanda_bahaya_eir"
+MENUNGGU_PERSETUJUAN = "menunggu_persetujuan"
+OBSERVASI_TERLAMBAT = "observasi_terlambat"
+INFORMASI_PENTING_EIR = "informasi_penting_eir"
+URUTAN_JENIS = (MENUNGGU_PERSETUJUAN, OBSERVASI_TERLAMBAT, INFORMASI_PENTING_EIR)
+NAMA_LEVEL = {
+    RiskLevel.KRITIS: "Kritis",
+    RiskLevel.TINGGI: "Tinggi",
+    RiskLevel.SEDANG: "Sedang",
+    RiskLevel.RENDAH: "Rendah",
+}
 
 
 @dataclass(frozen=True)
@@ -35,12 +43,22 @@ class Peringatan:
 
 
 class PeringatanService:
-    def kumpulkan(self) -> list[Peringatan]:
-        """Isinya sama untuk perawat dan dokter. Kritis lebih dulu, lalu yang terbaru."""
-        hasil = self._dari_triase() + self._dari_eir()
-        return sorted(hasil, key=lambda p: (p.jenis != KRITIS_BELUM_DIVALIDASI, -p.waktu.timestamp()))
+    def __init__(self, konfigurasi: NilaiKonfigurasi) -> None:
+        self.konfigurasi = konfigurasi
 
-    def _dari_triase(self) -> list[Peringatan]:
+    def kumpulkan(self, sekarang: datetime) -> list[Peringatan]:
+        """Isinya sama untuk perawat dan dokter. Persetujuan Kritis lebih dulu, lalu per jenis, lalu terbaru."""
+        hasil = self._menunggu_persetujuan() + self._observasi_terlambat(sekarang) + self._dari_eir()
+        return sorted(
+            hasil,
+            key=lambda p: (
+                not (p.jenis == MENUNGGU_PERSETUJUAN and p.risk_level == RiskLevel.KRITIS),
+                URUTAN_JENIS.index(p.jenis),
+                -p.waktu.timestamp(),
+            ),
+        )
+
+    def _menunggu_persetujuan(self) -> list[Peringatan]:
         urutan_terbaru = (Triase.waktu_triase.desc(), Triase.id_triase.desc())
         urutan_lama = (Triase.waktu_triase, Triase.id_triase)
         per_kunjungan = (
@@ -56,7 +74,7 @@ class PeringatanService:
                 .label("level_sebelumnya"),
             )
             .join(Kunjungan, Kunjungan.id_kunjungan == Triase.id_kunjungan)
-            .where(Kunjungan.status == StatusKunjungan.MENUNGGU)
+            .where(Kunjungan.status.in_(STATUS_DI_ICU))
             .subquery()
         )
         baris = db.session.execute(
@@ -70,22 +88,16 @@ class PeringatanService:
         for b in baris:
             # lag() mengembalikan teks biasa, jadi diubah lagi ke RiskLevel.
             sebelumnya = None if b.level_sebelumnya is None else RiskLevel(b.level_sebelumnya)
-            naik = sebelumnya is not None and URUTAN_LEVEL[b.risk_level] > URUTAN_LEVEL[sebelumnya]
-            # Satu peringatan per triase (U5): triase ulang yang naik menjadi kritis cukup muncul sebagai kritis.
-            if b.risk_level == RiskLevel.KRITIS:
-                jenis = KRITIS_BELUM_DIVALIDASI
-                if naik:
-                    alasan = f"Triase ulang naik dari {sebelumnya.value} ke kritis dan belum divalidasi."
-                else:
-                    alasan = "Hasil triase kritis belum divalidasi."
-            elif naik:
-                jenis = LEVEL_NAIK
-                alasan = f"Triase ulang naik dari {sebelumnya.value} ke {b.risk_level.value} dan belum divalidasi."
+            level = NAMA_LEVEL[b.risk_level]
+            if sebelumnya is None:
+                alasan = f"Penilaian awal {level} menunggu persetujuan dokter."
+            elif sebelumnya != b.risk_level:
+                alasan = f"Level naik dari {NAMA_LEVEL[sebelumnya]} ke {level} dan menunggu persetujuan dokter."
             else:
-                continue
+                alasan = f"Level {level} belum disetujui dokter."
             hasil.append(
                 Peringatan(
-                    jenis=jenis,
+                    jenis=MENUNGGU_PERSETUJUAN,
                     id_kunjungan=b.id_kunjungan,
                     id_pasien=b.id_pasien,
                     nama_pasien=b.nama,
@@ -97,10 +109,33 @@ class PeringatanService:
             )
         return hasil
 
+    def _observasi_terlambat(self, sekarang: datetime) -> list[Peringatan]:
+        hasil = []
+        for item in DaftarTungguService(self.konfigurasi).susun(sekarang):
+            triase = item.triase_terakhir
+            if item.status_tanda != "observasi_terlambat" or triase is None:
+                continue
+            hasil.append(
+                Peringatan(
+                    jenis=OBSERVASI_TERLAMBAT,
+                    id_kunjungan=item.kunjungan.id_kunjungan,
+                    id_pasien=item.pasien.id_pasien,
+                    nama_pasien=item.pasien.nama,
+                    alasan=(
+                        f"Observasi terakhir {item.lama_menunggu} menit lalu, melewati interval "
+                        f"{item.batas_tunggu} menit untuk level {NAMA_LEVEL[triase.risk_level]}."
+                    ),
+                    waktu=triase.waktu_triase,
+                    id_triase=triase.id_triase,
+                    risk_level=triase.risk_level,
+                )
+            )
+        return hasil
+
     def _dari_eir(self) -> list[Peringatan]:
-        # Sesi dianggap sudah ditindaklanjuti bila ada triase pada kunjungan yang sama setelah sesi berhenti.
+        # Informasi dianggap sudah dibaca perawat bila ada observasi baru setelah sesi berhenti.
         waktu_berhenti = func.coalesce(SesiEir.waktu_selesai, SesiEir.waktu_persetujuan)
-        sudah_ditriase = exists().where(
+        sudah_diobservasi = exists().where(
             and_(Triase.id_kunjungan == SesiEir.id_kunjungan, Triase.waktu_triase >= waktu_berhenti)
         )
         baris = db.session.execute(
@@ -108,19 +143,18 @@ class PeringatanService:
             .join(Kunjungan, Kunjungan.id_kunjungan == SesiEir.id_kunjungan)
             .join(Pasien, Pasien.id_pasien == Kunjungan.id_pasien)
             .where(
-                Kunjungan.status == StatusKunjungan.MENUNGGU,
-                SesiEir.status == StatusSesiEir.DIHENTIKAN,
+                Kunjungan.status.in_(STATUS_DI_ICU),
                 SesiEir.tanda_bahaya.is_not(None),
-                ~sudah_ditriase,
+                ~sudah_diobservasi,
             )
         ).all()
         return [
             Peringatan(
-                jenis=TANDA_BAHAYA_EIR,
+                jenis=INFORMASI_PENTING_EIR,
                 id_kunjungan=sesi.id_kunjungan,
                 id_pasien=id_pasien,
                 nama_pasien=nama,
-                alasan=f"Eir menghentikan sesi karena tanda bahaya: {sesi.tanda_bahaya}",
+                alasan=f"Informasi penting dari keluarga lewat Eir: {sesi.tanda_bahaya}",
                 waktu=berhenti,
                 id_sesi=sesi.id_sesi,
             )

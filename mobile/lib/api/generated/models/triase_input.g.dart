@@ -7,14 +7,17 @@ part of 'triase_input.dart';
 // **************************************************************************
 
 TriaseInput _$TriaseInputFromJson(Map<String, dynamic> json) => TriaseInput(
-  keluhanUtama: json['keluhan_utama'] as String,
-  gejala: json['gejala'] as String,
-  kategoriKeluhan: KategoriKeluhan.fromJson(json['kategori_keluhan'] as String),
-  skalaNyeri: (json['skala_nyeri'] as num).toInt(),
   tingkatKesadaran: TingkatKesadaran.fromJson(
     json['tingkat_kesadaran'] as String,
   ),
+  oksigenTambahan: json['oksigen_tambahan'] as bool,
   tandaVital: TandaVital.fromJson(json['tanda_vital'] as Map<String, dynamic>),
+  catatan: json['catatan'] as String?,
+  ventilator: json['ventilator'] as bool? ?? false,
+  vasopresor: json['vasopresor'] as bool? ?? false,
+  lab: json['lab'] == null
+      ? null
+      : HasilLab.fromJson(json['lab'] as Map<String, dynamic>),
   idPemindaian: (json['id_pemindaian'] as List<dynamic>?)
       ?.map((e) => e as String)
       .toList(),
@@ -23,36 +26,14 @@ TriaseInput _$TriaseInputFromJson(Map<String, dynamic> json) => TriaseInput(
 Map<String, dynamic> _$TriaseInputToJson(
   TriaseInput instance,
 ) => <String, dynamic>{
-  'keluhan_utama': instance.keluhanUtama,
-  'gejala': instance.gejala,
-  'kategori_keluhan': _$KategoriKeluhanEnumMap[instance.kategoriKeluhan]!,
-  'skala_nyeri': instance.skalaNyeri,
   'tingkat_kesadaran': _$TingkatKesadaranEnumMap[instance.tingkatKesadaran]!,
+  'oksigen_tambahan': instance.oksigenTambahan,
   'tanda_vital': instance.tandaVital,
+  'lab': instance.lab,
+  'ventilator': instance.ventilator,
+  'vasopresor': instance.vasopresor,
+  'catatan': instance.catatan,
   'id_pemindaian': instance.idPemindaian,
-};
-
-const _$KategoriKeluhanEnumMap = {
-  KategoriKeluhan.penurunanKesadaranAtauKejang:
-      'Penurunan kesadaran atau kejang',
-  KategoriKeluhan.nyeriDada: 'Nyeri dada',
-  KategoriKeluhan.sesakNapasAtauBatuk: 'Sesak napas atau batuk',
-  KategoriKeluhan.perdarahan: 'Perdarahan',
-  KategoriKeluhan.gangguanSaraf: 'Gangguan saraf',
-  KategoriKeluhan.nyeriPerut: 'Nyeri perut',
-  KategoriKeluhan.demam: 'Demam',
-  KategoriKeluhan.pusing: 'Pusing',
-  KategoriKeluhan.nyeriKepala: 'Nyeri kepala',
-  KategoriKeluhan.undefined0: 'Mual, muntah, atau diare',
-  KategoriKeluhan.cederaAtauLuka: 'Cedera atau luka',
-  KategoriKeluhan.jantungBerdebar: 'Jantung berdebar',
-  KategoriKeluhan.kulitAtauAlergi: 'Kulit atau alergi',
-  KategoriKeluhan.undefined1: 'Mata, telinga, hidung, atau tenggorokan',
-  KategoriKeluhan.undefined2: 'Nyeri punggung, pinggang, atau anggota gerak',
-  KategoriKeluhan.lemasAtauKelemahanUmum: 'Lemas atau kelemahan umum',
-  KategoriKeluhan.keluhanKemihAtauKandungan: 'Keluhan kemih atau kandungan',
-  KategoriKeluhan.lainnya: 'Lainnya',
-  KategoriKeluhan.$unknown: r'$unknown',
 };
 
 const _$TingkatKesadaranEnumMap = {

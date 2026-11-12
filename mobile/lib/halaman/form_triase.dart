@@ -6,10 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../api/galat_api.dart';
+import '../api/generated/models/hasil_lab.dart';
 import '../api/generated/models/jenis_alat.dart';
-import '../api/generated/models/kategori_keluhan.dart';
-import '../api/generated/models/pengisi_eir.dart';
-import '../api/generated/models/status_kunjungan.dart';
 import '../api/generated/models/tanda_vital.dart';
 import '../api/generated/models/tingkat_kesadaran.dart';
 import '../api/generated/models/triase_input.dart';
@@ -23,8 +21,9 @@ import '../util/label.dart';
 import '../util/validasi.dart';
 import 'pemindaian.dart';
 
-/// Form Triase (SKPL Tabel 7.1 no. 4, mockup Gambar 7.1): keluhan, kesadaran, skala nyeri, dan tanda vital,
-/// termasuk tombol Pindai layar alat. Hitung rekomendasi membuka halaman Hasil dan Penjelasan.
+/// Form Observasi ICU (pengganti Form Triase SKPL Tabel 7.1 no. 4): tanda vital (bisa dipindai dari bedside
+/// monitor), kesadaran AVPU, oksigen tambahan, hasil lab opsional, alat bantu, dan catatan. Tombol Nilai prioritas
+/// mengirim observasi lalu membuka Hasil Penilaian.
 class HalamanFormTriase extends ConsumerStatefulWidget {
   const HalamanFormTriase({super.key, required this.idKunjungan, this.info});
 
@@ -39,19 +38,18 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
   final _form = GlobalKey<FormState>();
   final _gulir = ScrollController();
   final _tandaVital = {for (final kolom in urutanTandaVital) kolom: TextEditingController()};
-  final _nyeri = TextEditingController();
-  final _keluhan = TextEditingController();
-  final _gejala = TextEditingController();
+  final _lab = {for (final kolom in kolomLab.keys) kolom: TextEditingController()};
+  final _catatan = TextEditingController();
   TingkatKesadaran? _kesadaran;
-  KategoriKeluhan? _kategori;
+  bool? _oksigen;
+  bool _ventilator = false;
+  bool _vasopresor = false;
 
   /// Kolom yang angkanya dari foto: alat dan nilai terbaca. Bila perawat mengubah angkanya, tanda dihapus.
   final _dariFoto = <String, (JenisAlat, String)>{};
   final _idPemindaian = <String>[];
-  String? _sumberEir;
 
   bool _sibuk = false;
-  bool _memuatEir = false;
   bool _sudahDicoba = false;
   GalatApi? _galat;
 
@@ -68,7 +66,7 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
 
   @override
   void dispose() {
-    for (final pengendali in [..._tandaVital.values, _nyeri, _keluhan, _gejala]) {
+    for (final pengendali in [..._tandaVital.values, ..._lab.values, _catatan]) {
       pengendali.dispose();
     }
     _gulir.dispose();
@@ -92,46 +90,30 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
     });
   }
 
-  Future<void> _isiDariEir() async {
-    setState(() => _memuatEir = true);
-    try {
-      final eir = await ref.read(repositoriProvider).ringkasanEir(widget.idKunjungan);
-      final ringkasan = eir.ringkasan;
-      if (!mounted) return;
-      if (ringkasan == null) {
-        tampilkanPesan(context, 'Percakapan Eir belum selesai, jadi ringkasannya belum ada.');
-        return;
-      }
-      setState(() {
-        _keluhan.text = ringkasan.keluhanUtama;
-        _gejala.text = ringkasan.onset.trim().isEmpty
-            ? ringkasan.gejala
-            : '${ringkasan.gejala}\nSejak: ${ringkasan.onset}';
-        if (ringkasan.kategoriKeluhan != KategoriKeluhan.$unknown) _kategori = ringkasan.kategoriKeluhan;
-        _sumberEir = eir.pengisi == PengisiEir.keluarga ? 'keluarga pasien' : 'pasien';
-      });
-    } on GalatApi catch (galat) {
-      if (mounted) tampilkanPesan(context, galat.pesan, galat: true);
-    } finally {
-      if (mounted) setState(() => _memuatEir = false);
-    }
+  HasilLab _hasilLab() {
+    num? baca(String kolom) => bacaAngka(_lab[kolom]!.text);
+    return HasilLab(
+      laktat: baca('laktat'),
+      kreatinin: baca('kreatinin'),
+      trombosit: baca('trombosit')?.toInt(),
+      leukosit: baca('leukosit'),
+      bilirubin: baca('bilirubin'),
+    );
   }
 
-  Future<void> _hitung() async {
+  Future<void> _kirim() async {
     setState(() => _sudahDicoba = true);
     final formValid = _form.currentState!.validate();
-    if (!formValid || _kesadaran == null || _kategori == null) return;
+    if (!formValid || _kesadaran == null || _oksigen == null) return;
     setState(() {
       _sibuk = true;
       _galat = null;
     });
     final nilai = {for (final MapEntry(:key, :value) in _tandaVital.entries) key: bacaAngka(value.text)!};
+    final catatan = _catatan.text.trim();
     final data = TriaseInput(
-      keluhanUtama: _keluhan.text.trim(),
-      gejala: _gejala.text.trim(),
-      kategoriKeluhan: _kategori!,
-      skalaNyeri: int.parse(_nyeri.text.trim()),
       tingkatKesadaran: _kesadaran!,
+      oksigenTambahan: _oksigen!,
       tandaVital: TandaVital(
         tdSistolik: nilai['td_sistolik']!.toInt(),
         tdDiastolik: nilai['td_diastolik']!.toInt(),
@@ -140,16 +122,17 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
         suhu: nilai['suhu']!,
         saturasi: nilai['saturasi']!,
       ),
+      lab: _hasilLab(),
+      ventilator: _ventilator,
+      vasopresor: _vasopresor,
+      catatan: catatan.isEmpty ? null : catatan,
       idPemindaian: List.of(_idPemindaian),
     );
     try {
       final detail = await ref.read(repositoriProvider).buatTriase(widget.idKunjungan, data);
       if (!mounted) return;
       unawaited(ref.read(antreanProvider.notifier).muatUlang());
-      context.pushReplacement(
-        Rute.hasil(detail.idTriase),
-        extra: InfoHasil(detail: detail, statusKunjungan: StatusKunjungan.menunggu),
-      );
+      context.pushReplacement(Rute.hasil(detail.idTriase), extra: InfoHasil(detail: detail));
     } on GalatApi catch (galat) {
       if (!mounted) return;
       setState(() => _galat = galat);
@@ -173,8 +156,9 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
         ? galat.pesan
         : 'Periksa kembali kolom yang ditandai merah.';
     final waktuDatang = info?.waktuDatang;
+    final ulang = info?.triaseUlang == true;
     return Scaffold(
-      appBar: AppBar(title: const Text('Form Triase')),
+      appBar: AppBar(title: Text(ulang ? 'Observasi Pasien' : 'Penilaian Awal')),
       body: Form(
         key: _form,
         autovalidateMode: _sudahDicoba ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
@@ -193,7 +177,10 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      info?.triaseUlang == true ? 'Triase ulang' : 'Triase',
+                      [
+                        ulang ? 'Observasi' : 'Penilaian awal',
+                        if (info?.nomorBed != null) 'Bed ${info!.nomorBed}',
+                      ].join(' · '),
                       style: const TextStyle(color: Warna.teksRedup, fontSize: 14, fontWeight: FontWeight.w700),
                     ),
                     if (pasien != null) ...[
@@ -202,7 +189,7 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
                         [
                           if (pasien.usia != null) '${pasien.usia} th',
                           labelKelamin(pasien.jenisKelamin),
-                          if (waktuDatang != null) 'datang ${jamWib(waktuDatang)}',
+                          if (waktuDatang != null) 'masuk ${jamWib(waktuDatang)}',
                         ].join(' · '),
                         style: const TextStyle(color: Warna.teksRedup, fontSize: 15),
                       ),
@@ -211,27 +198,29 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
                 ),
               ),
             ),
-            if (widget.info?.ringkasanEirSiap == true && _sumberEir == null) _barisEir(),
+            if (info?.ringkasanEirSiap == true) _barisEir(pasien?.nama),
             if (pesanUmum != null)
               Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: KotakPesan(pesanUmum)),
             const SizedBox(height: 12),
             _kartuTandaVital(),
             const SizedBox(height: 12),
-            _kartuKesadaran(),
+            _kartuKesadaranOksigen(),
             const SizedBox(height: 12),
-            _kartuKeluhan(),
+            _kartuLab(),
+            const SizedBox(height: 12),
+            _kartuAlatBantu(),
           ],
         ),
       ),
       // Tombol simpan selalu terlihat, jadi perawat tidak perlu menggulir ke akhir form.
       bottomNavigationBar: BilahBawah(
-        tombol: [TombolProses(label: 'Hitung rekomendasi', sibuk: _sibuk, onPressed: _hitung)],
+        tombol: [TombolProses(label: 'Nilai prioritas', sibuk: _sibuk, onPressed: _kirim)],
       ),
     );
   }
 
-  /// Pemberitahuan bahwa pasien sudah menjawab Eir, dengan tombol untuk mengisi keluhan dari ringkasannya.
-  Widget _barisEir() {
+  /// Pemberitahuan bahwa keluarga sudah menjawab Eir, dengan tombol untuk membaca ringkasan riwayatnya.
+  Widget _barisEir(String? namaPasien) {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -251,9 +240,9 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Ringkasan Eir sudah masuk', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text('Ringkasan Eir dari keluarga sudah masuk', style: TextStyle(fontWeight: FontWeight.w700)),
                       Text(
-                        'Jawaban pasien bisa dipakai untuk mengisi keluhan.',
+                        'Berisi riwayat penyakit, obat rutin, dan alergi pasien.',
                         style: TextStyle(color: Warna.teksRedup, fontSize: 14),
                       ),
                     ],
@@ -264,8 +253,8 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: _memuatEir ? null : _isiDariEir,
-                child: Text(_memuatEir ? 'Memuat ringkasan Eir...' : 'Isi dari ringkasan Eir'),
+                onPressed: () => context.push(Rute.ringkasanEir(widget.idKunjungan), extra: namaPasien),
+                child: const Text('Baca ringkasan Eir'),
               ),
             ),
           ],
@@ -286,7 +275,7 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
         ),
         onPressed: _sibuk ? null : _pindai,
         icon: const Icon(Icons.photo_camera_outlined, size: 20),
-        label: const Text('Pindai layar alat'),
+        label: const Text('Pindai monitor'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -343,11 +332,20 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
     );
   }
 
-  Widget _kartuKesadaran() {
+  Widget _pesanWajib(String? pesan) => Padding(
+    padding: const EdgeInsets.only(top: 6),
+    child: Text(
+      pesan ?? '',
+      style: const TextStyle(color: Warna.galat, fontSize: 13, fontWeight: FontWeight.w600),
+    ),
+  );
+
+  Widget _kartuKesadaranOksigen() {
     final galat = _galat;
     final kesadaranKosong = _sudahDicoba && _kesadaran == null;
+    final oksigenKosong = _sudahDicoba && _oksigen == null;
     return KartuBagian(
-      judul: 'Kesadaran dan nyeri',
+      judul: 'Kesadaran dan oksigen',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -386,90 +384,114 @@ class _HalamanFormTriaseState extends ConsumerState<HalamanFormTriase> {
             onSelectionChanged: (pilihan) => setState(() => _kesadaran = pilihan.firstOrNull),
           ),
           if (kesadaranKosong || galat?.field('tingkat_kesadaran') != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                galat?.field('tingkat_kesadaran') ?? 'Pilih tingkat kesadaran.',
-                style: const TextStyle(color: Warna.galat, fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-            ),
+            _pesanWajib(galat?.field('tingkat_kesadaran') ?? 'Pilih tingkat kesadaran.'),
           const SizedBox(height: 20),
-          TextFormField(
-            key: const ValueKey('skala-nyeri'),
-            controller: _nyeri,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              labelText: 'Skala nyeri (0-10)',
-              suffixText: '/10',
-              errorText: galat?.field('skala_nyeri'),
-            ),
-            validator: (teks) => periksaSkalaNyeri(teks ?? ''),
+          const Text('Oksigen tambahan', style: TextStyle(fontWeight: FontWeight.w700)),
+          const Text(
+            'Nasal kanul, masker, HFNC, atau ventilator. Menambah 2 poin NEWS2.',
+            style: TextStyle(color: Warna.teksRedup, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<bool>(
+            style: const ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(48, 48))),
+            segments: const [
+              ButtonSegment(value: false, label: Text('Udara ruangan')),
+              ButtonSegment(value: true, label: Text('Ya, oksigen')),
+            ],
+            selected: {?_oksigen},
+            emptySelectionAllowed: true,
+            showSelectedIcon: false,
+            onSelectionChanged: (pilihan) => setState(() => _oksigen = pilihan.firstOrNull),
+          ),
+          if (oksigenKosong || galat?.field('oksigen_tambahan') != null)
+            _pesanWajib(galat?.field('oksigen_tambahan') ?? 'Pilih apakah pasien mendapat oksigen tambahan.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _kartuLab() {
+    return KartuBagian(
+      judul: 'Hasil lab terakhir (opsional)',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Isi bila ada. Kolom yang kosong tidak dipakai sebagai faktor penjelas.',
+            style: TextStyle(color: Warna.teksRedup, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, batas) {
+              final lebar = (batas.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                children: [
+                  for (final MapEntry(key: kolom, value: (label, satuan, desimal)) in kolomLab.entries)
+                    SizedBox(
+                      width: lebar,
+                      child: TextFormField(
+                        key: ValueKey('lab-$kolom'),
+                        controller: _lab[kolom],
+                        keyboardType: TextInputType.numberWithOptions(decimal: desimal > 0),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(desimal > 0 ? r'[0-9.,]' : r'[0-9]')),
+                        ],
+                        textInputAction: TextInputAction.next,
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                        decoration: InputDecoration(
+                          labelText: label,
+                          suffixText: satuan,
+                          helperText: ' ',
+                          errorText: _galat?.field('lab.$kolom'),
+                          errorMaxLines: 2,
+                        ),
+                        validator: (teks) => periksaLab(kolom, teks ?? ''),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _kartuKeluhan() {
-    final galat = _galat;
-    final kategoriKosong = _sudahDicoba && _kategori == null;
+  Widget _kartuAlatBantu() {
     return KartuBagian(
-      judul: 'Keluhan',
+      judul: 'Alat bantu dan catatan',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_sumberEir != null) ...[
-            KotakPesan(
-              'Keluhan dan gejala diisi dari ringkasan Eir yang dijawab $_sumberEir. Periksa dan lengkapi sebelum '
-              'menghitung rekomendasi.',
-              jenis: JenisPesan.info,
-            ),
-            const SizedBox(height: 16),
-          ],
-          DropdownButtonFormField<KategoriKeluhan>(
-            key: const ValueKey('kategori-keluhan'),
-            initialValue: _kategori,
-            isExpanded: true,
-            // Bawaan dropdown memakai titleMedium (tebal); disamakan dengan isian lain.
-            style: Theme.of(context).textTheme.bodyLarge,
-            hint: const Text('Pilih kategori', style: TextStyle(color: Warna.teksSamar)),
-            decoration: InputDecoration(
-              labelText: 'Kategori keluhan',
-              errorText: galat?.field('kategori_keluhan') ?? (kategoriKosong ? 'Pilih kategori keluhan.' : null),
-            ),
-            items: [
-              for (final kategori in KategoriKeluhan.$valuesDefined)
-                DropdownMenuItem(
-                  value: kategori,
-                  child: Text(kategori.json!, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: (kategori) => setState(() => _kategori = kategori),
+          SwitchListTile(
+            key: const ValueKey('ventilator'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Memakai ventilator'),
+            value: _ventilator,
+            onChanged: (nilai) => setState(() => _ventilator = nilai),
           ),
-          const SizedBox(height: 18),
-          TextFormField(
-            key: const ValueKey('keluhan-utama'),
-            controller: _keluhan,
-            maxLength: 200,
-            decoration: InputDecoration(labelText: 'Keluhan utama', errorText: galat?.field('keluhan_utama')),
-            validator: (teks) => periksaPanjang(teks ?? '', min: 1, maks: 200, nama: 'Keluhan utama'),
+          SwitchListTile(
+            key: const ValueKey('vasopresor'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Mendapat vasopresor'),
+            value: _vasopresor,
+            onChanged: (nilai) => setState(() => _vasopresor = nilai),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           TextFormField(
-            key: const ValueKey('gejala'),
-            controller: _gejala,
-            minLines: 3,
-            maxLines: 6,
-            maxLength: 2000,
+            key: const ValueKey('catatan'),
+            controller: _catatan,
+            minLines: 2,
+            maxLines: 5,
+            maxLength: 500,
             decoration: InputDecoration(
-              labelText: 'Gejala',
+              labelText: 'Catatan (opsional)',
               alignLabelWithHint: true,
-              hintText: 'Gejala penyerta, sejak kapan, dan hal lain yang dikeluhkan',
-              errorText: galat?.field('gejala'),
+              hintText: 'Misalnya produksi urin, keluhan baru, atau tindakan yang baru diberikan',
+              errorText: _galat?.field('catatan'),
             ),
-            validator: (teks) => periksaPanjang(teks ?? '', min: 10, maks: 2000, nama: 'Gejala'),
           ),
         ],
       ),

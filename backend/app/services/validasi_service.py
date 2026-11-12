@@ -1,4 +1,8 @@
-"""Validasi hasil triase oleh perawat atau dokter (FR-06, Desain 2.6 dan Gambar 2.16-2.18)."""
+"""Persetujuan dokter atas penilaian prioritas ICU (FR-06, Desain 2.6 dan Gambar 2.16-2.18).
+
+Hanya penilaian awal dan kenaikan level yang menunggu persetujuan; observasi yang levelnya sama atau turun
+langsung tercatat (TriaseService.status_awal).
+"""
 
 import uuid
 
@@ -20,14 +24,15 @@ AKSI_AUDIT = {
 
 
 class KebijakanValidasi:
-    """Aturan peran di server: perawat hanya menyetujui hasil non-kritis atau mengajukan review,
-    dokter menyetujui atau mengoreksi semua tingkat (Desain 2.6). Dokter tidak mengajukan review (K10).
+    """Aturan peran di server: di ICU hanya dokter yang menyetujui atau mengoreksi prioritas. Perawat boleh
+    mengajukan review supaya dokter segera melihat pasiennya. Dokter tidak mengajukan review (K10).
     """
 
     @staticmethod
     def boleh(peran: Peran, aksi: str, level: RiskLevel) -> bool:
+        del level  # semua level diperlakukan sama di ICU
         if peran == Peran.PERAWAT:
-            return aksi == "ajukan_review" or (aksi == "setujui" and level != RiskLevel.KRITIS)
+            return aksi == "ajukan_review"
         if peran == Peran.DOKTER:
             return aksi in ("setujui", "koreksi")
         return False
@@ -35,12 +40,12 @@ class KebijakanValidasi:
     @staticmethod
     def pesan_ditolak(peran: Peran, aksi: str) -> str:
         if peran == Peran.PERAWAT and aksi == "setujui":
-            return "Hasil triase kritis harus divalidasi dokter. Ajukan review bila perlu."
+            return "Prioritas pasien ICU harus disetujui dokter. Ajukan review bila perlu segera dilihat."
         if peran == Peran.PERAWAT and aksi == "koreksi":
-            return "Koreksi risk level hanya boleh dilakukan dokter. Ajukan review bila hasilnya meragukan."
+            return "Koreksi level hanya boleh dilakukan dokter. Ajukan review bila hasilnya meragukan."
         if peran == Peran.DOKTER and aksi == "ajukan_review":
-            return "Dokter langsung menyetujui atau mengoreksi hasil triase, tanpa mengajukan review."
-        return "Peran Anda tidak boleh memvalidasi hasil triase."
+            return "Dokter langsung menyetujui atau mengoreksi prioritas, tanpa mengajukan review."
+        return "Peran Anda tidak boleh memvalidasi prioritas pasien."
 
 
 class ValidasiService:
@@ -66,7 +71,7 @@ class ValidasiService:
             .execution_options(populate_existing=True)
         )
         if triase is None:
-            raise TidakDitemukanError("Triase tidak ditemukan.")
+            raise TidakDitemukanError("Observasi tidak ditemukan.")
         if not self.kebijakan.boleh(pengguna.peran, data.aksi, triase.risk_level):
             raise AksesDitolakError(self.kebijakan.pesan_ditolak(pengguna.peran, data.aksi))
         self._periksa_status(triase, data.aksi, pengguna)
@@ -95,18 +100,20 @@ class ValidasiService:
 
     @staticmethod
     def _periksa_status(triase: Triase, aksi: str, pengguna: Pengguna) -> None:
+        if triase.status_validasi == StatusValidasi.TERCATAT:
+            raise KonflikError("Observasi ini tidak menaikkan level, jadi tidak memerlukan persetujuan dokter.")
         if not triase.bisa_diputuskan():
-            raise KonflikError(f"Triase ini sudah divalidasi ({triase.status_validasi.value}).")
+            raise KonflikError(f"Penilaian ini sudah divalidasi ({triase.status_validasi.value}).")
         if triase.status_validasi == StatusValidasi.MENUNGGU_REVIEW_DOKTER and pengguna.peran != Peran.DOKTER:
-            raise KonflikError("Triase ini sedang menunggu review dokter.")
+            raise KonflikError("Penilaian ini sedang menunggu review dokter.")
 
-        # Kunjungan dikunci FOR SHARE supaya triase ulang (yang mengunci kunjungan FOR UPDATE) tidak bisa
-        # tersimpan di antara pemeriksaan "triase terakhir" ini dan commit.
+        # Masa rawat dikunci FOR SHARE supaya observasi baru (yang menguncinya FOR UPDATE) tidak bisa
+        # tersimpan di antara pemeriksaan "observasi terakhir" ini dan commit.
         status_kunjungan = db.session.scalar(
             select(Kunjungan.status).where(Kunjungan.id_kunjungan == triase.id_kunjungan).with_for_update(read=True)
         )
         if status_kunjungan == StatusKunjungan.SELESAI:
-            raise KonflikError("Kunjungan ini sudah selesai, jadi triasenya tidak bisa divalidasi lagi.")
+            raise KonflikError("Pasien ini sudah keluar dari ICU, jadi penilaiannya tidak bisa divalidasi lagi.")
 
         terbaru = db.session.scalar(
             select(Triase.id_triase)
@@ -115,4 +122,4 @@ class ValidasiService:
             .limit(1)
         )
         if terbaru != triase.id_triase:
-            raise KonflikError("Triase ini sudah digantikan triase ulang yang lebih baru.")
+            raise KonflikError("Penilaian ini sudah digantikan observasi yang lebih baru.")

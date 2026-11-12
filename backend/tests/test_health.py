@@ -31,7 +31,7 @@ def test_health_ok_tanpa_login(client):
         "komponen": {
             "database": "ok",
             "hak_akses_log_audit": "ok",
-            "model_triase": "ok",
+            "model_perburukan": "ok",
             "pembaca_layar": "ok",
             "groq": "ok",
         },

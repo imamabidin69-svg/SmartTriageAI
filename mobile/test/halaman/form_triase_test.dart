@@ -12,6 +12,7 @@ import '../bantuan/aplikasi.dart';
 import '../bantuan/data.dart';
 
 Finder _kolom(String kolom) => find.byKey(ValueKey('tanda-vital-$kolom'));
+Finder _lab(String kolom) => find.byKey(ValueKey('lab-$kolom'));
 
 Future<void> _isiFormLengkap(WidgetTester tester, {bool tandaVital = true}) async {
   if (tandaVital) {
@@ -28,12 +29,7 @@ Future<void> _isiFormLengkap(WidgetTester tester, {bool tandaVital = true}) asyn
     }
   }
   await ketuk(tester, find.text('A'));
-  await isi(tester, find.byKey(const ValueKey('skala-nyeri')), '7');
-  await ketuk(tester, find.byKey(const ValueKey('kategori-keluhan')));
-  await tester.tap(find.text('Nyeri dada').last);
-  await tester.pumpAndSettle();
-  await isi(tester, find.byKey(const ValueKey('keluhan-utama')), 'Nyeri dada kiri menjalar');
-  await isi(tester, find.byKey(const ValueKey('gejala')), 'Nyeri dada kiri menjalar ke lengan sejak 1 jam');
+  await ketuk(tester, find.text('Ya, oksigen'));
 }
 
 void main() {
@@ -58,6 +54,7 @@ void main() {
       Rute.formTriase(idKunjungan),
       extra: InfoFormTriase(
         pasien: pasien(),
+        nomorBed: 'ICU-2',
         waktuDatang: DateTime.utc(2026, 11, 2, 1, 42),
         triaseUlang: ulang,
         ringkasanEirSiap: eirSiap,
@@ -68,40 +65,47 @@ void main() {
   testWidgets('isian kosong dan di luar batas ditolak di perangkat', (tester) async {
     await bukaForm(tester);
     expect(find.text('Budi Santoso'), findsOneWidget);
-    expect(find.text('45 th · Laki-laki · datang 08.42'), findsOneWidget);
+    expect(find.text('Penilaian Awal'), findsOneWidget);
+    expect(find.text('Penilaian awal · Bed ICU-2'), findsOneWidget);
+    expect(find.text('45 th · Laki-laki · masuk 08.42'), findsOneWidget);
 
-    // Tombol Hitung rekomendasi menempel di bawah layar, jadi pesan di blok Keluhan perlu digulir dulu.
-    await ketuk(tester, find.text('Hitung rekomendasi'));
+    // Tombol Nilai prioritas menempel di bawah layar, jadi pesan di bawah perlu digulir dulu.
+    await ketuk(tester, find.text('Nilai prioritas'));
     expect(find.text('Wajib diisi.'), findsWidgets);
-    expect(find.text('Pilih tingkat kesadaran.'), findsOneWidget);
-    await gulirSampaiAda(tester, find.text('Pilih kategori keluhan.'));
-    expect(find.text('Pilih kategori keluhan.'), findsOneWidget);
+    await gulirSampaiAda(tester, find.text('Pilih tingkat kesadaran.'));
+    await gulirSampaiAda(tester, find.text('Pilih apakah pasien mendapat oksigen tambahan.'));
 
+    await gulirKeAtasSampaiAda(tester, _kolom('saturasi'));
     await isi(tester, _kolom('saturasi'), '120');
     await isi(tester, _kolom('nadi'), '7');
     await tester.pump();
     expect(find.text('Harus antara 0 dan 100.'), findsOneWidget);
-    await isi(tester, find.byKey(const ValueKey('gejala')), 'pendek');
+    await isi(tester, _lab('laktat'), '31');
+    await isi(tester, _lab('trombosit'), '2500');
     await tester.pump();
-    expect(find.text('Gejala minimal 10 karakter.'), findsOneWidget);
+    expect(find.text('Harus antara 0 dan 30.'), findsOneWidget);
+    expect(find.text('Harus antara 0 dan 2000.'), findsOneWidget);
     verifyNever(() => repo.buatTriase(any(), any()));
     await tutupAplikasi(tester);
   });
 
-  testWidgets('menghitung rekomendasi lalu membuka Hasil dan Penjelasan', (tester) async {
+  testWidgets('menilai prioritas lalu membuka Hasil Penilaian', (tester) async {
     when(() => repo.buatTriase(idKunjungan, any())).thenAnswer((_) async => triaseDetail());
     await bukaForm(tester);
     await _isiFormLengkap(tester);
-    await ketuk(tester, find.text('Hitung rekomendasi'));
+    await isi(tester, _lab('laktat'), '3,4');
+    await isi(tester, _lab('kreatinin'), '1,45');
+    await isi(tester, _lab('trombosit'), '140');
+    await gulirSampaiAda(tester, find.byKey(const ValueKey('vasopresor')));
+    await ketuk(tester, find.byKey(const ValueKey('vasopresor')));
+    await isi(tester, find.byKey(const ValueKey('catatan')), '  Urin 25 ml/jam ');
+    await ketuk(tester, find.text('Nilai prioritas'));
 
     final input = verify(() => repo.buatTriase(idKunjungan, captureAny())).captured.single as TriaseInput;
     // Dio mengubah objek bersarang lewat jsonEncode, jadi dibandingkan setelah encode.
     expect(jsonDecode(jsonEncode(input.toJson())), {
-      'keluhan_utama': 'Nyeri dada kiri menjalar',
-      'gejala': 'Nyeri dada kiri menjalar ke lengan sejak 1 jam',
-      'kategori_keluhan': 'Nyeri dada',
-      'skala_nyeri': 7,
       'tingkat_kesadaran': 'A',
+      'oksigen_tambahan': true,
       'tanda_vital': {
         'td_sistolik': 158,
         'td_diastolik': 96,
@@ -110,13 +114,28 @@ void main() {
         'suhu': 37.2,
         'saturasi': 95,
       },
+      'lab': {'laktat': 3.4, 'kreatinin': 1.45, 'trombosit': 140, 'leukosit': null, 'bilirubin': null},
+      'ventilator': false,
+      'vasopresor': true,
+      'catatan': 'Urin 25 ml/jam',
       'id_pemindaian': <String>[],
     });
-    expect(find.text('Hasil Triase'), findsOneWidget);
+    expect(find.text('Hasil Penilaian'), findsOneWidget);
     expect(find.text('Tinggi'), findsOneWidget);
-    // Form diganti halaman hasil, jadi kembali langsung ke daftar tunggu.
+    // Form diganti halaman hasil, jadi kembali langsung ke papan prioritas.
     await kembali(tester);
-    expect(find.text('Daftar Tunggu IGD'), findsOneWidget);
+    expect(find.text('Prioritas Pasien ICU'), findsOneWidget);
+    await tutupAplikasi(tester);
+  });
+
+  testWidgets('catatan kosong dikirim null dan udara ruangan dikirim false', (tester) async {
+    when(() => repo.buatTriase(idKunjungan, any())).thenAnswer((_) async => triaseDetail());
+    await bukaForm(tester);
+    await _isiFormLengkap(tester);
+    await ketuk(tester, find.text('Udara ruangan'));
+    await ketuk(tester, find.text('Nilai prioritas'));
+    final input = verify(() => repo.buatTriase(idKunjungan, captureAny())).captured.single as TriaseInput;
+    expect((input.oksigenTambahan, input.catatan, input.lab!.laktat), (false, null, null));
     await tutupAplikasi(tester);
   });
 
@@ -126,22 +145,26 @@ void main() {
         status: 422,
         tipe: 'urn:smarttriage:problem:validasi',
         judul: 'Data tidak valid',
-        pesanField: {'tanda_vital.suhu': 'Suhu harus antara 20 dan 45.', 'gejala': 'Gejala terlalu pendek.'},
+        pesanField: {'tanda_vital.suhu': 'Suhu harus antara 20 dan 45.', 'lab.laktat': 'Laktat maksimal 30 mmol/L.'},
       ),
     );
     await bukaForm(tester);
     await _isiFormLengkap(tester);
-    await ketuk(tester, find.text('Hitung rekomendasi'));
+    await ketuk(tester, find.text('Nilai prioritas'));
     expect(find.text('Periksa kembali kolom yang ditandai merah.'), findsOneWidget);
     expect(find.text('Suhu harus antara 20 dan 45.'), findsOneWidget);
-    await gulirSampaiAda(tester, find.text('Gejala terlalu pendek.'));
-    expect(find.text('Gejala terlalu pendek.'), findsOneWidget);
+    await gulirSampaiAda(tester, find.text('Laktat maksimal 30 mmol/L.'));
 
     when(() => repo.buatTriase(any(), any())).thenThrow(
-      const GalatApi(status: 409, tipe: GalatApi.tipeKonflik, judul: 'Konflik', detail: 'Kunjungan sudah selesai.'),
+      const GalatApi(
+        status: 409,
+        tipe: GalatApi.tipeKonflik,
+        judul: 'Konflik',
+        detail: 'Pasien ini sudah keluar dari ICU, jadi observasi tidak bisa ditambahkan.',
+      ),
     );
-    await ketuk(tester, find.text('Hitung rekomendasi'));
-    expect(find.text('Kunjungan sudah selesai.'), findsOneWidget);
+    await ketuk(tester, find.text('Nilai prioritas'));
+    expect(find.text('Pasien ini sudah keluar dari ICU, jadi observasi tidak bisa ditambahkan.'), findsOneWidget);
     await tutupAplikasi(tester);
   });
 
@@ -150,9 +173,9 @@ void main() {
     when(() => repo.pindai(JenisAlat.tensimeter, any())).thenAnswer((_) async => hasilPemindaian());
     when(() => repo.buatTriase(any(), any())).thenAnswer((_) async => triaseDetail());
     await bukaForm(tester, ulang: true, kamera: kamera);
-    expect(find.text('Triase ulang'), findsOneWidget);
+    expect(find.text('Observasi Pasien'), findsOneWidget);
 
-    await ketuk(tester, find.text('Pindai layar alat'));
+    await ketuk(tester, find.text('Pindai monitor'));
     expect(find.text('Pindai Layar Alat'), findsOneWidget);
     await ketuk(tester, find.text('Ambil foto'));
     expect(find.text('97% yakin'), findsOneWidget);
@@ -162,7 +185,7 @@ void main() {
     expect(kamera.terakhir!.existsSync(), isFalse);
 
     await ketuk(tester, find.text('Pakai angka ini'));
-    expect(find.text('Form Triase'), findsOneWidget);
+    expect(find.text('Observasi Pasien'), findsOneWidget);
     expect(find.text('2 nilai dibaca dari foto. Periksa sebelum menyimpan.'), findsOneWidget);
     expect(find.text('dari tensimeter'), findsNWidgets(2));
 
@@ -175,7 +198,7 @@ void main() {
     await isi(tester, _kolom('suhu'), '37');
     await isi(tester, _kolom('laju_napas'), '22');
     await _isiFormLengkap(tester, tandaVital: false);
-    await ketuk(tester, find.text('Hitung rekomendasi'));
+    await ketuk(tester, find.text('Nilai prioritas'));
     final input = verify(() => repo.buatTriase(idKunjungan, captureAny())).captured.single as TriaseInput;
     expect(input.idPemindaian, [idPemindaian]);
     expect(input.tandaVital.tdSistolik, 158);
@@ -183,34 +206,15 @@ void main() {
     await tutupAplikasi(tester);
   });
 
-  testWidgets('isi keluhan dari ringkasan Eir (TC-15)', (tester) async {
+  testWidgets('ringkasan Eir keluarga bisa dibaca dari form (TC-15)', (tester) async {
     when(() => repo.ringkasanEir(idKunjungan)).thenAnswer((_) async => ringkasanEir());
     await bukaForm(tester, eirSiap: true);
-    await ketuk(tester, find.text('Isi dari ringkasan Eir'));
-    expect(find.textContaining('dijawab keluarga pasien'), findsOneWidget);
-    expect(find.text('Demam tiga hari'), findsOneWidget);
-    expect(find.text('Demam naik turun disertai pusing\nSejak: tiga hari lalu'), findsOneWidget);
-    expect(find.text('Demam'), findsWidgets);
-    await tutupAplikasi(tester);
-  });
-
-  testWidgets('ringkasan Eir belum ada atau gagal dimuat', (tester) async {
-    when(() => repo.ringkasanEir(idKunjungan))
-        .thenAnswer((_) async => ringkasanEir(status: 'berjalan', denganRingkasan: false));
-    await bukaForm(tester, eirSiap: true);
-    await ketuk(tester, find.text('Isi dari ringkasan Eir'));
-    expect(find.text('Percakapan Eir belum selesai, jadi ringkasannya belum ada.'), findsOneWidget);
-
-    when(() => repo.ringkasanEir(idKunjungan)).thenThrow(
-      const GalatApi(
-        status: 404,
-        tipe: 'urn:smarttriage:problem:tidak-ditemukan',
-        judul: 'Tidak ditemukan',
-        detail: 'Kunjungan ini belum punya sesi Eir.',
-      ),
-    );
-    await ketuk(tester, find.text('Isi dari ringkasan Eir'));
-    expect(find.text('Kunjungan ini belum punya sesi Eir.'), findsOneWidget);
+    expect(find.text('Ringkasan Eir dari keluarga sudah masuk'), findsOneWidget);
+    await ketuk(tester, find.text('Baca ringkasan Eir'));
+    expect(find.text('Percakapan Eir'), findsOneWidget);
+    expect(find.text('Alergi amoxicillin'), findsOneWidget);
+    await kembali(tester);
+    expect(find.text('Penilaian Awal'), findsOneWidget);
     await tutupAplikasi(tester);
   });
 
@@ -218,7 +222,7 @@ void main() {
     final kamera = PengambilFotoUji();
     when(() => repo.pindai(any(), any())).thenAnswer((_) async => hasilPemindaian(tersedia: false));
     await bukaForm(tester, kamera: kamera);
-    await ketuk(tester, find.text('Pindai layar alat'));
+    await ketuk(tester, find.text('Pindai monitor'));
 
     await ketuk(tester, find.text('Termometer'));
     await ketuk(tester, find.text('Ambil foto'));

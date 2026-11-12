@@ -122,7 +122,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Membaca konfigurasi triase */
+        /** Membaca konfigurasi penilaian ICU */
         get: operations["admin_ambil_konfigurasi_konfigurasi_get"];
         put?: never;
         post?: never;
@@ -130,8 +130,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Mengubah sebagian konfigurasi triase
-         * @description Hanya field yang dikirim yang diubah. Setiap perubahan dicatat di log audit. Ambang harus berurutan (kritis > tinggi > sedang) dan batas tunggu tidak menurun (tinggi <= sedang <= rendah).
+         * Mengubah sebagian konfigurasi penilaian ICU
+         * @description Hanya field yang dikirim yang diubah. Setiap perubahan dicatat di log audit. Ambang skor NEWS2 harus berurutan (kritis > tinggi > sedang) dan interval observasi tidak menurun (kritis <= tinggi <= sedang <= rendah).
          */
         patch: operations["admin_ubah_konfigurasi_konfigurasi_patch"];
         trace?: never;
@@ -210,8 +210,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Registrasi singkat dan pembuatan kunjungan
-         * @description Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru. Pasien dengan NIK yang sudah terdaftar dipakai ulang bila nama dan jenis kelaminnya sama.
+         * Mencatat pasien masuk ICU
+         * @description Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru, lalu nomor bed, asal ruangan, dan diagnosis masuk. Pasien dengan NIK yang sudah terdaftar dipakai ulang bila nama dan jenis kelaminnya sama. Bed yang masih ditempati pasien lain dibalas 422 pada field nomor_bed.
          */
         post: operations["kunjungan_registrasi_kunjungan_post"];
         delete?: never;
@@ -234,8 +234,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Menandai pasien mulai diperiksa atau selesai
-         * @description Dokter mengubah status menunggu ke ditangani (pasien keluar dari daftar tunggu), ditangani ke selesai, atau menunggu ke selesai untuk pasien yang batal diperiksa. Perubahan lain dibalas 409.
+         * Mengubah status pasien ICU
+         * @description Dokter menandai pasien mulai tindakan atau operasi (ditangani), kembali dipantau setelah tindakan (menunggu), atau keluar ICU (selesai). Pasien yang sedang tindakan tetap tampil di papan prioritas di urutan paling bawah. Perubahan lain dibalas 409.
          */
         patch: operations["kunjungan_ubah_status_kunjungan__uuid_id_kunjungan__status_patch"];
         trace?: never;
@@ -250,8 +250,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Membuat tautan Eir untuk kode QR
-         * @description Khusus kunjungan yang masih menunggu dan risk level terakhirnya rendah. Token berlaku dua jam dan ditampilkan sebagai kode QR untuk pasien atau keluarga. Kunjungan lain dibalas 409.
+         * Membuat tautan Eir untuk keluarga pasien
+         * @description Untuk pasien yang masih di ICU, apa pun levelnya. Token berlaku dua jam dan ditampilkan sebagai kode QR untuk keluarga. Pasien yang sudah keluar ICU dibalas 409.
          */
         post: operations["kunjungan_tautan_eir_kunjungan__uuid_id_kunjungan__tautan_eir_post"];
         delete?: never;
@@ -268,8 +268,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Membaca ringkasan Eir terakhir sebagai draf form triase
-         * @description Sesi Eir terbaru untuk kunjungan ini (keputusan E1), berisi ringkasan, transkrip, dan tanda bahaya bila sesi dihentikan. Ringkasan masih draf dan wajib diperiksa perawat sebelum dipakai di form triase. 404 bila kunjungan belum punya sesi Eir.
+         * Membaca ringkasan riwayat dari keluarga lewat Eir
+         * @description Sesi Eir terbaru untuk pasien ini (keputusan E1), berisi ringkasan riwayat (kronologi, penyakit, obat rutin, alergi, informasi lain), transkrip, dan informasi penting yang ditandai. Ringkasan berasal dari keterangan keluarga dan wajib diperiksa perawat. 404 bila pasien belum punya sesi Eir.
          */
         get: operations["kunjungan_ringkasan_eir_kunjungan__uuid_id_kunjungan__ringkasan_eir_get"];
         put?: never;
@@ -290,8 +290,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Input triase dan rekomendasi risk level
-         * @description Menyimpan triase berstatus menunggu validasi beserta rekomendasi risk level dan tiga faktor penjelas. Triase pertama pada kunjungan dicatat sebagai awal, berikutnya sebagai ulang. Nilai tanda vital yang tidak wajar dikembalikan di field peringatan tanpa menolak request.
+         * Mencatat observasi pasien ICU dan menilai prioritasnya
+         * @description Menghitung skor NEWS2 dan peluang perburukan 6 jam dari model Random Forest, lalu memakai level yang lebih tinggi dari keduanya. Observasi pertama (awal) dan observasi yang levelnya naik dibanding level final terakhir berstatus menunggu persetujuan dokter; selain itu langsung berstatus tercatat. Nilai yang tidak wajar dikembalikan di field peringatan tanpa menolak request. Pasien yang sudah keluar ICU dibalas 409.
          */
         post: operations["triase_buat_triase_kunjungan__uuid_id_kunjungan__triase_post"];
         delete?: never;
@@ -307,7 +307,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Detail triase beserta penjelasan rekomendasi */
+        /** Detail observasi beserta penjelasan penilaian */
         get: operations["triase_detail_triase_triase__uuid_id_triase__get"];
         put?: never;
         post?: never;
@@ -327,8 +327,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Menyetujui, mengoreksi, atau mengajukan review hasil triase
-         * @description Perawat boleh menyetujui hasil non-kritis atau mengajukan review; dokter boleh menyetujui atau mengoreksi semua tingkat. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui atau dikoreksi, sudah digantikan triase ulang, atau kunjungannya sudah selesai dibalas 409. Setiap aksi dicatat di log audit dalam transaksi yang sama.
+         * Persetujuan dokter: menyetujui, mengoreksi, atau mengajukan review
+         * @description Hanya dokter yang boleh menyetujui atau mengoreksi level; perawat hanya boleh mengajukan review. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Penilaian yang sudah final (disetujui, dikoreksi, atau tercatat), sudah digantikan observasi yang lebih baru, atau pasiennya sudah keluar ICU dibalas 409. Setiap aksi dicatat di log audit dalam transaksi yang sama.
          */
         post: operations["triase_validasi_triase_triase__uuid_id_triase__validasi_post"];
         delete?: never;
@@ -345,8 +345,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Riwayat triase pasien
-         * @description Triase awal dan ulang dari semua kunjungan pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim.
+         * Riwayat observasi pasien
+         * @description Observasi dari semua masa rawat ICU pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim.
          */
         get: operations["triase_riwayat_pasien_pasien__uuid_id_pasien__riwayat_get"];
         put?: never;
@@ -385,8 +385,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Daftar tunggu pasien beserta penanda triase ulang
-         * @description Semua kunjungan berstatus menunggu beserta triase terakhirnya. Lama menunggu dihitung sejak triase terakhir (atau sejak datang bila belum ditriase) dan dibandingkan dengan batas per level dari konfigurasi. Urutan: kritis, belum ditriase, lewat batas, level, lalu lama menunggu. ringkasan_eir_siap bernilai true bila sesi Eir terakhir selesai dengan ringkasan dan belum ada triase sesudahnya.
+         * Papan prioritas pasien ICU
+         * @description Semua pasien yang belum keluar ICU beserta penilaian terakhirnya, sudah diurutkan menurut prioritas penanganan: Kritis, belum dinilai, Tinggi, Sedang, Rendah; di level yang sama yang menunggu persetujuan dokter dan yang observasinya terlambat lebih dulu, lalu peluang perburukan dan skor NEWS2 tertinggi. Pasien yang sedang menjalani tindakan ditaruh paling bawah. Lama dihitung sejak observasi terakhir dan dibandingkan dengan interval observasi level tersebut.
          */
         get: operations["antrean_daftar_tunggu_daftar_tunggu_get"];
         put?: never;
@@ -405,8 +405,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Peringatan kritis, level naik, dan tanda bahaya Eir
-         * @description Triase kritis yang belum divalidasi, triase ulang yang levelnya naik dan belum divalidasi, serta sesi Eir yang dihentikan karena tanda bahaya tetapi belum diikuti triase baru. Hanya kunjungan yang masih menunggu.
+         * Peringatan persetujuan dokter, observasi terlambat, dan informasi penting Eir
+         * @description Penilaian awal atau kenaikan level yang belum disetujui dokter, observasi yang melewati intervalnya, dan informasi penting dari keluarga lewat Eir yang belum diikuti observasi baru. Hanya pasien yang masih di ICU.
          */
         get: operations["antrean_peringatan_peringatan_get"];
         put?: never;
@@ -488,7 +488,7 @@ export interface paths {
         put?: never;
         /**
          * Mengirim jawaban ke Eir
-         * @description Setiap jawaban diperiksa aturan tanda bahaya sebelum LLM dipanggil. Bila cocok, sesi dihentikan (status dihentikan), perawat mendapat peringatan, dan pesan berisi arahan menemui perawat. Setelah 15 jawaban, atau saat jawaban sudah cukup, ringkasan dibuat otomatis (status selesai). Bila Groq tidak menjawab, respons 503 dan jawaban tetap tersimpan. Maksimal 20 pesan per menit per sesi.
+         * @description Setiap jawaban diperiksa aturan informasi penting (misalnya alergi obat atau obat pengencer darah) sebelum LLM dipanggil. Bila cocok, labelnya dicatat di sesi dan perawat mendapat peringatan, tetapi percakapan tetap berjalan. Setelah 15 jawaban, atau saat jawaban sudah cukup, ringkasan dibuat otomatis (status selesai). Bila Groq tidak menjawab, respons 503 dan jawaban tetap tersimpan. Maksimal 20 pesan per menit per sesi.
          */
         post: operations["eir_kirim_pesan_eir_sesi__uuid_id_sesi__pesan_post"];
         delete?: never;
@@ -528,7 +528,7 @@ export interface paths {
         put?: never;
         /**
          * Menyelesaikan sesi dan membuat ringkasan
-         * @description Boleh dipanggil setelah minimal tujuh jawaban. Ringkasan dibuat LLM dengan JSON Schema, divalidasi, lalu disimpan sebagai draf untuk perawat (GET /kunjungan/{id}/ringkasan-eir). Bila Groq tidak menjawab, respons 503 dan sesi tetap berjalan sehingga bisa dicoba lagi.
+         * @description Boleh dipanggil setelah minimal tujuh jawaban. Ringkasan dibuat LLM dengan JSON Schema, divalidasi, lalu disimpan untuk perawat (GET /kunjungan/{id}/ringkasan-eir). Bila Groq tidak menjawab, respons 503 dan sesi tetap berjalan sehingga bisa dicoba lagi.
          */
         post: operations["eir_selesai_eir_sesi__uuid_id_sesi__selesai_post"];
         delete?: never;
@@ -625,6 +625,8 @@ export interface components {
             ambang_tinggi: number;
             /** Ambang Sedang */
             ambang_sedang: number;
+            /** Batas Tunggu Kritis */
+            batas_tunggu_kritis: number;
             /** Batas Tunggu Tinggi */
             batas_tunggu_tinggi: number;
             /** Batas Tunggu Sedang */
@@ -651,34 +653,43 @@ export interface components {
             versi_model?: string;
             /**
              * Ambang Kritis
+             * @description Skor NEWS2.
              * @default null
              */
             ambang_kritis?: number;
             /**
              * Ambang Tinggi
+             * @description Skor NEWS2.
              * @default null
              */
             ambang_tinggi?: number;
             /**
              * Ambang Sedang
+             * @description Skor NEWS2.
              * @default null
              */
             ambang_sedang?: number;
             /**
+             * Batas Tunggu Kritis
+             * @description Interval observasi dalam menit.
+             * @default null
+             */
+            batas_tunggu_kritis?: number;
+            /**
              * Batas Tunggu Tinggi
-             * @description Dalam menit.
+             * @description Interval observasi dalam menit.
              * @default null
              */
             batas_tunggu_tinggi?: number;
             /**
              * Batas Tunggu Sedang
-             * @description Dalam menit.
+             * @description Interval observasi dalam menit.
              * @default null
              */
             batas_tunggu_sedang?: number;
             /**
              * Batas Tunggu Rendah
-             * @description Dalam menit.
+             * @description Interval observasi dalam menit.
              * @default null
              */
             batas_tunggu_rendah?: number;
@@ -792,7 +803,7 @@ export interface components {
             nik_tersamar: string | null;
             /**
              * Id Kunjungan Aktif
-             * @description Kunjungan yang masih menunggu atau sedang ditangani.
+             * @description Masa rawat ICU yang belum selesai, bila ada.
              */
             id_kunjungan_aktif: string | null;
         };
@@ -816,6 +827,8 @@ export interface components {
              * Format: date-time
              */
             waktu_datang: string;
+            /** Nomor Bed */
+            nomor_bed: string | null;
         };
         /**
          * StatusKunjungan
@@ -824,7 +837,7 @@ export interface components {
         StatusKunjungan: "menunggu" | "ditangani" | "selesai";
         /**
          * RegistrasiRequest
-         * @description Registrasi singkat (Desain Gambar 2.5).
+         * @description Pasien masuk ICU (Desain Gambar 2.5, disesuaikan untuk ICU): identitas, nomor bed, asal, dan diagnosis.
          *
          *     Bila id_pasien diisi, pasien lama dipakai dan isian identitas lain diabaikan tanpa divalidasi
          *     (keputusan K8), karena form bisa saja masih membawa isian dari pencarian sebelumnya. Bila tidak,
@@ -864,6 +877,21 @@ export interface components {
              * @default null
              */
             no_telepon?: string | null;
+            /**
+             * Nomor Bed
+             * @description Bed ICU yang ditempati, misalnya ICU-3. Satu bed untuk satu pasien.
+             */
+            nomor_bed: string;
+            /**
+             * Asal Ruangan
+             * @default null
+             */
+            asal_ruangan?: ("IGD" | "Kamar operasi" | "Rawat inap" | "Rujukan rumah sakit lain" | "Lainnya") | null;
+            /**
+             * Diagnosis Masuk
+             * @default null
+             */
+            diagnosis_masuk?: string | null;
         };
         /** StatusKunjunganResponse */
         StatusKunjunganResponse: {
@@ -880,10 +908,10 @@ export interface components {
         StatusKunjunganRequest: {
             /**
              * Status
-             * @description ditangani saat dokter mulai memeriksa, selesai saat pemeriksaan berakhir atau pasien batal.
+             * @description ditangani saat pasien mulai menjalani tindakan atau operasi, menunggu saat kembali dipantau setelah tindakan, selesai saat pasien keluar ICU (pindah ruangan, pulang, atau meninggal).
              * @enum {string}
              */
-            status: "ditangani" | "selesai";
+            status: "menunggu" | "ditangani" | "selesai";
         };
         /** TautanEirResponse */
         TautanEirResponse: {
@@ -924,10 +952,13 @@ export interface components {
             waktu_persetujuan: string;
             /** Waktu Selesai */
             waktu_selesai: string | null;
-            /** Tanda Bahaya */
+            /**
+             * Tanda Bahaya
+             * @description Informasi penting yang ditandai Eir, misalnya alergi obat atau obat pengencer darah.
+             */
             tanda_bahaya: string | null;
-            /** @description Draf form triase; wajib diperiksa perawat sebelum dipakai. */
-            ringkasan: components["schemas"]["RingkasanTriase"] | null;
+            /** @description Ringkasan riwayat dari keluarga; wajib diperiksa perawat. */
+            ringkasan: components["schemas"]["RingkasanKeluarga"] | null;
             /** Transkrip */
             transkrip: components["schemas"]["ItemTranskrip"][];
         };
@@ -947,28 +978,27 @@ export interface components {
             waktu: string;
         };
         /**
-         * KategoriKeluhan
-         * @description 18 kategori keluhan, sama persis dengan kategori saat model Random Forest dilatih.
-         * @enum {string}
-         */
-        KategoriKeluhan: "Penurunan kesadaran atau kejang" | "Nyeri dada" | "Sesak napas atau batuk" | "Perdarahan" | "Gangguan saraf" | "Nyeri perut" | "Demam" | "Pusing" | "Nyeri kepala" | "Mual, muntah, atau diare" | "Cedera atau luka" | "Jantung berdebar" | "Kulit atau alergi" | "Mata, telinga, hidung, atau tenggorokan" | "Nyeri punggung, pinggang, atau anggota gerak" | "Lemas atau kelemahan umum" | "Keluhan kemih atau kandungan" | "Lainnya";
-        /**
          * PengisiEir
          * @enum {string}
          */
         PengisiEir: "pasien" | "keluarga";
         /**
-         * RingkasanTriase
-         * @description Desain Gambar 2.23. Ringkasan dari LLM yang divalidasi sebelum menjadi draf form triase.
+         * RingkasanKeluarga
+         * @description Desain Gambar 2.23, disesuaikan untuk ICU. Ringkasan riwayat dari keluarga yang divalidasi sebelum disimpan.
+         *
+         *     Isinya hanya keterangan keluarga dan wajib diperiksa perawat; "Tidak disebutkan" bila topik itu tidak dibahas.
          */
-        RingkasanTriase: {
-            /** Keluhan Utama */
-            keluhan_utama: string;
-            /** Gejala */
-            gejala: string;
-            /** Onset */
-            onset: string;
-            kategori_keluhan: components["schemas"]["KategoriKeluhan"];
+        RingkasanKeluarga: {
+            /** Kronologi */
+            kronologi: string;
+            /** Riwayat Penyakit */
+            riwayat_penyakit: string;
+            /** Obat Rutin */
+            obat_rutin: string;
+            /** Alergi */
+            alergi: string;
+            /** Informasi Lain */
+            informasi_lain: string;
         };
         /**
          * StatusSesiEir
@@ -992,16 +1022,28 @@ export interface components {
             id_kunjungan: string;
             jenis: components["schemas"]["JenisTriase"];
             pasien: components["schemas"]["PasienTriase"];
-            /** Keluhan Utama */
-            keluhan_utama: string;
-            /** Gejala */
-            gejala: string;
-            kategori_keluhan: components["schemas"]["KategoriKeluhan"] | null;
-            /** Skala Nyeri */
-            skala_nyeri: number | null;
+            /** Nomor Bed */
+            nomor_bed: string | null;
+            /** @description Status pasien saat ini: dirawat, sedang tindakan, keluar. */
+            status_kunjungan: components["schemas"]["StatusKunjungan"];
             tingkat_kesadaran: components["schemas"]["TingkatKesadaran"];
+            /** Oksigen Tambahan */
+            oksigen_tambahan: boolean;
             tanda_vital: components["schemas"]["TandaVitalResponse"];
+            lab: components["schemas"]["HasilLabResponse"];
+            /** Ventilator */
+            ventilator: boolean;
+            /** Vasopresor */
+            vasopresor: boolean;
+            /** Catatan */
+            catatan: string | null;
             sumber_tanda_vital: components["schemas"]["SumberTandaVital"];
+            /** Skor News2 */
+            skor_news2: number;
+            /** Peluang Perburukan */
+            peluang_perburukan: number | null;
+            /** @description Level observasi sebelumnya di masa rawat yang sama. */
+            level_sebelumnya: components["schemas"]["RiskLevel"] | null;
             risk_level: components["schemas"]["RiskLevel"];
             sumber_rekomendasi: components["schemas"]["SumberRekomendasi"];
             penjelasan_ai: components["schemas"]["PenjelasanResponse"];
@@ -1028,18 +1070,31 @@ export interface components {
             /** Label */
             label: string;
             /** Nilai */
-            nilai: string | number | null;
+            nilai: string | number | boolean | null;
             /**
              * Kontribusi
-             * @description Nilai SHAP untuk hasil model, atau poin aturan untuk aturan cadangan.
+             * @description Nilai SHAP untuk faktor model, atau poin untuk komponen NEWS2.
              */
             kontribusi: number;
             /**
              * Arah
-             * @description Untuk sumber model: naik berarti faktor ini mendukung level yang direkomendasikan, turun berarti melawannya. Untuk sumber aturan: naik berarti menambah poin risiko; netral bila tidak ada aturan yang terpicu.
+             * @description Faktor model: naik berarti menaikkan peluang perburukan. Komponen NEWS2 selalu naik.
              * @enum {string}
              */
             arah: "naik" | "turun" | "netral";
+        };
+        /** HasilLabResponse */
+        HasilLabResponse: {
+            /** Laktat */
+            laktat: number | null;
+            /** Kreatinin */
+            kreatinin: number | null;
+            /** Trombosit */
+            trombosit: number | null;
+            /** Leukosit */
+            leukosit: number | null;
+            /** Bilirubin */
+            bilirubin: number | null;
         };
         /**
          * JenisTriase
@@ -1073,12 +1128,25 @@ export interface components {
         PenjelasanResponse: {
             /** Versi Model */
             versi_model: string | null;
-            /** Faktor */
+            /** Skor News2 */
+            skor_news2: number;
+            level_news2: components["schemas"]["RiskLevel"];
+            /**
+             * Komponen News2
+             * @description Parameter NEWS2 yang menyumbang poin.
+             */
+            komponen_news2: components["schemas"]["FaktorResponse"][];
+            /**
+             * Peluang Perburukan
+             * @description Peluang memburuk dalam 6 jam (0-1); null tanpa model.
+             */
+            peluang_perburukan: number | null;
+            level_model: components["schemas"]["RiskLevel"] | null;
+            /**
+             * Faktor
+             * @description Tiga faktor SHAP terbesar dari model; kosong tanpa model.
+             */
             faktor: components["schemas"]["FaktorResponse"][];
-            /** Probabilitas */
-            probabilitas: {
-                [key: string]: number;
-            } | null;
         };
         /**
          * Peringatan
@@ -1102,7 +1170,7 @@ export interface components {
          * StatusValidasi
          * @enum {string}
          */
-        StatusValidasi: "menunggu" | "disetujui" | "menunggu_review_dokter" | "dikoreksi";
+        StatusValidasi: "menunggu" | "disetujui" | "menunggu_review_dokter" | "dikoreksi" | "tercatat";
         /**
          * SumberRekomendasi
          * @enum {string}
@@ -1136,24 +1204,69 @@ export interface components {
         TingkatKesadaran: "A" | "V" | "P" | "U";
         /**
          * TriaseInput
-         * @description Isian form triase (Desain Gambar 2.8). Kategori keluhan dan skala nyeri wajib (keputusan K3).
+         * @description Observasi pasien ICU. Tanda vital, kesadaran, dan oksigen wajib karena dipakai NEWS2; sisanya opsional.
          */
         TriaseInput: {
-            /** Keluhan Utama */
-            keluhan_utama: string;
-            /** Gejala */
-            gejala: string;
-            kategori_keluhan: components["schemas"]["KategoriKeluhan"];
-            /** Skala Nyeri */
-            skala_nyeri: number;
             /** @description AVPU: A sadar penuh, V suara, P nyeri, U tidak respons. */
             tingkat_kesadaran: components["schemas"]["TingkatKesadaran"];
+            /**
+             * Oksigen Tambahan
+             * @description true bila pasien mendapat oksigen tambahan (nasal, masker, ventilator).
+             */
+            oksigen_tambahan: boolean;
             tanda_vital: components["schemas"]["TandaVital"];
+            lab?: components["schemas"]["HasilLab"];
+            /**
+             * Ventilator
+             * @default false
+             */
+            ventilator?: boolean;
+            /**
+             * Vasopresor
+             * @default false
+             */
+            vasopresor?: boolean;
+            /**
+             * Catatan
+             * @default null
+             */
+            catatan?: string | null;
             /**
              * Id Pemindaian
              * @description Hasil POST /pemindaian yang nilainya dipakai di form ini.
              */
             id_pemindaian?: string[];
+        };
+        /**
+         * HasilLab
+         * @description Hasil laboratorium terakhir. Semuanya boleh kosong; yang kosong diisi median oleh model.
+         */
+        HasilLab: {
+            /**
+             * Laktat
+             * @default null
+             */
+            laktat?: (number | string) | null;
+            /**
+             * Kreatinin
+             * @default null
+             */
+            kreatinin?: (number | string) | null;
+            /**
+             * Trombosit
+             * @default null
+             */
+            trombosit?: number | null;
+            /**
+             * Leukosit
+             * @default null
+             */
+            leukosit?: (number | string) | null;
+            /**
+             * Bilirubin
+             * @default null
+             */
+            bilirubin?: (number | string) | null;
         };
         /**
          * TandaVital
@@ -1222,9 +1335,10 @@ export interface components {
              * Format: date-time
              */
             waktu_triase: string;
-            /** Keluhan Utama */
-            keluhan_utama: string;
-            kategori_keluhan: components["schemas"]["KategoriKeluhan"] | null;
+            /** Skor News2 */
+            skor_news2: number;
+            /** Peluang Perburukan */
+            peluang_perburukan: number | null;
             risk_level: components["schemas"]["RiskLevel"];
             sumber_rekomendasi: components["schemas"]["SumberRekomendasi"];
             status_validasi: components["schemas"]["StatusValidasi"];
@@ -1248,6 +1362,10 @@ export interface components {
             /** Waktu Ditangani */
             waktu_ditangani: string | null;
             status: components["schemas"]["StatusKunjungan"];
+            /** Nomor Bed */
+            nomor_bed: string | null;
+            /** Diagnosis Masuk */
+            diagnosis_masuk: string | null;
         };
         /** HasilPemindaianResponse */
         HasilPemindaianResponse: {
@@ -1308,7 +1426,10 @@ export interface components {
              */
             waktu_server: string;
         };
-        /** ItemDaftarTunggu */
+        /**
+         * ItemDaftarTunggu
+         * @description Satu pasien di papan prioritas ICU. Urutan daftar sudah merupakan urutan prioritas penanganan.
+         */
         ItemDaftarTunggu: {
             /**
              * Id Kunjungan
@@ -1316,6 +1437,12 @@ export interface components {
              */
             id_kunjungan: string;
             pasien: components["schemas"]["PasienTriase"];
+            /** Nomor Bed */
+            nomor_bed: string | null;
+            /** Diagnosis Masuk */
+            diagnosis_masuk: string | null;
+            /** @description menunggu: dirawat; ditangani: sedang tindakan atau operasi. */
+            status: components["schemas"]["StatusKunjungan"];
             /**
              * Waktu Datang
              * Format: date-time
@@ -1324,26 +1451,29 @@ export interface components {
             triase_terakhir: components["schemas"]["TriaseTerakhir"] | null;
             /**
              * Lama Menunggu Menit
-             * @description Sejak triase terakhir, atau sejak datang bila belum ditriase.
+             * @description Menit sejak observasi terakhir, atau sejak masuk bila belum dinilai.
              */
             lama_menunggu_menit: number;
             /**
              * Batas Tunggu Menit
-             * @description Batas dari konfigurasi; null untuk kritis dan belum ditriase.
+             * @description Interval observasi level ini; null bila belum dinilai.
              */
             batas_tunggu_menit: number | null;
             /**
              * Status Tanda
              * @enum {string}
              */
-            status_tanda: "belum_ditriase" | "perlu_triase_ulang" | "normal";
-            /** Menunggu Validasi */
+            status_tanda: "belum_dinilai" | "observasi_terlambat" | "normal";
+            /**
+             * Menunggu Validasi
+             * @description Ada penilaian awal atau kenaikan level yang belum disetujui dokter.
+             */
             menunggu_validasi: boolean;
             /** Review Diajukan */
             review_diajukan: boolean;
             /**
              * Ringkasan Eir Siap
-             * @description Sesi Eir terakhir selesai dengan ringkasan yang belum dipakai untuk triase berikutnya.
+             * @description Keluarga sudah menyelesaikan sesi Eir dan ringkasannya bisa dibaca.
              */
             ringkasan_eir_siap: boolean;
         };
@@ -1357,8 +1487,10 @@ export interface components {
             jenis: components["schemas"]["JenisTriase"];
             risk_level: components["schemas"]["RiskLevel"];
             status_validasi: components["schemas"]["StatusValidasi"];
-            /** Keluhan Utama */
-            keluhan_utama: string;
+            /** Skor News2 */
+            skor_news2: number;
+            /** Peluang Perburukan */
+            peluang_perburukan: number | null;
             /**
              * Waktu Triase
              * Format: date-time
@@ -1376,7 +1508,7 @@ export interface components {
              * Jenis
              * @enum {string}
              */
-            jenis: "kritis_belum_divalidasi" | "level_naik" | "tanda_bahaya_eir";
+            jenis: "menunggu_persetujuan" | "observasi_terlambat" | "informasi_penting_eir";
             /**
              * Id Kunjungan
              * Format: uuid
@@ -1513,7 +1645,7 @@ export interface components {
             status: components["schemas"]["StatusSesiEir"];
             /**
              * Pesan
-             * @description Pertanyaan berikutnya, penutup, atau arahan menemui perawat.
+             * @description Pertanyaan berikutnya atau penutup.
              */
             pesan: string;
             /** Jumlah Jawaban */

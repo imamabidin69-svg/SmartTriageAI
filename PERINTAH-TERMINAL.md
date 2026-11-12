@@ -77,8 +77,25 @@ docker compose ps                        # cek status container
 docker compose stop db                   # mematikan PostgreSQL (data tetap ada)
 python -m flask db upgrade               # menjalankan migrasi terbaru
 python -m flask seed-demo                # membuat akun demo admin, perawat, dokter
-python -m flask seed-demo --dengan-pasien   # menambah pasien simulasi
+python -m flask seed-demo --dengan-pasien   # menambah 8 pasien ICU simulasi (bed ICU-1 sampai ICU-8)
 ```
+
+### Pindah ke versi ICU (sekali saja, setelah pull tahap 7)
+
+Data simulasi IGD yang lama tidak punya nomor bed, jadi basis data dikosongkan lalu diisi ulang. Perintah
+`down -v` menghapus volume PostgreSQL beserta semua isinya; role aplikasi dibuat lagi otomatis saat container
+menyala.
+
+```powershell
+docker compose down -v
+docker compose up -d db
+python -m flask db upgrade               # menjalankan migrasi 0001 lalu 0002_prioritas_icu
+python -m flask seed-demo
+python -m flask seed-demo --dengan-pasien
+```
+
+Bila tidak ingin menghapus volume, cukup `python -m flask db upgrade`. Pasien lama tetap ada tanpa nomor bed,
+dan pasien baru wajib diberi nomor bed.
 
 ### Menyamakan password akun demo dengan `.env`
 
@@ -121,7 +138,8 @@ ruff format .                                # merapikan format bila --check gag
 ```powershell
 python -m flask --app run openapi -o ..\web\openapi.json -i 2      # ekspor spesifikasi API untuk web
 python -m flask --app run openapi -o ..\mobile\openapi.json -i 2   # ekspor spesifikasi API untuk mobile
-python -m ai_training.evaluasi_eir --data ..\ml-service\data.csv   # evaluasi Eir
+python -m ai_training.evaluasi_eir                                  # evaluasi Eir (30 kalimat keluarga pasien ICU)
+python -m ai_training.perburukan --data D:\data\physionet          # latih ulang model ICU (lihat ai_training/README.md)
 ```
 
 Dokumentasi API (Swagger): http://127.0.0.1:5000/api/v1/openapi/swagger

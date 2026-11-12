@@ -10,6 +10,9 @@ ItemDaftarTunggu _$ItemDaftarTungguFromJson(Map<String, dynamic> json) =>
     ItemDaftarTunggu(
       idKunjungan: json['id_kunjungan'] as String,
       pasien: PasienTriase.fromJson(json['pasien'] as Map<String, dynamic>),
+      nomorBed: json['nomor_bed'] as String?,
+      diagnosisMasuk: json['diagnosis_masuk'] as String?,
+      status: StatusKunjungan.fromJson(json['status'] as String),
       waktuDatang: DateTime.parse(json['waktu_datang'] as String),
       triaseTerakhir: json['triase_terakhir'] == null
           ? null
@@ -31,6 +34,9 @@ Map<String, dynamic> _$ItemDaftarTungguToJson(
 ) => <String, dynamic>{
   'id_kunjungan': instance.idKunjungan,
   'pasien': instance.pasien,
+  'nomor_bed': instance.nomorBed,
+  'diagnosis_masuk': instance.diagnosisMasuk,
+  'status': _$StatusKunjunganEnumMap[instance.status]!,
   'waktu_datang': instance.waktuDatang.toIso8601String(),
   'triase_terakhir': instance.triaseTerakhir,
   'lama_menunggu_menit': instance.lamaMenungguMenit,
@@ -41,9 +47,16 @@ Map<String, dynamic> _$ItemDaftarTungguToJson(
   'ringkasan_eir_siap': instance.ringkasanEirSiap,
 };
 
+const _$StatusKunjunganEnumMap = {
+  StatusKunjungan.menunggu: 'menunggu',
+  StatusKunjungan.ditangani: 'ditangani',
+  StatusKunjungan.selesai: 'selesai',
+  StatusKunjungan.$unknown: r'$unknown',
+};
+
 const _$ItemDaftarTungguStatusTandaEnumMap = {
-  ItemDaftarTungguStatusTanda.belumDitriase: 'belum_ditriase',
-  ItemDaftarTungguStatusTanda.perluTriaseUlang: 'perlu_triase_ulang',
+  ItemDaftarTungguStatusTanda.belumDinilai: 'belum_dinilai',
+  ItemDaftarTungguStatusTanda.observasiTerlambat: 'observasi_terlambat',
   ItemDaftarTungguStatusTanda.normal: 'normal',
   ItemDaftarTungguStatusTanda.$unknown: r'$unknown',
 };

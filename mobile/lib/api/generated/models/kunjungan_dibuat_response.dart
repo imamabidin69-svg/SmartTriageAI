@@ -16,6 +16,7 @@ class KunjunganDibuatResponse {
     required this.pasienBaru,
     required this.status,
     required this.waktuDatang,
+    required this.nomorBed,
   });
   
   factory KunjunganDibuatResponse.fromJson(Map<String, Object?> json) => _$KunjunganDibuatResponseFromJson(json);
@@ -29,6 +30,8 @@ class KunjunganDibuatResponse {
   final StatusKunjungan status;
   @JsonKey(name: 'waktu_datang')
   final DateTime waktuDatang;
+  @JsonKey(name: 'nomor_bed')
+  final String? nomorBed;
 
   Map<String, Object?> toJson() => _$KunjunganDibuatResponseToJson(this);
 }

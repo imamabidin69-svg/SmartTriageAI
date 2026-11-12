@@ -1,0 +1,71 @@
+{
+  "versi": "rf-icu-physionet2019-v1",
+  "sumber_data": "PhysioNet/CinC Challenge 2019 (training set A dan B), lisensi CC BY 4.0",
+  "label": "SepsisLabel: 1 mulai 6 jam sebelum sepsis terdiagnosis",
+  "jumlah_pasien": {
+    "latih": 32269,
+    "uji": 8067
+  },
+  "jumlah_jam": {
+    "latih": 201336,
+    "uji": 301377
+  },
+  "parameter": {
+    "pohon": 150,
+    "kedalaman": 10,
+    "daun_minimum": 50,
+    "rasio_negatif": 0.15,
+    "porsi_uji": 0.2,
+    "seed": 2019
+  },
+  "ambang": {
+    "sedang": 0.4624,
+    "tinggi": 0.5955,
+    "kritis": 0.6866
+  },
+  "uji": {
+    "auroc": 0.7364,
+    "auprc": 0.0505,
+    "prevalensi_persen": 1.75,
+    "per_level": {
+      "rendah": {
+        "jumlah_jam": 207603,
+        "persen_berlabel_1": 0.86
+      },
+      "sedang": {
+        "jumlah_jam": 60218,
+        "persen_berlabel_1": 2.71
+      },
+      "tinggi": {
+        "jumlah_jam": 21870,
+        "persen_berlabel_1": 4.56
+      },
+      "kritis": {
+        "jumlah_jam": 11686,
+        "persen_berlabel_1": 7.46
+      }
+    },
+    "sensitivitas_persen": {
+      "minimal_sedang": 66.2,
+      "minimal_tinggi": 35.4,
+      "minimal_kritis": 16.5
+    }
+  },
+  "pentingnya_fitur": {
+    "suhu": 0.2012,
+    "laktat": 0.1842,
+    "kreatinin": 0.0848,
+    "leukosit": 0.0835,
+    "bilirubin": 0.0827,
+    "nadi": 0.0725,
+    "laju_napas": 0.0721,
+    "shock_index": 0.0526,
+    "trombosit": 0.0487,
+    "usia": 0.0349,
+    "map": 0.0245,
+    "td_sistolik": 0.0203,
+    "td_diastolik": 0.0201,
+    "saturasi": 0.0122,
+    "jenis_kelamin": 0.0054
+  }
+}

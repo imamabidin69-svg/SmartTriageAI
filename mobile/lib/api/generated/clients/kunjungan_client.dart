@@ -29,34 +29,34 @@ abstract class KunjunganClient {
     @Query('q') required String q,
   });
 
-  /// Registrasi singkat dan pembuatan kunjungan.
+  /// Mencatat pasien masuk ICU.
   ///
-  /// Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru. Pasien dengan NIK yang sudah terdaftar dipakai ulang bila nama dan jenis kelaminnya sama.
+  /// Pilih pasien lama lewat id_pasien, atau isi identitas pasien baru, lalu nomor bed, asal ruangan, dan diagnosis masuk. Pasien dengan NIK yang sudah terdaftar dipakai ulang bila nama dan jenis kelaminnya sama. Bed yang masih ditempati pasien lain dibalas 422 pada field nomor_bed.
   @POST('/api/v1/kunjungan')
   Future<KunjunganDibuatResponse> kunjunganRegistrasiKunjunganPost({
     @Body() required RegistrasiRequest body,
   });
 
-  /// Menandai pasien mulai diperiksa atau selesai.
+  /// Mengubah status pasien ICU.
   ///
-  /// Dokter mengubah status menunggu ke ditangani (pasien keluar dari daftar tunggu), ditangani ke selesai, atau menunggu ke selesai untuk pasien yang batal diperiksa. Perubahan lain dibalas 409.
+  /// Dokter menandai pasien mulai tindakan atau operasi (ditangani), kembali dipantau setelah tindakan (menunggu), atau keluar ICU (selesai). Pasien yang sedang tindakan tetap tampil di papan prioritas di urutan paling bawah. Perubahan lain dibalas 409.
   @PATCH('/api/v1/kunjungan/{id_kunjungan}/status')
   Future<StatusKunjunganResponse> kunjunganUbahStatusKunjunganUuidIdKunjunganStatusPatch({
     @Path('id_kunjungan') required String idKunjungan,
     @Body() required StatusKunjunganRequest body,
   });
 
-  /// Membuat tautan Eir untuk kode QR.
+  /// Membuat tautan Eir untuk keluarga pasien.
   ///
-  /// Khusus kunjungan yang masih menunggu dan risk level terakhirnya rendah. Token berlaku dua jam dan ditampilkan sebagai kode QR untuk pasien atau keluarga. Kunjungan lain dibalas 409.
+  /// Untuk pasien yang masih di ICU, apa pun levelnya. Token berlaku dua jam dan ditampilkan sebagai kode QR untuk keluarga. Pasien yang sudah keluar ICU dibalas 409.
   @POST('/api/v1/kunjungan/{id_kunjungan}/tautan-eir')
   Future<TautanEirResponse> kunjunganTautanEirKunjunganUuidIdKunjunganTautanEirPost({
     @Path('id_kunjungan') required String idKunjungan,
   });
 
-  /// Membaca ringkasan Eir terakhir sebagai draf form triase.
+  /// Membaca ringkasan riwayat dari keluarga lewat Eir.
   ///
-  /// Sesi Eir terbaru untuk kunjungan ini (keputusan E1), berisi ringkasan, transkrip, dan tanda bahaya bila sesi dihentikan. Ringkasan masih draf dan wajib diperiksa perawat sebelum dipakai di form triase. 404 bila kunjungan belum punya sesi Eir.
+  /// Sesi Eir terbaru untuk pasien ini (keputusan E1), berisi ringkasan riwayat (kronologi, penyakit, obat rutin, alergi, informasi lain), transkrip, dan informasi penting yang ditandai. Ringkasan berasal dari keterangan keluarga dan wajib diperiksa perawat. 404 bila pasien belum punya sesi Eir.
   @GET('/api/v1/kunjungan/{id_kunjungan}/ringkasan-eir')
   Future<RingkasanEirResponse> kunjunganRingkasanEirKunjunganUuidIdKunjunganRingkasanEirGet({
     @Path('id_kunjungan') required String idKunjungan,

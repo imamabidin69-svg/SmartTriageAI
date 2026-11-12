@@ -49,7 +49,7 @@ class LencanaRisiko extends StatelessWidget {
   }
 }
 
-/// Penanda pasien yang belum ditriase: kotak kosong abu-abu, tanpa warna level.
+/// Penanda pasien yang belum dinilai: kotak kosong abu-abu, tanpa warna level.
 class LencanaBelumTriase extends StatelessWidget {
   const LencanaBelumTriase({super.key});
 
@@ -61,7 +61,7 @@ class LencanaBelumTriase extends StatelessWidget {
         _Kotak(warna: Warna.belum, sisi: 11, kosong: true),
         SizedBox(width: 6),
         Text(
-          'Belum ditriase',
+          'Belum dinilai',
           style: TextStyle(color: Warna.teksRedup, fontWeight: FontWeight.w700, fontSize: 14, height: 1.2),
         ),
       ],
@@ -90,7 +90,7 @@ class _Kotak extends StatelessWidget {
   }
 }
 
-/// Keterangan singkat berikon tanpa latar, misalnya "Perlu triase ulang" atau "Ringkasan Eir siap".
+/// Keterangan singkat berikon tanpa latar, misalnya "Observasi terlambat" atau "Ringkasan Eir siap".
 class Tanda extends StatelessWidget {
   const Tanda(this.teks, {super.key, required this.warna, required this.ikon});
 

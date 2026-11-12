@@ -14,7 +14,8 @@ TriaseTerakhir _$TriaseTerakhirFromJson(Map<String, dynamic> json) =>
       statusValidasi: StatusValidasi.fromJson(
         json['status_validasi'] as String,
       ),
-      keluhanUtama: json['keluhan_utama'] as String,
+      skorNews2: (json['skor_news2'] as num).toInt(),
+      peluangPerburukan: json['peluang_perburukan'] as num?,
       waktuTriase: DateTime.parse(json['waktu_triase'] as String),
     );
 
@@ -24,7 +25,8 @@ Map<String, dynamic> _$TriaseTerakhirToJson(TriaseTerakhir instance) =>
       'jenis': _$JenisTriaseEnumMap[instance.jenis]!,
       'risk_level': _$RiskLevelEnumMap[instance.riskLevel]!,
       'status_validasi': _$StatusValidasiEnumMap[instance.statusValidasi]!,
-      'keluhan_utama': instance.keluhanUtama,
+      'skor_news2': instance.skorNews2,
+      'peluang_perburukan': instance.peluangPerburukan,
       'waktu_triase': instance.waktuTriase.toIso8601String(),
     };
 
@@ -47,5 +49,6 @@ const _$StatusValidasiEnumMap = {
   StatusValidasi.disetujui: 'disetujui',
   StatusValidasi.menungguReviewDokter: 'menunggu_review_dokter',
   StatusValidasi.dikoreksi: 'dikoreksi',
+  StatusValidasi.tercatat: 'tercatat',
   StatusValidasi.$unknown: r'$unknown',
 };

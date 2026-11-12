@@ -9,8 +9,8 @@ import '../state/sesi.dart';
 import '../tema.dart';
 import '../util/label.dart';
 
-/// Kerangka halaman utama dengan navigasi bawah seperti mockup Gambar 7.1. Tab Triase Baru hanya untuk perawat,
-/// karena registrasi dan input triase memang hanya boleh dilakukan perawat.
+/// Kerangka halaman utama dengan navigasi bawah seperti mockup Gambar 7.1. Tab Pasien Masuk hanya untuk perawat,
+/// karena pencatatan pasien masuk ICU dan observasi memang hanya boleh dilakukan perawat.
 class KerangkaUtama extends ConsumerStatefulWidget {
   const KerangkaUtama({super.key, required this.navigasi});
 
@@ -77,8 +77,8 @@ class _KerangkaUtamaState extends ConsumerState<KerangkaUtama> {
         terpilih: terpilih < 0 ? 0 : terpilih,
         onPilih: (i) => widget.navigasi.goBranch(cabang[i], initialLocation: cabang[i] == widget.navigasi.currentIndex),
         tujuan: [
-          const TujuanNavigasi(Icons.format_list_bulleted, 'Daftar Tunggu'),
-          if (perawat) const TujuanNavigasi(Icons.person_add_alt, 'Triase Baru'),
+          const TujuanNavigasi(Icons.format_list_bulleted, 'Prioritas'),
+          if (perawat) const TujuanNavigasi(Icons.person_add_alt, 'Pasien Masuk'),
           const TujuanNavigasi(Icons.history, 'Riwayat'),
           const TujuanNavigasi(Icons.account_circle_outlined, 'Profil'),
         ],

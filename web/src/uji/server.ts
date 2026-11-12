@@ -33,15 +33,16 @@ export const DAFTAR_STAF: Staf[] = [
 ];
 
 export const KONFIGURASI: Konfigurasi = {
-  versi_model: "smarttriage-rf-v1.0.0",
-  ambang_kritis: 6,
-  ambang_tinggi: 4,
-  ambang_sedang: 2,
-  batas_tunggu_tinggi: 10,
-  batas_tunggu_sedang: 30,
-  batas_tunggu_rendah: 60,
+  versi_model: "rf-icu-physionet2019-v1",
+  ambang_kritis: 7,
+  ambang_tinggi: 5,
+  ambang_sedang: 3,
+  batas_tunggu_kritis: 15,
+  batas_tunggu_tinggi: 30,
+  batas_tunggu_sedang: 60,
+  batas_tunggu_rendah: 120,
   ambang_keyakinan: 0.85,
-  versi_model_termuat: "smarttriage-rf-v1.0.0",
+  versi_model_termuat: "rf-icu-physionet2019-v1",
 };
 
 export const REKAP: Rekap = {
@@ -70,7 +71,7 @@ export const handlerBawaan = [
   http.get(`${API}/health`, () =>
     HttpResponse.json({
       status: "ok",
-      komponen: { database: "ok", model_triase: "ok", pembaca_layar: "ok", groq: "ok" },
+      komponen: { database: "ok", model_perburukan: "ok", pembaca_layar: "ok", groq: "ok" },
     }),
   ),
   http.get(`${API}/rekap`, () => HttpResponse.json(REKAP)),

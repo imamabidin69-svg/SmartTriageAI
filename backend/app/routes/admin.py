@@ -42,6 +42,7 @@ def _respons(nilai: NilaiKonfigurasi) -> dict:
         ambang_kritis=nilai.ambang_kritis,
         ambang_tinggi=nilai.ambang_tinggi,
         ambang_sedang=nilai.ambang_sedang,
+        batas_tunggu_kritis=nilai.batas_tunggu_kritis,
         batas_tunggu_tinggi=nilai.batas_tunggu_tinggi,
         batas_tunggu_sedang=nilai.batas_tunggu_sedang,
         batas_tunggu_rendah=nilai.batas_tunggu_rendah,
@@ -53,7 +54,7 @@ def _respons(nilai: NilaiKonfigurasi) -> dict:
 
 @admin_bp.get(
     "/konfigurasi",
-    summary="Membaca konfigurasi triase",
+    summary="Membaca konfigurasi penilaian ICU",
     responses={200: KonfigurasiResponse, **respons_problem_doc(401, 403)},
 )
 @role_required(Peran.ADMIN)
@@ -63,10 +64,11 @@ def ambil_konfigurasi():
 
 @admin_bp.patch(
     "/konfigurasi",
-    summary="Mengubah sebagian konfigurasi triase",
+    summary="Mengubah sebagian konfigurasi penilaian ICU",
     description=(
-        "Hanya field yang dikirim yang diubah. Setiap perubahan dicatat di log audit. Ambang harus berurutan "
-        "(kritis > tinggi > sedang) dan batas tunggu tidak menurun (tinggi <= sedang <= rendah)."
+        "Hanya field yang dikirim yang diubah. Setiap perubahan dicatat di log audit. Ambang skor NEWS2 harus "
+        "berurutan (kritis > tinggi > sedang) dan interval observasi tidak menurun "
+        "(kritis <= tinggi <= sedang <= rendah)."
     ),
     responses={200: KonfigurasiResponse, **respons_problem_doc(401, 403)},
 )

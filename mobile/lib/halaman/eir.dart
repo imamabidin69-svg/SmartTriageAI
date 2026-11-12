@@ -16,8 +16,8 @@ import '../tema.dart';
 import '../util/format.dart';
 import 'hasil.dart';
 
-/// Kode QR Eir (FR-08, keputusan M7). Perawat menunjukkan kode ini kepada pasien zona hijau atau keluarganya,
-/// yang lalu membuka halaman Eir di peramban ponsel mereka. Tautan berlaku dua jam.
+/// Kode QR Eir (FR-08, keputusan M7). Perawat menunjukkan kode ini kepada keluarga pasien ICU, yang lalu membuka
+/// halaman Eir di peramban ponsel mereka dan menjawab pertanyaan tentang riwayat pasien. Tautan berlaku dua jam.
 class HalamanKodeQrEir extends ConsumerStatefulWidget {
   const HalamanKodeQrEir({super.key, required this.idKunjungan, this.pasien});
 
@@ -118,8 +118,9 @@ class _HalamanKodeQrEirState extends ConsumerState<HalamanKodeQrEir> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const KotakPesan(
-                    'Minta pasien atau keluarga memindai kode ini dengan kamera ponsel, lalu menjawab pertanyaan Eir '
-                    'sambil menunggu. Ringkasannya akan muncul di daftar tunggu sebagai "Ringkasan Eir siap".',
+                    'Minta keluarga pasien memindai kode ini dengan kamera ponsel, lalu menjawab pertanyaan Eir tentang '
+                    'riwayat penyakit, obat rutin, dan alergi pasien. Ringkasannya muncul di papan prioritas sebagai '
+                    '"Ringkasan Eir siap", dan informasi penting seperti alergi obat muncul di peringatan.',
                     jenis: JenisPesan.info,
                   ),
                   const SizedBox(height: 12),
@@ -147,7 +148,7 @@ class _HalamanKodeQrEirState extends ConsumerState<HalamanKodeQrEir> {
   }
 }
 
-/// Ringkasan dan percakapan Eir terakhir untuk satu kunjungan, dibuka dari peringatan tanda bahaya Eir.
+/// Ringkasan riwayat dari keluarga dan percakapan Eir terakhir untuk satu pasien ICU.
 class HalamanRingkasanEir extends ConsumerStatefulWidget {
   const HalamanRingkasanEir({super.key, required this.idKunjungan, this.namaPasien});
 
@@ -198,7 +199,7 @@ class _HalamanRingkasanEirState extends ConsumerState<HalamanRingkasanEir> {
     final status = switch (data.status) {
       StatusSesiEir.berjalan => 'Percakapan masih berjalan',
       StatusSesiEir.selesai => 'Percakapan selesai',
-      StatusSesiEir.dihentikan => 'Percakapan dihentikan karena tanda bahaya',
+      StatusSesiEir.dihentikan => 'Percakapan dihentikan',
       StatusSesiEir.$unknown => '-',
     };
     return ListView(
@@ -228,22 +229,35 @@ class _HalamanRingkasanEirState extends ConsumerState<HalamanRingkasanEir> {
         if (tandaBahaya != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: KotakPesan(tandaBahaya, judul: 'Tanda bahaya', jenis: JenisPesan.galat),
+            child: KotakPesan(
+              tandaBahaya.split('; ').map((label) => '• $label').join('\n'),
+              judul: 'Informasi penting dari keluarga',
+              jenis: JenisPesan.peringatan,
+            ),
           ),
         if (ringkasan != null) ...[
           const SizedBox(height: 12),
           KartuBagian(
-            judul: 'Ringkasan untuk perawat',
+            judul: 'Ringkasan riwayat untuk perawat',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Keluhan utama: ${ringkasan.keluhanUtama}'),
-                const SizedBox(height: 4),
-                Text('Gejala: ${ringkasan.gejala}'),
-                const SizedBox(height: 4),
-                Text('Sejak: ${ringkasan.onset}'),
-                const SizedBox(height: 4),
-                Text('Kategori: ${ringkasan.kategoriKeluhan.json ?? '-'}'),
+                for (final (label, isi) in [
+                  ('Kronologi sebelum masuk ICU', ringkasan.kronologi),
+                  ('Riwayat penyakit', ringkasan.riwayatPenyakit),
+                  ('Obat rutin', ringkasan.obatRutin),
+                  ('Alergi', ringkasan.alergi),
+                  ('Informasi lain', ringkasan.informasiLain),
+                ]) ...[
+                  Text(label, style: const TextStyle(color: Warna.teksRedup, fontSize: 13)),
+                  const SizedBox(height: 1),
+                  Text(isi, style: const TextStyle(fontSize: 15)),
+                  const SizedBox(height: 8),
+                ],
+                const Text(
+                  'Ringkasan disusun dari jawaban keluarga, jadi periksa ulang sebelum dipakai.',
+                  style: TextStyle(color: Warna.teksSamar, fontSize: 13),
+                ),
               ],
             ),
           ),

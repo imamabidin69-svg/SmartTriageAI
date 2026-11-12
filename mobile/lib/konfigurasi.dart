@@ -4,7 +4,10 @@
 /// Bawaannya 10.0.2.2, yaitu alamat laptop bila aplikasi dijalankan di emulator Android.
 const String alamatApi = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:5000');
 
-/// Daftar tunggu dan peringatan dimuat ulang setiap 15 detik selama aplikasi dibuka (Desain 2.7).
+/// Jumlah bed ICU yang dipakai untuk menampilkan keterisian di papan prioritas (data simulasi: 8 bed).
+const int jumlahBedIcu = 8;
+
+/// Papan prioritas dan peringatan dimuat ulang setiap 15 detik selama aplikasi dibuka (Desain 2.7).
 const Duration jedaMuatUlangAntrean = Duration(seconds: 15);
 
 /// Batas waktu tunggu satu request. Klasifikasi dan pemindaian bisa butuh beberapa detik di server.

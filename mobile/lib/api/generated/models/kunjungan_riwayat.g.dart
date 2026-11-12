@@ -14,6 +14,8 @@ KunjunganRiwayat _$KunjunganRiwayatFromJson(Map<String, dynamic> json) =>
           ? null
           : DateTime.parse(json['waktu_ditangani'] as String),
       status: StatusKunjungan.fromJson(json['status'] as String),
+      nomorBed: json['nomor_bed'] as String?,
+      diagnosisMasuk: json['diagnosis_masuk'] as String?,
     );
 
 Map<String, dynamic> _$KunjunganRiwayatToJson(KunjunganRiwayat instance) =>
@@ -22,6 +24,8 @@ Map<String, dynamic> _$KunjunganRiwayatToJson(KunjunganRiwayat instance) =>
       'waktu_datang': instance.waktuDatang.toIso8601String(),
       'waktu_ditangani': instance.waktuDitangani?.toIso8601String(),
       'status': _$StatusKunjunganEnumMap[instance.status]!,
+      'nomor_bed': instance.nomorBed,
+      'diagnosis_masuk': instance.diagnosisMasuk,
     };
 
 const _$StatusKunjunganEnumMap = {

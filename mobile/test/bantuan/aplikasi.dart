@@ -21,11 +21,9 @@ class RepoTiruan extends Mock implements RepositoriApi {}
 void daftarkanNilaiCadangan() {
   registerFallbackValue(
     const TriaseInput(
-      keluhanUtama: 'x',
-      gejala: 'x',
-      kategoriKeluhan: KategoriKeluhan.lainnya,
-      skalaNyeri: 0,
       tingkatKesadaran: TingkatKesadaran.a,
+      oksigenTambahan: false,
+      catatan: null,
       tandaVital: TandaVital(tdSistolik: 0, tdDiastolik: 0, nadi: 0, lajuNapas: 0, suhu: 36, saturasi: 98),
       idPemindaian: [],
     ),
@@ -40,6 +38,9 @@ void daftarkanNilaiCadangan() {
       jenisKelamin: null,
       nik: null,
       noTelepon: null,
+      nomorBed: 'ICU-1',
+      asalRuangan: null,
+      diagnosisMasuk: null,
     ),
   );
   registerFallbackValue(JenisAlat.tensimeter);

@@ -4,7 +4,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 
-/// Untuk sumber model: naik berarti faktor ini mendukung level yang direkomendasikan, turun berarti melawannya. Untuk sumber aturan: naik berarti menambah poin risiko; netral bila tidak ada aturan yang terpicu.
+/// Faktor model: naik berarti menaikkan peluang perburukan. Komponen NEWS2 selalu naik.
 @JsonEnum()
 enum FaktorResponseArah {
   @JsonValue('naik')

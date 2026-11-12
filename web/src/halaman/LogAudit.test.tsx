@@ -40,7 +40,7 @@ describe("Log Audit", () => {
     );
     const { user } = renderRute("/log-audit");
     expect(await screen.findByText("Nyeri dada bertambah saat diperiksa")).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "Mengoreksi risk level" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Mengoreksi level" })).toBeInTheDocument();
     expect(screen.getByText("Sedang")).toBeInTheDocument();
     expect(screen.getByText(/17 Okt 2026.*WIB/)).toBeInTheDocument();
 

@@ -10,14 +10,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.extensions import db
 from app.models.enums import (
     JENIS_TRIASE,
-    KATEGORI_KELUHAN,
     RISK_LEVEL,
     STATUS_VALIDASI,
     SUMBER_REKOMENDASI,
     SUMBER_TANDA_VITAL,
     TINGKAT_KESADARAN,
     JenisTriase,
-    KategoriKeluhan,
     RiskLevel,
     StatusValidasi,
     SumberRekomendasi,
@@ -27,14 +25,17 @@ from app.models.enums import (
 
 
 class Triase(db.Model):
-    """Penilaian awal atau ulang: keluhan, tanda vital, rekomendasi, dan status validasi."""
+    """Satu observasi pasien ICU beserta penilaian prioritasnya (NEWS2 dan model) dan status validasi dokter.
+
+    Nama tabel tetap "triase" dari SKPL; di ICU isinya adalah penilaian prioritas awal saat pasien masuk
+    (jenis awal) dan setiap observasi berikutnya (jenis ulang).
+    """
 
     __tablename__ = "triase"
     __table_args__ = (
         # Triase terakhir per kunjungan untuk daftar tunggu (Desain Bab 5).
         sa.Index("idx_triase_kunjungan", "id_kunjungan", sa.text("waktu_triase DESC")),
-        sa.CheckConstraint("char_length(gejala) BETWEEN 10 AND 2000", name="ck_triase_gejala"),
-        sa.CheckConstraint("skala_nyeri IS NULL OR skala_nyeri BETWEEN 0 AND 10", name="ck_triase_skala_nyeri"),
+        sa.CheckConstraint("char_length(catatan) <= 500", name="ck_triase_catatan"),
         # CHECK tanda vital diwajibkan SKPL Tabel 6.2. Rentangnya memakai nilai yang mungkin dicatat
         # (Desain Bab 5, sama dengan prototipe), bukan rentang wajar: nilai tidak wajar tetapi mungkin,
         # misalnya saturasi 85%, tetap diterima lalu ditandai sebagai peringatan (Desain 2.3).
@@ -44,6 +45,14 @@ class Triase(db.Model):
         sa.CheckConstraint("laju_napas BETWEEN 0 AND 80", name="ck_triase_laju_napas"),
         sa.CheckConstraint("suhu BETWEEN 20 AND 45", name="ck_triase_suhu"),
         sa.CheckConstraint("saturasi BETWEEN 0 AND 100", name="ck_saturasi"),
+        # Hasil laboratorium boleh kosong; rentang dibuat longgar untuk nilai yang mungkin dicatat.
+        sa.CheckConstraint("laktat BETWEEN 0 AND 30", name="ck_triase_laktat"),
+        sa.CheckConstraint("kreatinin BETWEEN 0 AND 25", name="ck_triase_kreatinin"),
+        sa.CheckConstraint("trombosit BETWEEN 0 AND 2000", name="ck_triase_trombosit"),
+        sa.CheckConstraint("leukosit BETWEEN 0 AND 300", name="ck_triase_leukosit"),
+        sa.CheckConstraint("bilirubin BETWEEN 0 AND 60", name="ck_triase_bilirubin"),
+        sa.CheckConstraint("skor_news2 BETWEEN 0 AND 20", name="ck_triase_skor_news2"),
+        sa.CheckConstraint("peluang_perburukan BETWEEN 0 AND 1", name="ck_triase_peluang_perburukan"),
     )
 
     id_triase: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, server_default=sa.text("gen_random_uuid()"))
@@ -51,10 +60,6 @@ class Triase(db.Model):
     jenis: Mapped[JenisTriase] = mapped_column(JENIS_TRIASE)
     dibuat_oleh: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("pengguna.id_pengguna"))
     divalidasi_oleh: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("pengguna.id_pengguna"))
-    keluhan_utama: Mapped[str] = mapped_column(sa.String(200))
-    gejala: Mapped[str] = mapped_column(sa.Text)
-    kategori_keluhan: Mapped[KategoriKeluhan | None] = mapped_column(KATEGORI_KELUHAN)
-    skala_nyeri: Mapped[int | None] = mapped_column(sa.SmallInteger)
     tingkat_kesadaran: Mapped[TingkatKesadaran] = mapped_column(TINGKAT_KESADARAN)
     td_sistolik: Mapped[int] = mapped_column(sa.SmallInteger)
     td_diastolik: Mapped[int] = mapped_column(sa.SmallInteger)
@@ -62,6 +67,18 @@ class Triase(db.Model):
     laju_napas: Mapped[int] = mapped_column(sa.SmallInteger)
     suhu: Mapped[Decimal] = mapped_column(sa.Numeric(3, 1))
     saturasi: Mapped[Decimal] = mapped_column(sa.Numeric(4, 1))
+    oksigen_tambahan: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.false())
+    ventilator: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.false())
+    vasopresor: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.false())
+    # Satuan: laktat mmol/L, kreatinin dan bilirubin mg/dL, trombosit dan leukosit ribu/µL.
+    laktat: Mapped[Decimal | None] = mapped_column(sa.Numeric(3, 1))
+    kreatinin: Mapped[Decimal | None] = mapped_column(sa.Numeric(4, 2))
+    trombosit: Mapped[int | None] = mapped_column(sa.SmallInteger)
+    leukosit: Mapped[Decimal | None] = mapped_column(sa.Numeric(4, 1))
+    bilirubin: Mapped[Decimal | None] = mapped_column(sa.Numeric(3, 1))
+    catatan: Mapped[str | None] = mapped_column(sa.Text)
+    skor_news2: Mapped[int] = mapped_column(sa.SmallInteger)
+    peluang_perburukan: Mapped[Decimal | None] = mapped_column(sa.Numeric(5, 4))
     sumber_tanda_vital: Mapped[SumberTandaVital] = mapped_column(SUMBER_TANDA_VITAL)
     risk_level: Mapped[RiskLevel] = mapped_column(RISK_LEVEL)
     sumber_rekomendasi: Mapped[SumberRekomendasi] = mapped_column(SUMBER_REKOMENDASI)
@@ -78,10 +95,11 @@ class Triase(db.Model):
 
     # ------------------------------------------------------------ perpindahan status validasi (FR-06)
     # Jalur yang sah (keputusan K2a): dari menunggu ke disetujui, dikoreksi, atau menunggu_review_dokter;
-    # dari menunggu_review_dokter ke disetujui atau dikoreksi. Disetujui dan dikoreksi bersifat final.
+    # dari menunggu_review_dokter ke disetujui atau dikoreksi. Disetujui, dikoreksi, dan tercatat bersifat
+    # final; tercatat dipakai untuk observasi yang levelnya tidak naik sehingga tidak perlu persetujuan dokter.
     # Hak peran diperiksa KebijakanValidasi; method ini hanya menjaga urutan status.
 
-    STATUS_FINAL = (StatusValidasi.DISETUJUI, StatusValidasi.DIKOREKSI)
+    STATUS_FINAL = (StatusValidasi.DISETUJUI, StatusValidasi.DIKOREKSI, StatusValidasi.TERCATAT)
 
     def bisa_diputuskan(self) -> bool:
         return self.status_validasi not in self.STATUS_FINAL

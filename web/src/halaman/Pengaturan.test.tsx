@@ -6,15 +6,18 @@ import { API, KONFIGURASI, problem, REKAP, server } from "@/uji/server";
 
 async function bukaPengaturan() {
   const hasil = renderRute("/pengaturan");
-  await screen.findByDisplayValue("smarttriage-rf-v1.0.0");
+  await screen.findByDisplayValue("rf-icu-physionet2019-v1");
   return hasil;
 }
 
-describe("Pengaturan Triase", () => {
+describe("Pengaturan Penilaian ICU", () => {
   it("menampilkan konfigurasi tersimpan seperti mockup Gambar 7.2", async () => {
     await bukaPengaturan();
-    expect(screen.getByLabelText("Tinggi (menit)")).toHaveValue("10");
-    expect(screen.getByLabelText("Ambang kritis (skor)")).toHaveValue("6");
+    expect(screen.getByLabelText("Kritis (menit)")).toHaveValue("15");
+    expect(screen.getByLabelText("Tinggi (menit)")).toHaveValue("30");
+    expect(screen.getByLabelText("Rendah (menit)")).toHaveValue("120");
+    expect(screen.getByLabelText("Kritis (skor)")).toHaveValue("7");
+    expect(screen.getByLabelText("Sedang (skor)")).toHaveValue("3");
     expect(screen.getByLabelText("Ambang keyakinan")).toHaveValue("0,85");
     expect(await screen.findByDisplayValue("Aktif")).toBeDisabled();
     const rekap = screen.getByRole("complementary");
@@ -56,14 +59,17 @@ describe("Pengaturan Triase", () => {
 
   it("memeriksa isian di klien", async () => {
     const { user } = await bukaPengaturan();
-    const kritis = screen.getByLabelText("Ambang kritis (skor)");
+    const kritis = screen.getByLabelText("Kritis (skor)");
     await user.clear(kritis);
     await user.type(kritis, "40");
+    const intervalKritis = screen.getByLabelText("Kritis (menit)");
+    await user.clear(intervalKritis);
     const keyakinan = screen.getByLabelText("Ambang keyakinan");
     await user.clear(keyakinan);
     await user.type(keyakinan, "abc");
     await user.click(screen.getByRole("button", { name: "Simpan perubahan" }));
-    expect(screen.getByText("Ambang kritis maksimal 18.")).toBeInTheDocument();
+    expect(screen.getByText("Ambang kritis maksimal 20.")).toBeInTheDocument();
+    expect(screen.getByText("Interval kritis minimal 1.")).toBeInTheDocument();
     expect(screen.getByText("Ambang keyakinan harus berupa angka.")).toBeInTheDocument();
   });
 
@@ -73,20 +79,24 @@ describe("Pengaturan Triase", () => {
         problem(422, {
           title: "Data tidak valid",
           detail: "Periksa kembali isian yang ditandai.",
-          errors: [{ field: "ambang_tinggi", pesan: "Ambang tinggi harus lebih kecil dari ambang kritis (6)." }],
+          errors: [
+            { field: "ambang_tinggi", pesan: "Ambang NEWS2 tinggi harus lebih kecil dari ambang NEWS2 kritis (7)." },
+          ],
         }),
       ),
     );
     const { user } = await bukaPengaturan();
-    const tinggi = screen.getByLabelText("Ambang tinggi");
+    const tinggi = screen.getByLabelText("Tinggi (skor)");
     await user.clear(tinggi);
-    await user.type(tinggi, "7");
+    await user.type(tinggi, "8");
     await user.click(screen.getByRole("button", { name: "Simpan perubahan" }));
-    expect(await screen.findByText("Ambang tinggi harus lebih kecil dari ambang kritis (6).")).toBeInTheDocument();
-    expect(screen.getByLabelText("Ambang tinggi")).toHaveAttribute("aria-invalid", "true");
+    expect(
+      await screen.findByText("Ambang NEWS2 tinggi harus lebih kecil dari ambang NEWS2 kritis (7)."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Tinggi (skor)")).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("pembaca layar tidak aktif dan model triase belum dimuat", async () => {
+  it("pembaca layar tidak aktif dan model perburukan belum dimuat", async () => {
     server.use(
       http.get(`${API}/health`, () =>
         problem(503, { status: "degraded", komponen: { database: "ok", pembaca_layar: "gagal" } }),
@@ -96,7 +106,7 @@ describe("Pengaturan Triase", () => {
     await bukaPengaturan();
     expect(await screen.findByDisplayValue("Tidak aktif")).toBeInTheDocument();
     expect(screen.getByText("Kolom hasil pemindaian diisi manual oleh perawat.")).toBeInTheDocument();
-    expect(screen.getByText(/tidak ada \(aturan cadangan\)/)).toBeInTheDocument();
+    expect(screen.getByText(/tidak ada \(NEWS2 saja\)/)).toBeInTheDocument();
   });
 
   it("mengekspor CSV dari kartu rekap", async () => {

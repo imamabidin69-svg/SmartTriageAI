@@ -1,4 +1,4 @@
-"""POST /kunjungan/{id}/triase dan GET /triase/{id} (FR-03, FR-05, SKPL TC-05 sampai TC-09)."""
+"""Observasi ICU: POST /kunjungan/{id}/triase dan GET /triase/{id} (FR-03, FR-05, SKPL TC-05 sampai TC-09)."""
 
 import uuid
 from datetime import date, timedelta
@@ -6,9 +6,11 @@ from decimal import Decimal
 
 import pytest
 from bantuan import header_masuk
+from conftest import PENJELASAN_KOSONG
 from sqlalchemy import update
 
 from app.ai import klasifikasi
+from app.ai.registry import ModelPerburukan
 from app.models import Konfigurasi, Kunjungan, LogAudit, Pasien, PemindaianAlat, Triase
 from app.models.enums import (
     AksiAudit,
@@ -17,8 +19,9 @@ from app.models.enums import (
     Peran,
     RiskLevel,
     StatusKunjungan,
+    StatusValidasi,
 )
-from app.services.triase_service import PeringatanVital
+from app.services.triase_service import PeringatanVital, TriaseService
 from app.utils.errors import Tipe
 from app.utils.schemas import TandaVital
 from app.utils.waktu import hari_ini, sekarang
@@ -32,13 +35,12 @@ TANDA_VITAL_NORMAL = {
     "saturasi": 98,
 }
 ISIAN = {
-    "keluhan_utama": "Pusing berputar",
-    "gejala": "Pusing berputar sejak pagi, tidak muntah, masih bisa berjalan",
-    "kategori_keluhan": "Pusing",
-    "skala_nyeri": 3,
     "tingkat_kesadaran": "A",
+    "oksigen_tambahan": False,
     "tanda_vital": TANDA_VITAL_NORMAL,
 }
+# Pasien syok: NEWS2 napas 3, saturasi 3, oksigen 2, sistolik 3, nadi 2, kesadaran 3, suhu 1 = 17.
+TANDA_VITAL_SYOK = {"td_sistolik": 86, "td_diastolik": 48, "nadi": 128, "laju_napas": 27, "suhu": 38.9, "saturasi": 90}
 
 
 def _url(kunjungan) -> str:
@@ -75,36 +77,155 @@ def test_input_triase_menyimpan_rekomendasi_model(client, perawat, kunjungan, se
         "jenis_kelamin": "perempuan",
     }
     assert isi["tanda_vital"] == {**TANDA_VITAL_NORMAL, "saturasi": 98.0}
+    assert isi["lab"] == {"laktat": None, "kreatinin": None, "trombosit": None, "leukosit": None, "bilirubin": None}
+    assert (isi["oksigen_tambahan"], isi["ventilator"], isi["vasopresor"], isi["catatan"]) == (
+        False,
+        False,
+        False,
+        None,
+    )
+    assert isi["nomor_bed"] is None
+    assert isi["status_kunjungan"] == "menunggu"
+    assert isi["level_sebelumnya"] is None
     assert isi["peringatan"] == []
     assert isi["catatan_validasi_terakhir"] is None
-
+    assert isi["skor_news2"] == 0
+    assert 0 <= isi["peluang_perburukan"] <= 1
     penjelasan = isi["penjelasan_ai"]
-    assert penjelasan["versi_model"] == "smarttriage-rf-v1.0.0"
+    assert penjelasan["versi_model"] == "rf-icu-physionet2019-v1"
+    assert (penjelasan["skor_news2"], penjelasan["level_news2"], penjelasan["komponen_news2"]) == (0, "rendah", [])
+    assert penjelasan["peluang_perburukan"] == isi["peluang_perburukan"]
+    assert penjelasan["level_model"] in {"rendah", "sedang", "tinggi", "kritis"}
     assert len(penjelasan["faktor"]) == 3
-    assert set(penjelasan["probabilitas"]) == {"rendah", "sedang", "tinggi", "kritis"}
+    # Hasil lab yang tidak diisi tidak boleh muncul sebagai faktor penjelas.
+    assert {f["fitur"] for f in penjelasan["faktor"]}.isdisjoint({"laktat", "kreatinin", "trombosit"})
 
     triase = sesi_db.get(Triase, uuid.UUID(isi["id_triase"]))
     assert triase.penjelasan_ai == penjelasan
-    assert triase.kategori_keluhan.value == "Pusing"
+    assert triase.skor_news2 == 0
     # Membuat triase tidak menulis log audit; yang diaudit adalah validasinya (Desain Gambar 2.9).
     assert sesi_db.query(LogAudit).count() == 0
 
 
-def test_triase_kedua_dicatat_sebagai_triase_ulang(client, perawat, kunjungan):
+def test_observasi_kedua_dicatat_sebagai_observasi_ulang(client, perawat, kunjungan):
     _, header = perawat
-    assert client.post(_url(kunjungan), json=_isian(), headers=header).get_json()["jenis"] == "awal"
-    assert client.post(_url(kunjungan), json=_isian(), headers=header).get_json()["jenis"] == "ulang"
+    pertama = client.post(_url(kunjungan), json=_isian(), headers=header).get_json()
+    kedua = client.post(_url(kunjungan), json=_isian(), headers=header).get_json()
+    assert (pertama["jenis"], kedua["jenis"]) == ("awal", "ulang")
+    assert kedua["level_sebelumnya"] == pertama["risk_level"]
 
 
-def test_pasien_gawat_mendapat_level_tinggi(client, perawat, kunjungan):
+def test_pasien_syok_kritis_dan_news2_dijelaskan(client, perawat, kunjungan):
     _, header = perawat
-    isian = _isian(
-        kategori_keluhan="Sesak napas atau batuk",
-        tingkat_kesadaran="P",
-        tanda_vital={"td_sistolik": 85, "td_diastolik": 50, "nadi": 135, "laju_napas": 32, "saturasi": 84},
-    )
+    isian = _isian(tingkat_kesadaran="V", oksigen_tambahan=True, tanda_vital=TANDA_VITAL_SYOK)
     isi = client.post(_url(kunjungan), json=isian, headers=header).get_json()
-    assert isi["risk_level"] in {"tinggi", "kritis"}
+    assert isi["risk_level"] == "kritis"
+    assert isi["skor_news2"] == 17
+    komponen = isi["penjelasan_ai"]["komponen_news2"]
+    assert [k["kontribusi"] for k in komponen] == [3, 3, 3, 3, 2, 2, 1]
+    assert {k["fitur"] for k in komponen} == {
+        "laju_napas",
+        "saturasi",
+        "oksigen_tambahan",
+        "td_sistolik",
+        "nadi",
+        "tingkat_kesadaran",
+        "suhu",
+    }
+
+
+def test_level_akhir_tidak_pernah_lebih_rendah_dari_news2(client, perawat, kunjungan, monkeypatch):
+    """Walau model menilai rendah, level NEWS2 yang lebih tinggi tetap dipakai."""
+    monkeypatch.setattr(ModelPerburukan, "level", lambda self, peluang: RiskLevel.RENDAH)
+    _, header = perawat
+    isian = _isian(tingkat_kesadaran="V", oksigen_tambahan=True, tanda_vital=TANDA_VITAL_SYOK)
+    isi = client.post(_url(kunjungan), json=isian, headers=header).get_json()
+    assert isi["penjelasan_ai"]["level_model"] == "rendah"
+    assert isi["risk_level"] == "kritis"
+    assert isi["sumber_rekomendasi"] == "model"
+
+
+def test_level_model_dipakai_bila_lebih_tinggi_dari_news2(client, perawat, kunjungan, monkeypatch):
+    monkeypatch.setattr(ModelPerburukan, "level", lambda self, peluang: RiskLevel.TINGGI)
+    _, header = perawat
+    isi = client.post(_url(kunjungan), json=_isian(), headers=header).get_json()
+    assert isi["penjelasan_ai"]["level_news2"] == "rendah"
+    assert isi["risk_level"] == "tinggi"
+
+
+def test_hasil_lab_dan_alat_bantu_disimpan(client, perawat, kunjungan, sesi_db):
+    _, header = perawat
+    lab = {"laktat": 4.25, "kreatinin": "2.104", "trombosit": 95, "leukosit": 19.84, "bilirubin": 1.8}
+    isian = _isian(lab=lab, ventilator=True, vasopresor=True, oksigen_tambahan=True, catatan="  Urin 20 ml/jam  ")
+    isi = client.post(_url(kunjungan), json=isian, headers=header).get_json()
+    assert isi["lab"] == {"laktat": 4.3, "kreatinin": 2.1, "trombosit": 95, "leukosit": 19.8, "bilirubin": 1.8}
+    assert (isi["ventilator"], isi["vasopresor"], isi["catatan"]) == (True, True, "Urin 20 ml/jam")
+    triase = sesi_db.get(Triase, uuid.UUID(isi["id_triase"]))
+    assert (triase.laktat, triase.kreatinin, triase.trombosit) == (Decimal("4.3"), Decimal("2.10"), 95)
+
+
+# ---------------------------------------------------------------- persetujuan dokter hanya saat level naik
+
+
+def _observasi(client, header, kunjungan, syok=False):
+    syok_isian = {"tingkat_kesadaran": "V", "oksigen_tambahan": True, "tanda_vital": TANDA_VITAL_SYOK}
+    isian = _isian(**syok_isian) if syok else _isian()
+    return client.post(_url(kunjungan), json=isian, headers=header).get_json()
+
+
+def _setujui(client, header, id_triase):
+    respons = client.post(f"/api/v1/triase/{id_triase}/validasi", json={"aksi": "setujui"}, headers=header)
+    assert respons.status_code == 200
+
+
+@pytest.fixture
+def model_ikut_news2(monkeypatch):
+    """Model dibuat selalu rendah supaya level akhir hanya mengikuti NEWS2 dan mudah diatur di tes."""
+    monkeypatch.setattr(ModelPerburukan, "level", lambda self, peluang: RiskLevel.RENDAH)
+
+
+@pytest.mark.usefixtures("model_ikut_news2")
+def test_penilaian_awal_menunggu_persetujuan_dokter(client, perawat, kunjungan):
+    _, header = perawat
+    assert _observasi(client, header, kunjungan)["status_validasi"] == "menunggu"
+
+
+@pytest.mark.usefixtures("model_ikut_news2")
+def test_observasi_dengan_level_sama_langsung_tercatat(client, perawat, masuk, kunjungan):
+    _, header = perawat
+    _, header_dokter = masuk(Peran.DOKTER)
+    _setujui(client, header_dokter, _observasi(client, header, kunjungan)["id_triase"])
+    ulang = _observasi(client, header, kunjungan)
+    assert (ulang["risk_level"], ulang["status_validasi"]) == ("rendah", "tercatat")
+
+
+@pytest.mark.usefixtures("model_ikut_news2")
+def test_level_naik_menunggu_persetujuan_lalu_turun_tercatat(client, perawat, masuk, kunjungan):
+    _, header = perawat
+    _, header_dokter = masuk(Peran.DOKTER)
+    _setujui(client, header_dokter, _observasi(client, header, kunjungan)["id_triase"])
+
+    naik = _observasi(client, header, kunjungan, syok=True)
+    assert (naik["risk_level"], naik["status_validasi"], naik["level_sebelumnya"]) == ("kritis", "menunggu", "rendah")
+    _setujui(client, header_dokter, naik["id_triase"])
+
+    turun = _observasi(client, header, kunjungan)
+    assert (turun["risk_level"], turun["status_validasi"]) == ("rendah", "tercatat")
+
+
+@pytest.mark.usefixtures("model_ikut_news2")
+def test_kenaikan_yang_belum_disetujui_tidak_hilang(client, perawat, masuk, kunjungan):
+    """Acuannya level final terakhir: kenaikan tetap menunggu dokter walau ada observasi baru setelahnya."""
+    _, header = perawat
+    _, header_dokter = masuk(Peran.DOKTER)
+    _setujui(client, header_dokter, _observasi(client, header, kunjungan)["id_triase"])
+    _observasi(client, header, kunjungan, syok=True)
+    lagi = _observasi(client, header, kunjungan, syok=True)
+    assert (lagi["status_validasi"], lagi["level_sebelumnya"]) == ("menunggu", "kritis")
+
+
+def test_status_awal_tanpa_acuan_menunggu():
+    assert TriaseService.status_awal(RiskLevel.RENDAH, None) == StatusValidasi.MENUNGGU
 
 
 def test_suhu_dan_saturasi_dibulatkan_satu_desimal(client, perawat, kunjungan, sesi_db):
@@ -138,10 +259,12 @@ def test_suhu_dan_saturasi_dibulatkan_satu_desimal(client, perawat, kunjungan, s
             {"tanda_vital": {"nadi": 80.5}},
             [{"field": "tanda_vital.nadi", "pesan": "Nadi harus berupa bilangan bulat."}],
         ),
-        ({"skala_nyeri": 11}, [{"field": "skala_nyeri", "pesan": "Skala nyeri maksimal 10."}]),
-        ({"skala_nyeri": None}, [{"field": "skala_nyeri", "pesan": "Skala nyeri harus berupa bilangan bulat."}]),
-        ({"gejala": "pusing"}, [{"field": "gejala", "pesan": "Gejala minimal 10 karakter."}]),
-        ({"keluhan_utama": "   "}, [{"field": "keluhan_utama", "pesan": "Keluhan utama wajib diisi."}]),
+        ({"lab": {"laktat": 31}}, [{"field": "lab.laktat", "pesan": "Laktat maksimal 30 mmol/L."}]),
+        ({"lab": {"kreatinin": -1}}, [{"field": "lab.kreatinin", "pesan": "Kreatinin minimal 0 mg/dL."}]),
+        ({"lab": {"trombosit": 2001}}, [{"field": "lab.trombosit", "pesan": "Trombosit maksimal 2000 ribu/µL."}]),
+        ({"lab": {"leukosit": 301}}, [{"field": "lab.leukosit", "pesan": "Leukosit maksimal 300 ribu/µL."}]),
+        ({"lab": {"bilirubin": 61}}, [{"field": "lab.bilirubin", "pesan": "Bilirubin maksimal 60 mg/dL."}]),
+        ({"catatan": "x" * 501}, [{"field": "catatan", "pesan": "Catatan maksimal 500 karakter."}]),
         (
             {"tingkat_kesadaran": "X"},
             [{"field": "tingkat_kesadaran", "pesan": "Tingkat kesadaran harus salah satu dari: 'A', 'V', 'P', 'U'."}],
@@ -159,7 +282,7 @@ def test_nilai_yang_tidak_mungkin_ditolak_per_field(client, perawat, kunjungan, 
     assert respons.get_json()["errors"] == errors
 
 
-@pytest.mark.parametrize("field", ["kategori_keluhan", "skala_nyeri", "tingkat_kesadaran", "tanda_vital"])
+@pytest.mark.parametrize("field", ["oksigen_tambahan", "tingkat_kesadaran", "tanda_vital"])
 def test_isian_wajib(client, perawat, kunjungan, field):
     _, header = perawat
     isian = _isian()
@@ -170,12 +293,11 @@ def test_isian_wajib(client, perawat, kunjungan, field):
     assert respons.get_json()["errors"][0]["pesan"].endswith("wajib diisi.")
 
 
-def test_kategori_keluhan_harus_salah_satu_dari_18_kategori(client, perawat, kunjungan):
+def test_field_lama_igd_ditolak(client, perawat, kunjungan):
     _, header = perawat
-    respons = client.post(_url(kunjungan), json=_isian(kategori_keluhan="Batuk"), headers=header)
-    [galat] = respons.get_json()["errors"]
-    assert galat["field"] == "kategori_keluhan"
-    assert "'Nyeri dada'" in galat["pesan"]
+    respons = client.post(_url(kunjungan), json=_isian(kategori_keluhan="Pusing"), headers=header)
+    assert respons.status_code == 422
+    assert respons.get_json()["errors"][0]["field"] == "kategori_keluhan"
 
 
 def test_kunjungan_tidak_ditemukan(client, perawat):
@@ -190,14 +312,24 @@ def test_id_kunjungan_bukan_uuid_dibalas_404(client, perawat):
     assert client.post("/api/v1/kunjungan/123/triase", json=_isian(), headers=header).status_code == 404
 
 
-@pytest.mark.parametrize("status", [StatusKunjungan.DITANGANI, StatusKunjungan.SELESAI])
-def test_kunjungan_yang_sudah_ditangani_tidak_bisa_ditriase(client, perawat, kunjungan, sesi_db, status):
-    _, header = perawat
+def _ubah_status(sesi_db, kunjungan, status):
     sesi_db.execute(update(Kunjungan).where(Kunjungan.id_kunjungan == kunjungan.id_kunjungan).values(status=status))
     sesi_db.commit()
+
+
+def test_pasien_yang_keluar_icu_tidak_bisa_diobservasi(client, perawat, kunjungan, sesi_db):
+    _, header = perawat
+    _ubah_status(sesi_db, kunjungan, StatusKunjungan.SELESAI)
     respons = client.post(_url(kunjungan), json=_isian(), headers=header)
     assert respons.status_code == 409
     assert respons.get_json()["type"] == Tipe.KONFLIK
+    assert "keluar dari ICU" in respons.get_json()["detail"]
+
+
+def test_pasien_yang_sedang_tindakan_tetap_bisa_diobservasi(client, perawat, kunjungan, sesi_db):
+    _, header = perawat
+    _ubah_status(sesi_db, kunjungan, StatusKunjungan.DITANGANI)
+    assert client.post(_url(kunjungan), json=_isian(), headers=header).status_code == 201
 
 
 @pytest.mark.parametrize("peran", [Peran.DOKTER, Peran.ADMIN])
@@ -300,7 +432,7 @@ def test_diastolik_tidak_lebih_rendah_dari_sistolik():
 
 def test_peringatan_untuk_pasien_anak(client, perawat, sesi_db):
     pengguna, header = perawat
-    lahir = date(hari_ini().year - 8, 1, 1)
+    lahir = date(hari_ini().year - 16, 1, 1)
     pasien = Pasien(
         didaftarkan_oleh=pengguna.id_pengguna, nama="Anak", tanggal_lahir=lahir, jenis_kelamin=JenisKelamin.LAKI_LAKI
     )
@@ -313,38 +445,48 @@ def test_peringatan_untuk_pasien_anak(client, perawat, sesi_db):
     isi = client.post(_url(kunjungan), json=_isian(), headers=header).get_json()
     [peringatan] = isi["peringatan"]
     assert peringatan["field"] is None
-    assert "remaja dan dewasa" in peringatan["pesan"]
+    assert "pasien ICU dewasa" in peringatan["pesan"]
 
 
 # ---------------------------------------------------------------- aturan cadangan (TC-09)
 
 
-def test_tanpa_model_rekomendasi_dari_aturan_cadangan(app_tanpa_model, buat_pengguna, kunjungan):
+def test_tanpa_model_penilaian_dari_news2(app_tanpa_model, buat_pengguna, kunjungan):
     klien = app_tanpa_model.test_client()
     header = header_masuk(klien, buat_pengguna(Peran.PERAWAT).email)
-    isian = _isian(tanda_vital={"nadi": 125, "laju_napas": 30})  # 4 poin
+    isian = _isian(tanda_vital={"nadi": 125, "laju_napas": 30})  # napas 3 + nadi 2 = 5
     respons = klien.post(_url(kunjungan), json=isian, headers=header)
 
     assert respons.status_code == 201
     isi = respons.get_json()
     assert isi["sumber_rekomendasi"] == "aturan"
     assert isi["risk_level"] == "tinggi"
-    assert isi["penjelasan_ai"]["versi_model"] is None
-    assert isi["penjelasan_ai"]["probabilitas"] is None
-    assert [f["kontribusi"] for f in isi["penjelasan_ai"]["faktor"]] == [2, 2]
+    assert isi["skor_news2"] == 5
+    assert isi["peluang_perburukan"] is None
+    penjelasan = isi["penjelasan_ai"]
+    assert (penjelasan["versi_model"], penjelasan["peluang_perburukan"], penjelasan["level_model"]) == (
+        None,
+        None,
+        None,
+    )
+    assert penjelasan["faktor"] == []
+    assert [f["kontribusi"] for f in penjelasan["komponen_news2"]] == [3, 2]
 
     kesehatan = klien.get("/api/v1/health")
     assert kesehatan.status_code == 200
     assert kesehatan.get_json()["status"] == "degraded"
-    assert kesehatan.get_json()["komponen"]["model_triase"] == "gagal"
+    assert kesehatan.get_json()["komponen"]["model_perburukan"] == "gagal"
 
 
-def test_aturan_cadangan_memakai_ambang_dari_konfigurasi(app_tanpa_model, buat_pengguna, kunjungan, sesi_db):
+def test_news2_memakai_ambang_dari_konfigurasi(app_tanpa_model, buat_pengguna, kunjungan, sesi_db):
     sesi_db.execute(update(Konfigurasi).values(ambang_kritis=12, ambang_tinggi=10, ambang_sedang=8))
     sesi_db.commit()
     klien = app_tanpa_model.test_client()
     header = header_masuk(klien, buat_pengguna(Peran.PERAWAT).email)
+    # Skor 5 di bawah ambang sedang 8, tetapi laju napas bernilai 3 (red score) sehingga minimal sedang.
     isian = _isian(tanda_vital={"nadi": 125, "laju_napas": 30})
+    assert klien.post(_url(kunjungan), json=isian, headers=header).get_json()["risk_level"] == "sedang"
+    isian = _isian(tanda_vital={"nadi": 125})
     assert klien.post(_url(kunjungan), json=isian, headers=header).get_json()["risk_level"] == "rendah"
 
 
@@ -356,7 +498,8 @@ def test_model_error_saat_dipakai_beralih_ke_aturan(client, perawat, kunjungan, 
     _, header = perawat
     isi = client.post(_url(kunjungan), json=_isian(), headers=header).get_json()
     assert isi["sumber_rekomendasi"] == "aturan"
-    assert "memakai aturan cadangan" in caplog.text
+    assert isi["peluang_perburukan"] is None
+    assert "memakai NEWS2 saja" in caplog.text
 
 
 # ---------------------------------------------------------------- id_pemindaian (keputusan K17)
@@ -411,8 +554,6 @@ def test_pemindaian_yang_tidak_sah_ditolak(client, perawat, masuk, kunjungan, se
         id_kunjungan=kunjungan.id_kunjungan,
         jenis="awal",
         dibuat_oleh=pengguna.id_pengguna,
-        keluhan_utama="x",
-        gejala="gejala lama pasien",
         tingkat_kesadaran="A",
         td_sistolik=120,
         td_diastolik=80,
@@ -421,9 +562,10 @@ def test_pemindaian_yang_tidak_sah_ditolak(client, perawat, masuk, kunjungan, se
         suhu=Decimal("36.5"),
         saturasi=Decimal("98"),
         sumber_tanda_vital="manual",
+        skor_news2=0,
         risk_level=RiskLevel.RENDAH,
         sumber_rekomendasi="aturan",
-        penjelasan_ai={"versi_model": None, "faktor": [], "probabilitas": None},
+        penjelasan_ai=PENJELASAN_KOSONG,
     )
     sesi_db.add(triase_lama)
     sesi_db.flush()
@@ -490,9 +632,9 @@ def test_admin_tidak_membaca_detail_triase(client, masuk):
 
 
 def test_usia_di_detail_dihitung_pada_tanggal_triase(client, perawat, sesi_db):
-    """Triase lama yang dibuka setelah ulang tahun pasien tetap memakai usia saat ditriase (K15)."""
+    """Observasi lama yang dibuka setelah ulang tahun pasien tetap memakai usia saat diobservasi (K15)."""
     pengguna, header = perawat
-    lahir = date(hari_ini().year - 15, hari_ini().month, 1)
+    lahir = date(hari_ini().year - 18, hari_ini().month, 1)
     pasien = Pasien(
         didaftarkan_oleh=pengguna.id_pengguna, nama="Remaja", tanggal_lahir=lahir, jenis_kelamin=JenisKelamin.PEREMPUAN
     )
@@ -502,7 +644,7 @@ def test_usia_di_detail_dihitung_pada_tanggal_triase(client, perawat, sesi_db):
     sesi_db.add(kunjungan)
     sesi_db.commit()
     isi = client.post(_url(kunjungan), json=_isian(), headers=header).get_json()
-    assert isi["pasien"]["usia"] == 15
+    assert isi["pasien"]["usia"] == 18
     assert isi["peringatan"] == []
 
     sesi_db.execute(
@@ -512,16 +654,27 @@ def test_usia_di_detail_dihitung_pada_tanggal_triase(client, perawat, sesi_db):
     )
     sesi_db.commit()
     detail = client.get(f"/api/v1/triase/{isi['id_triase']}", headers=header).get_json()
-    assert detail["pasien"]["usia"] == 14
-    assert "Pasien berusia 14 tahun" in detail["peringatan"][0]["pesan"]
+    assert detail["pasien"]["usia"] == 17
+    assert "Pasien berusia 17 tahun" in detail["peringatan"][0]["pesan"]
 
 
-def test_karakter_kontrol_di_gejala_ditolak_tetapi_baris_baru_boleh(client, perawat, kunjungan):
+def test_karakter_kontrol_di_catatan_ditolak_tetapi_baris_baru_boleh(client, perawat, kunjungan):
     _, header = perawat
-    respons = client.post(_url(kunjungan), json=_isian(gejala="Pusing berputar\x00 sejak pagi"), headers=header)
+    respons = client.post(_url(kunjungan), json=_isian(catatan="Gelisah\x00 sejak pagi"), headers=header)
     assert respons.status_code == 422
     assert respons.get_json()["errors"] == [
-        {"field": "gejala", "pesan": "Gejala berisi karakter yang tidak diizinkan."}
+        {"field": "catatan", "pesan": "Catatan berisi karakter yang tidak diizinkan."}
     ]
-    respons = client.post(_url(kunjungan), json=_isian(gejala="Pusing berputar\nsejak pagi, mual"), headers=header)
+    respons = client.post(_url(kunjungan), json=_isian(catatan="Gelisah\nsejak pagi"), headers=header)
     assert respons.status_code == 201
+
+
+def test_catatan_kosong_disimpan_sebagai_null(client, perawat, kunjungan):
+    _, header = perawat
+    assert client.post(_url(kunjungan), json=_isian(catatan="   "), headers=header).get_json()["catatan"] is None
+
+
+def test_detail_memuat_nomor_bed(client, perawat, buat_kunjungan):
+    _, header = perawat
+    kunjungan = buat_kunjungan(nomor_bed="ICU-3")
+    assert client.post(_url(kunjungan), json=_isian(), headers=header).get_json()["nomor_bed"] == "ICU-3"

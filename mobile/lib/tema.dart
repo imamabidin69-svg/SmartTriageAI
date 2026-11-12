@@ -19,14 +19,14 @@ abstract final class Warna {
   static const teksSamar = Color(0xFF5F6B79);
   static const nol = Color(0xFFA3ACB7); // angka nol di ringkasan level
   static const galat = Color(0xFFB42318);
-  static const waspada = Color(0xFF8A4B00); // teks perhatian, misalnya perlu triase ulang
+  static const waspada = Color(0xFF8A4B00); // teks perhatian, misalnya observasi terlambat
   static const waspadaGaris = Color(0xFFE0A100);
 
   static const kritis = Color(0xFFC62828);
   static const tinggi = Color(0xFFE8590C);
   static const sedang = Color(0xFFE0A100);
   static const rendah = Color(0xFF2F8F4E);
-  static const belum = Color(0xFF8C97A4); // belum ditriase, tanpa warna level
+  static const belum = Color(0xFF8C97A4); // belum dinilai, tanpa warna level
 
   static Color level(RiskLevel level) => switch (level) {
     RiskLevel.kritis => kritis,

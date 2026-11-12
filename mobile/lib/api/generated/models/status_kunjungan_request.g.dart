@@ -19,6 +19,7 @@ Map<String, dynamic> _$StatusKunjunganRequestToJson(
 };
 
 const _$StatusKunjunganRequestStatusEnumMap = {
+  StatusKunjunganRequestStatus.menunggu: 'menunggu',
   StatusKunjunganRequestStatus.ditangani: 'ditangani',
   StatusKunjunganRequestStatus.selesai: 'selesai',
   StatusKunjunganRequestStatus.$unknown: r'$unknown',

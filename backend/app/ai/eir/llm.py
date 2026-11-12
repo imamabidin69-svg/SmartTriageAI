@@ -86,13 +86,13 @@ class LlmTiruan(LlmClient):
 
     nama = "tiruan"
     PERTANYAAN = (
-        "Sejak kapan keluhan itu dirasakan?",
-        "Apakah keluhannya terus-menerus atau hilang timbul?",
-        "Dari angka 0 sampai 10, seberapa berat keluhannya?",
-        "Apakah ada keluhan lain yang menyertai?",
-        "Apakah sudah minum obat untuk keluhan ini?",
-        "Apakah punya penyakit lain yang sedang diobati?",
-        "Apakah punya alergi obat atau makanan?",
+        "Sejak kapan keluhan itu mulai terlihat?",
+        "Apakah pasien punya penyakit lama, misalnya darah tinggi, kencing manis, atau sakit jantung?",
+        "Obat apa saja yang rutin diminum pasien?",
+        "Apakah pasien punya alergi obat atau makanan?",
+        "Apakah pasien pernah dioperasi atau dirawat inap sebelumnya?",
+        "Sebelum sakit, apakah pasien bisa beraktivitas sendiri?",
+        "Apakah ada hal lain yang perlu diketahui tim ICU?",
     )
 
     def __init__(self) -> None:
@@ -101,16 +101,17 @@ class LlmTiruan(LlmClient):
     def chat(self, pesan: list[dict[str, str]], skema: dict[str, Any], nama_skema: str) -> dict[str, Any]:
         self.panggilan.append({"pesan": pesan, "nama_skema": nama_skema})
         jawaban_pasien = [p["content"] for p in pesan if p["role"] == "user"]
-        if nama_skema == "ringkasan_triase":
+        if nama_skema == "ringkasan_keluarga":
             return {
-                "keluhan_utama": jawaban_pasien[0][:200] if jawaban_pasien else "Tidak disebutkan",
-                "gejala": " ".join(jawaban_pasien)[:2000].ljust(10, "."),
-                "onset": "Tidak disebutkan",
-                "kategori_keluhan": "Lainnya",
+                "kronologi": jawaban_pasien[0][:1000] if jawaban_pasien else "Tidak disebutkan",
+                "riwayat_penyakit": jawaban_pasien[1][:1000] if len(jawaban_pasien) > 1 else "Tidak disebutkan",
+                "obat_rutin": jawaban_pasien[2][:1000] if len(jawaban_pasien) > 2 else "Tidak disebutkan",
+                "alergi": jawaban_pasien[3][:500] if len(jawaban_pasien) > 3 else "Tidak disebutkan",
+                "informasi_lain": " ".join(jawaban_pasien[4:])[:1000] or "Tidak disebutkan",
             }
         urutan = (len(jawaban_pasien) - 1) % len(self.PERTANYAAN)
         return {"pertanyaan": self.PERTANYAAN[urutan], "cukup": len(jawaban_pasien) >= len(self.PERTANYAAN)}
 
     def transkripsi(self, audio: bytes, nama_berkas: str) -> str:
         del nama_berkas
-        return "Saya pusing sejak tadi pagi" if audio else ""
+        return "Bapak sesak sejak semalam lalu tidak bisa dibangunkan" if audio else ""

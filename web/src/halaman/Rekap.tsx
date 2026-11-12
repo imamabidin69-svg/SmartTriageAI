@@ -66,7 +66,8 @@ export function HalamanRekap() {
         <div>
           <h1 className="text-[26px] font-bold text-teks">Rekap</h1>
           <p className="mt-1 text-[15px] text-teks-2">
-            Ringkasan triase, koreksi dokter, triase ulang, dan akurasi pemindaian. Tanggal mengikuti WIB.
+            Ringkasan penilaian prioritas ICU, koreksi dokter, observasi ulang, dan akurasi pemindaian. Tanggal
+            mengikuti WIB.
           </p>
         </div>
         <Button variant="outline" onClick={ekspor} disabled={mengunduh || !data}>
@@ -105,9 +106,9 @@ export function HalamanRekap() {
             Periode {tanggal(data.dari)} sampai {tanggal(data.sampai)}
           </p>
           <Card className="grid divide-y divide-garis-2 p-0 lg:grid-cols-4 lg:divide-x lg:divide-y-0">
-            <Angka label="Triase tercatat" nilai={angka(data.total_triase)} />
-            <Angka label="Dikoreksi dokter" nilai={persen(data.persen_koreksi)} keterangan="Dari semua triase" />
-            <Angka label="Triase ulang" nilai={angka(data.triase_ulang)} />
+            <Angka label="Penilaian tercatat" nilai={angka(data.total_triase)} />
+            <Angka label="Dikoreksi dokter" nilai={persen(data.persen_koreksi)} keterangan="Dari semua penilaian" />
+            <Angka label="Observasi ulang" nilai={angka(data.triase_ulang)} />
             <Angka
               label="Akurasi pemindaian layar"
               nilai={persen(data.akurasi_pemindaian)}
@@ -116,20 +117,20 @@ export function HalamanRekap() {
           </Card>
           <Card className="overflow-x-auto">
             <JudulKartu
-              judul="Per risk level"
-              keterangan="Rata-rata tunggu dihitung dari datang sampai ditangani dokter, menurut level triase terakhir."
+              judul="Per level prioritas"
+              keterangan="Rata-rata waktu dari masuk ICU sampai tindakan pertama, menurut level penilaian terakhir."
             />
             <table className="w-full min-w-[420px] text-left text-[15px]">
               <thead className="border-b border-garis text-sm text-teks-2">
                 <tr>
                   <th scope="col" className="py-2 font-bold">
-                    Risk level
+                    Level
                   </th>
                   <th scope="col" className="py-2 text-right font-bold">
-                    Jumlah triase
+                    Jumlah penilaian
                   </th>
                   <th scope="col" className="py-2 text-right font-bold">
-                    Rata-rata tunggu
+                    Rata-rata sampai tindakan
                   </th>
                 </tr>
               </thead>

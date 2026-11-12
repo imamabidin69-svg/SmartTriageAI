@@ -110,7 +110,7 @@ describe("Layout admin", () => {
       }),
     );
     const { user, router } = renderRute("/staf");
-    expect(await screen.findByText("dr. Arif Hidayat · Admin IGD")).toBeInTheDocument();
+    expect(await screen.findByText("dr. Arif Hidayat · Admin ICU")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Pengaturan" })).toHaveAttribute("href", "/pengaturan");
     await user.click(screen.getByRole("button", { name: "Keluar" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/login"));

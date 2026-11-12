@@ -11,6 +11,7 @@ import '../api/generated/models/kunjungan_dibuat_response.dart';
 import '../api/generated/models/pasien_ringkas.dart';
 import '../api/generated/models/pasien_triase.dart';
 import '../api/generated/models/registrasi_request.dart';
+import '../api/generated/models/registrasi_request_asal_ruangan.dart';
 import '../komponen/umum.dart';
 import '../rute.dart';
 import '../state/antrean.dart';
@@ -20,8 +21,8 @@ import '../util/format.dart';
 import '../util/label.dart';
 import '../util/validasi.dart';
 
-/// Registrasi Pasien Singkat (SKPL Tabel 7.1 no. 3, FR-02): identitas minimal lalu kunjungan berstatus menunggu.
-/// Pasien lama dicari dulu supaya tidak terdaftar dua kali.
+/// Pasien Masuk ICU (pengganti Registrasi Singkat SKPL Tabel 7.1 no. 3, FR-02): bed, asal ruangan, dan diagnosis
+/// masuk, lalu identitas minimal. Pasien lama dicari dulu supaya tidak terdaftar dua kali.
 class HalamanRegistrasi extends ConsumerStatefulWidget {
   const HalamanRegistrasi({super.key});
 
@@ -31,6 +32,10 @@ class HalamanRegistrasi extends ConsumerStatefulWidget {
 
 class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
   final _form = GlobalKey<FormState>();
+  final _formBed = GlobalKey<FormState>();
+  final _bed = TextEditingController();
+  final _diagnosis = TextEditingController();
+  RegistrasiRequestAsalRuangan? _asal;
   final _cari = TextEditingController();
   final _nama = TextEditingController();
   final _usia = TextEditingController();
@@ -48,7 +53,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
 
   @override
   void dispose() {
-    for (final pengendali in [_cari, _nama, _usia, _nik, _telepon]) {
+    for (final pengendali in [_bed, _diagnosis, _cari, _nama, _usia, _nik, _telepon]) {
       pengendali.dispose();
     }
     super.dispose();
@@ -71,12 +76,26 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
     }
   }
 
-  void _bukaForm(String idKunjungan, PasienTriase pasien, {DateTime? waktuDatang}) {
+  void _bukaForm(
+    String idKunjungan,
+    PasienTriase pasien, {
+    DateTime? waktuDatang,
+    String? nomorBed,
+    bool ulang = false,
+  }) {
     context.push(
       Rute.formTriase(idKunjungan),
-      extra: InfoFormTriase(pasien: pasien, waktuDatang: waktuDatang),
+      extra: InfoFormTriase(pasien: pasien, nomorBed: nomorBed, waktuDatang: waktuDatang, triaseUlang: ulang),
     );
   }
+
+  /// Data masuk ICU dipakai untuk pasien lama maupun baru, jadi diperiksa lebih dulu.
+  bool _bedValid() {
+    setState(() => _dicoba = true);
+    return _formBed.currentState!.validate();
+  }
+
+  String? get _diagnosisIsi => _diagnosis.text.trim().isEmpty ? null : _diagnosis.text.trim();
 
   PasienTriase _pasienDari(PasienRingkas p) =>
       PasienTriase(idPasien: p.idPasien, nama: p.nama, usia: p.usia, jenisKelamin: p.jenisKelamin);
@@ -87,15 +106,19 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
       final buka = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Kunjungan masih aktif'),
-          content: Text('${pasien.nama} masih punya kunjungan yang menunggu atau sedang ditangani.'),
+          title: const Text('Pasien masih di ICU'),
+          content: Text('${pasien.nama} masih tercatat dirawat di ICU.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Isi triase kunjungan ini')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Isi observasi')),
           ],
         ),
       );
-      if (buka == true && mounted) _bukaForm(aktif, _pasienDari(pasien));
+      if (buka == true && mounted) _bukaForm(aktif, _pasienDari(pasien), ulang: true);
+      return;
+    }
+    if (!_bedValid()) {
+      tampilkanPesan(context, 'Isi nomor bed ICU dulu.', galat: true);
       return;
     }
     await _daftarkan(
@@ -107,16 +130,19 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
         jenisKelamin: null,
         nik: null,
         noTelepon: null,
+        nomorBed: _bed.text.trim(),
+        asalRuangan: _asal,
+        diagnosisMasuk: _diagnosisIsi,
       ),
       _pasienDari(pasien),
     );
   }
 
   Future<void> _daftarkanBaru() async {
-    setState(() => _dicoba = true);
+    final bedValid = _bedValid();
     final formValid = _form.currentState!.validate();
     final tanggalOk = !_tahuTanggalLahir || _tanggalLahir != null;
-    if (!formValid || _kelamin == null || !tanggalOk) return;
+    if (!bedValid || !formValid || _kelamin == null || !tanggalOk) return;
     final usia = _tahuTanggalLahir ? null : int.parse(_usia.text.trim());
     final data = RegistrasiRequest(
       idPasien: null,
@@ -126,6 +152,9 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
       perkiraanUsia: usia,
       nik: _nik.text.trim().isEmpty ? null : _nik.text.trim(),
       noTelepon: _telepon.text.trim().isEmpty ? null : _telepon.text.trim(),
+      nomorBed: _bed.text.trim(),
+      asalRuangan: _asal,
+      diagnosisMasuk: _diagnosisIsi,
     );
     final hariIni = DateTime.now();
     final tanggal = _tanggalLahir;
@@ -153,6 +182,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
         hasil.idKunjungan,
         PasienTriase(idPasien: hasil.idPasien, nama: pasien.nama, usia: pasien.usia, jenisKelamin: pasien.jenisKelamin),
         waktuDatang: hasil.waktuDatang,
+        nomorBed: hasil.nomorBed,
       );
     } on GalatApi catch (galat) {
       if (!mounted) return;
@@ -160,7 +190,9 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
       final aktif = galat.ekstra['id_kunjungan_aktif'];
       if (aktif is String) {
         tampilkanPesan(context, galat.pesan, galat: true);
-        _bukaForm(aktif, pasien);
+        _bukaForm(aktif, pasien, ulang: true);
+      } else if (galat.field('nomor_bed') != null) {
+        tampilkanPesan(context, galat.field('nomor_bed')!, galat: true);
       }
     } finally {
       if (mounted) setState(() => _sibuk = false);
@@ -169,10 +201,12 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
 
   void _bersihkan() {
     _form.currentState?.reset();
-    for (final pengendali in [_cari, _nama, _usia, _nik, _telepon]) {
+    _formBed.currentState?.reset();
+    for (final pengendali in [_bed, _diagnosis, _cari, _nama, _usia, _nik, _telepon]) {
       pengendali.clear();
     }
     setState(() {
+      _asal = null;
       _kelamin = null;
       _tanggalLahir = null;
       _tahuTanggalLahir = true;
@@ -198,10 +232,58 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
     final galat = _galat;
     final hasilCari = _hasilCari;
     return Scaffold(
-      appBar: AppBar(title: const Text('Triase Baru')),
+      appBar: AppBar(title: const Text('Pasien Masuk ICU')),
       body: ListView(
         padding: const EdgeInsets.only(top: 12, bottom: 24),
         children: [
+          KartuBagian(
+            judul: 'Data masuk ICU',
+            child: Form(
+              key: _formBed,
+              autovalidateMode: _dicoba ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    key: const ValueKey('nomor-bed'),
+                    controller: _bed,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      labelText: 'Nomor bed',
+                      hintText: 'Misalnya ICU-3',
+                      errorText: galat?.field('nomor_bed'),
+                    ),
+                    validator: (teks) => periksaNomorBed(teks ?? ''),
+                  ),
+                  const SizedBox(height: 18),
+                  DropdownButtonFormField<RegistrasiRequestAsalRuangan>(
+                    key: const ValueKey('asal-ruangan'),
+                    initialValue: _asal,
+                    isExpanded: true,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    hint: const Text('Pilih asal ruangan', style: TextStyle(color: Warna.teksSamar)),
+                    decoration: const InputDecoration(labelText: 'Asal ruangan (opsional)'),
+                    items: [
+                      for (final asal in RegistrasiRequestAsalRuangan.$valuesDefined)
+                        DropdownMenuItem(value: asal, child: Text(labelAsalRuangan(asal))),
+                    ],
+                    onChanged: (asal) => setState(() => _asal = asal),
+                  ),
+                  const SizedBox(height: 18),
+                  TextFormField(
+                    key: const ValueKey('diagnosis-masuk'),
+                    controller: _diagnosis,
+                    maxLength: 200,
+                    decoration: InputDecoration(
+                      labelText: 'Diagnosis masuk (opsional)',
+                      errorText: galat?.field('diagnosis_masuk'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           KartuBagian(
             judul: 'Pasien lama',
             child: Column(
@@ -237,7 +319,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
                             if (pasien.usia != null) '${pasien.usia} th',
                             labelKelamin(pasien.jenisKelamin),
                             if (pasien.nikTersamar != null) 'NIK ${pasien.nikTersamar}',
-                            if (pasien.idKunjunganAktif != null) 'kunjungan aktif',
+                            if (pasien.idKunjunganAktif != null) 'masih di ICU',
                           ].join(' · '),
                         ),
                         trailing: const Icon(Icons.chevron_right),
@@ -349,7 +431,7 @@ class _HalamanRegistrasiState extends ConsumerState<HalamanRegistrasi> {
                     validator: (teks) => periksaTelepon(teks ?? ''),
                   ),
                   const SizedBox(height: 20),
-                  TombolProses(label: 'Daftarkan dan isi triase', sibuk: _sibuk, onPressed: _daftarkanBaru),
+                  TombolProses(label: 'Catat masuk ICU dan nilai', sibuk: _sibuk, onPressed: _daftarkanBaru),
                 ],
               ),
             ),

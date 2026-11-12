@@ -39,16 +39,23 @@ Map<String, Object?> jsonItemTunggu({
   String? level = 'tinggi',
   String idTriaseTerakhir = idTriase,
   String statusValidasi = 'menunggu',
-  String keluhan = 'Nyeri dada kiri menjalar',
-  int lama = 12,
-  int? batas = 10,
-  String tanda = 'perlu_triase_ulang',
+  String? bed = 'ICU-2',
+  String? diagnosis = 'Syok sepsis',
+  String status = 'menunggu',
+  int skor = 6,
+  double? peluang = 0.6512,
+  int lama = 42,
+  int? batas = 30,
+  String tanda = 'observasi_terlambat',
   bool menungguValidasi = true,
   bool review = false,
   bool eirSiap = false,
 }) => {
   'id_kunjungan': id,
   'pasien': jsonPasien(nama: nama),
+  'nomor_bed': bed,
+  'diagnosis_masuk': diagnosis,
+  'status': status,
   'waktu_datang': '2026-11-02T01:42:00Z',
   'triase_terakhir': level == null
       ? null
@@ -57,7 +64,8 @@ Map<String, Object?> jsonItemTunggu({
           'jenis': 'awal',
           'risk_level': level,
           'status_validasi': statusValidasi,
-          'keluhan_utama': keluhan,
+          'skor_news2': skor,
+          'peluang_perburukan': peluang,
           'waktu_triase': '2026-11-02T01:50:00Z',
         },
   'lama_menunggu_menit': lama,
@@ -72,18 +80,18 @@ DaftarTungguResponse daftarTunggu(List<Map<String, Object?>> items) =>
     DaftarTungguResponse.fromJson({'items': items, 'waktu_server': '2026-11-02T02:02:00Z'});
 
 ItemPeringatan peringatan({
-  String jenis = 'kritis_belum_divalidasi',
+  String jenis = 'menunggu_persetujuan',
   String nama = 'Sri Wahyuni',
-  String alasan = 'risk level kritis (SpO2 88%)',
+  String alasan = 'Level naik dari Tinggi ke Kritis dan menunggu persetujuan dokter.',
   String? idTriaseItem = idTriaseKritis,
   String idKunjunganItem = idKunjunganDua,
 }) => ItemPeringatan.fromJson({
   'jenis': jenis,
   'id_kunjungan': idKunjunganItem,
   'id_triase': idTriaseItem,
-  'id_sesi': jenis == 'tanda_bahaya_eir' ? 'sesi-1' : null,
+  'id_sesi': jenis == 'informasi_penting_eir' ? 'sesi-1' : null,
   'pasien': {'id_pasien': 'p-2', 'nama': nama},
-  'risk_level': jenis == 'tanda_bahaya_eir' ? null : 'kritis',
+  'risk_level': jenis == 'informasi_penting_eir' ? null : 'kritis',
   'alasan': alasan,
   'waktu': '2026-11-02T01:58:00Z',
 });
@@ -96,16 +104,32 @@ Map<String, Object?> jsonTriaseDetail({
   List<Map<String, Object?>> peringatan = const [],
   String? divalidasi,
   String? catatan,
+  String jenis = 'awal',
+  String statusKunjungan = 'menunggu',
+  String? levelSebelumnya,
+  bool lab = true,
 }) => {
   'id_triase': id,
   'id_kunjungan': idKunjungan,
-  'jenis': 'awal',
+  'jenis': jenis,
   'pasien': jsonPasien(),
-  'keluhan_utama': 'Nyeri dada kiri menjalar',
-  'gejala': 'Nyeri dada kiri menjalar ke lengan sejak 1 jam',
-  'kategori_keluhan': 'Nyeri dada',
-  'skala_nyeri': 7,
+  'nomor_bed': 'ICU-2',
+  'status_kunjungan': statusKunjungan,
   'tingkat_kesadaran': 'A',
+  'oksigen_tambahan': true,
+  'lab': {
+    'laktat': lab ? 3.4 : null,
+    'kreatinin': lab ? 1.45 : null,
+    'trombosit': lab ? 140 : null,
+    'leukosit': null,
+    'bilirubin': null,
+  },
+  'ventilator': false,
+  'vasopresor': lab,
+  'catatan': 'Urin 25 ml/jam',
+  'skor_news2': 6,
+  'peluang_perburukan': sumber == 'model' ? 0.6512 : null,
+  'level_sebelumnya': levelSebelumnya,
   'tanda_vital': {
     'td_sistolik': 158,
     'td_diastolik': 96,
@@ -118,20 +142,30 @@ Map<String, Object?> jsonTriaseDetail({
   'risk_level': level,
   'sumber_rekomendasi': sumber,
   'penjelasan_ai': {
-    'versi_model': sumber == 'model' ? 'smarttriage-rf-v1.0.0' : null,
-    'faktor': [
+    'versi_model': sumber == 'model' ? 'rf-icu-physionet2019-v1' : null,
+    'skor_news2': 6,
+    'level_news2': 'tinggi',
+    'komponen_news2': [
       {
-        'fitur': 'kategori_keluhan',
-        'label': 'Kategori keluhan',
-        'nilai': 'Nyeri dada',
-        'kontribusi': 0.21,
+        'fitur': 'oksigen_tambahan',
+        'label': 'Mendapat oksigen tambahan',
+        'nilai': true,
+        'kontribusi': 2,
         'arah': 'naik',
       },
-      {'fitur': 'nadi', 'label': 'Nadi', 'nilai': 104, 'kontribusi': 0.12, 'arah': 'naik'},
-      {'fitur': 'usia', 'label': 'Usia', 'nilai': null, 'kontribusi': -0.05, 'arah': 'turun'},
-      {'fitur': 'suhu', 'label': 'Suhu', 'nilai': 37.2, 'kontribusi': 0.01, 'arah': 'netral'},
+      {'fitur': 'laju_napas', 'label': 'Laju napas 22 x/menit', 'nilai': 22, 'kontribusi': 2, 'arah': 'naik'},
+      {'fitur': 'nadi', 'label': 'Nadi 104 x/menit', 'nilai': 104, 'kontribusi': 1, 'arah': 'naik'},
+      {'fitur': 'saturasi', 'label': 'Saturasi oksigen 95%', 'nilai': 95.0, 'kontribusi': 1, 'arah': 'naik'},
     ],
-    'probabilitas': {'rendah': 0.05, 'sedang': 0.2, 'tinggi': 0.6, 'kritis': 0.15},
+    'peluang_perburukan': sumber == 'model' ? 0.6512 : null,
+    'level_model': sumber == 'model' ? 'tinggi' : null,
+    'faktor': sumber == 'model'
+        ? [
+            {'fitur': 'laktat', 'label': 'Laktat 3,4 mmol/L', 'nilai': 3.4, 'kontribusi': 0.21, 'arah': 'naik'},
+            {'fitur': 'nadi', 'label': 'Nadi 104 x/menit', 'nilai': 104, 'kontribusi': 0.12, 'arah': 'naik'},
+            {'fitur': 'usia', 'label': 'Usia 45 tahun', 'nilai': 45, 'kontribusi': -0.05, 'arah': 'turun'},
+          ]
+        : <Object>[],
   },
   'status_validasi': status,
   'dibuat_oleh': {'id_pengguna': 'u-perawat', 'nama': 'Ns. Ratna Wijaya'},
@@ -149,6 +183,10 @@ TriaseDetail triaseDetail({
   List<Map<String, Object?>> peringatan = const [],
   String? divalidasi,
   String? catatan,
+  String jenis = 'awal',
+  String statusKunjungan = 'menunggu',
+  String? levelSebelumnya,
+  bool lab = true,
 }) => TriaseDetail.fromJson(
   jsonTriaseDetail(
     id: id,
@@ -158,6 +196,10 @@ TriaseDetail triaseDetail({
     peringatan: peringatan,
     divalidasi: divalidasi,
     catatan: catatan,
+    jenis: jenis,
+    statusKunjungan: statusKunjungan,
+    levelSebelumnya: levelSebelumnya,
+    lab: lab,
   ),
 );
 
@@ -179,6 +221,7 @@ KunjunganDibuatResponse kunjunganDibuat({bool baru = true}) => KunjunganDibuatRe
   'pasien_baru': baru,
   'status': 'menunggu',
   'waktu_datang': '2026-11-02T01:42:00Z',
+  'nomor_bed': 'ICU-2',
 });
 
 HasilPemindaianResponse hasilPemindaian({bool tersedia = true, bool kosongSemua = false}) =>
@@ -206,55 +249,57 @@ RingkasanEirResponse ringkasanEir({String status = 'selesai', bool denganRingkas
       'tanda_bahaya': tandaBahaya,
       'ringkasan': denganRingkasan
           ? {
-              'keluhan_utama': 'Demam tiga hari',
-              'gejala': 'Demam naik turun disertai pusing',
-              'onset': 'tiga hari lalu',
-              'kategori_keluhan': 'Demam',
+              'kronologi': 'Sesak sejak semalam lalu sulit dibangunkan',
+              'riwayat_penyakit': 'Darah tinggi dan kencing manis',
+              'obat_rutin': 'Amlodipin dan metformin',
+              'alergi': 'Alergi amoxicillin',
+              'informasi_lain': 'Tidak disebutkan',
             }
           : null,
       'transkrip': [
         {
           'peran': 'eir',
-          'teks': 'Halo, saya Eir. Keluhan apa yang paling mengganggu?',
+          'teks': 'Halo, saya Eir. Bisa diceritakan apa yang terjadi sebelum pasien dibawa ke rumah sakit?',
           'waktu': '2026-11-02T01:55:00Z',
         },
-        {'peran': 'pengisi', 'teks': 'Demam tiga hari', 'waktu': '2026-11-02T01:56:00Z'},
+        {'peran': 'pengisi', 'teks': 'Sesak sejak semalam', 'waktu': '2026-11-02T01:56:00Z'},
       ],
     });
 
-RiwayatResponse riwayat({String? kursor, String idTriaseItem = idTriase, String keluhan = 'Nyeri dada kiri'}) =>
-    RiwayatResponse.fromJson({
-      'pasien': jsonPasien(),
-      'items': [
-        {
-          'id_triase': idTriaseItem,
-          'jenis': 'ulang',
-          'waktu_triase': '2026-11-02T01:50:00Z',
-          'keluhan_utama': keluhan,
-          'kategori_keluhan': 'Nyeri dada',
-          'risk_level': 'tinggi',
-          'sumber_rekomendasi': 'model',
-          'status_validasi': 'disetujui',
-          'tanda_vital': {
-            'td_sistolik': 158,
-            'td_diastolik': 96,
-            'nadi': 104,
-            'laju_napas': 22,
-            'suhu': 37.2,
-            'saturasi': 95.0,
-          },
-          'dibuat_oleh': {'id_pengguna': 'u-perawat', 'nama': 'Ns. Ratna Wijaya'},
-          'divalidasi_oleh': null,
-          'kunjungan': {
-            'id_kunjungan': idKunjungan,
-            'waktu_datang': '2026-11-02T01:42:00Z',
-            'waktu_ditangani': null,
-            'status': 'menunggu',
-          },
-        },
-      ],
-      'kursor_berikutnya': kursor,
-    });
+RiwayatResponse riwayat({String? kursor, String idTriaseItem = idTriase, int skor = 6}) => RiwayatResponse.fromJson({
+  'pasien': jsonPasien(),
+  'items': [
+    {
+      'id_triase': idTriaseItem,
+      'jenis': 'ulang',
+      'waktu_triase': '2026-11-02T01:50:00Z',
+      'skor_news2': skor,
+      'peluang_perburukan': 0.6512,
+      'risk_level': 'tinggi',
+      'sumber_rekomendasi': 'model',
+      'status_validasi': 'disetujui',
+      'tanda_vital': {
+        'td_sistolik': 158,
+        'td_diastolik': 96,
+        'nadi': 104,
+        'laju_napas': 22,
+        'suhu': 37.2,
+        'saturasi': 95.0,
+      },
+      'dibuat_oleh': {'id_pengguna': 'u-perawat', 'nama': 'Ns. Ratna Wijaya'},
+      'divalidasi_oleh': null,
+      'kunjungan': {
+        'id_kunjungan': idKunjungan,
+        'waktu_datang': '2026-11-02T01:42:00Z',
+        'waktu_ditangani': null,
+        'status': 'menunggu',
+        'nomor_bed': 'ICU-2',
+        'diagnosis_masuk': 'Syok sepsis',
+      },
+    },
+  ],
+  'kursor_berikutnya': kursor,
+});
 
 TautanEirResponse tautanEir() => TautanEirResponse.fromJson({
   'token': 'token-eir',

@@ -16,33 +16,33 @@ part 'triase_client.g.dart';
 abstract class TriaseClient {
   factory TriaseClient(Dio dio, {String? baseUrl}) = _TriaseClient;
 
-  /// Input triase dan rekomendasi risk level.
+  /// Mencatat observasi pasien ICU dan menilai prioritasnya.
   ///
-  /// Menyimpan triase berstatus menunggu validasi beserta rekomendasi risk level dan tiga faktor penjelas. Triase pertama pada kunjungan dicatat sebagai awal, berikutnya sebagai ulang. Nilai tanda vital yang tidak wajar dikembalikan di field peringatan tanpa menolak request.
+  /// Menghitung skor NEWS2 dan peluang perburukan 6 jam dari model Random Forest, lalu memakai level yang lebih tinggi dari keduanya. Observasi pertama (awal) dan observasi yang levelnya naik dibanding level final terakhir berstatus menunggu persetujuan dokter; selain itu langsung berstatus tercatat. Nilai yang tidak wajar dikembalikan di field peringatan tanpa menolak request. Pasien yang sudah keluar ICU dibalas 409.
   @POST('/api/v1/kunjungan/{id_kunjungan}/triase')
   Future<TriaseDetail> triaseBuatTriaseKunjunganUuidIdKunjunganTriasePost({
     @Path('id_kunjungan') required String idKunjungan,
     @Body() required TriaseInput body,
   });
 
-  /// Detail triase beserta penjelasan rekomendasi
+  /// Detail observasi beserta penjelasan penilaian
   @GET('/api/v1/triase/{id_triase}')
   Future<TriaseDetail> triaseDetailTriaseTriaseUuidIdTriaseGet({
     @Path('id_triase') required String idTriase,
   });
 
-  /// Menyetujui, mengoreksi, atau mengajukan review hasil triase.
+  /// Persetujuan dokter: menyetujui, mengoreksi, atau mengajukan review.
   ///
-  /// Perawat boleh menyetujui hasil non-kritis atau mengajukan review; dokter boleh menyetujui atau mengoreksi semua tingkat. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Triase yang sudah disetujui atau dikoreksi, sudah digantikan triase ulang, atau kunjungannya sudah selesai dibalas 409. Setiap aksi dicatat di log audit dalam transaksi yang sama.
+  /// Hanya dokter yang boleh menyetujui atau mengoreksi level; perawat hanya boleh mengajukan review. Koreksi dan ajuan review wajib beralasan minimal 5 karakter. Penilaian yang sudah final (disetujui, dikoreksi, atau tercatat), sudah digantikan observasi yang lebih baru, atau pasiennya sudah keluar ICU dibalas 409. Setiap aksi dicatat di log audit dalam transaksi yang sama.
   @POST('/api/v1/triase/{id_triase}/validasi')
   Future<TriaseDetail> triaseValidasiTriaseTriaseUuidIdTriaseValidasiPost({
     @Path('id_triase') required String idTriase,
     @Body() required ValidasiRequest body,
   });
 
-  /// Riwayat triase pasien.
+  /// Riwayat observasi pasien.
   ///
-  /// Triase awal dan ulang dari semua kunjungan pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim.
+  /// Observasi dari semua masa rawat ICU pasien, terbaru lebih dulu. Halaman berikutnya diambil dengan mengirim kursor_berikutnya sebagai parameter kursor. NIK dan nomor telepon tidak dikirim.
   ///
   /// [kursor] - Dari kursor_berikutnya halaman sebelumnya.
   @GET('/api/v1/pasien/{id_pasien}/riwayat')

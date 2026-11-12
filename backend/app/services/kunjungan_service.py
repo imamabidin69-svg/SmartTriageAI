@@ -20,11 +20,20 @@ MAKS_HASIL_PENCARIAN = 20
 STATUS_AKTIF = (StatusKunjungan.MENUNGGU, StatusKunjungan.DITANGANI)
 POLA_NIK = re.compile(r"[0-9]{16}")
 
-# Perubahan status yang sah (keputusan K9). Status lain, termasuk mundur, dibalas 409.
+# Perubahan status yang sah (keputusan K9). Di ICU, menunggu berarti dirawat dan dipantau, ditangani berarti
+# sedang menjalani tindakan atau operasi, dan selesai berarti keluar ICU. Pasien yang selesai tindakan kembali
+# dipantau, jadi ditangani boleh kembali ke menunggu. Status lain dibalas 409.
 TRANSISI_STATUS = {
     StatusKunjungan.MENUNGGU: (StatusKunjungan.DITANGANI, StatusKunjungan.SELESAI),
-    StatusKunjungan.DITANGANI: (StatusKunjungan.SELESAI,),
+    StatusKunjungan.DITANGANI: (StatusKunjungan.MENUNGGU, StatusKunjungan.SELESAI),
     StatusKunjungan.SELESAI: (),
+}
+
+
+LABEL_STATUS = {
+    StatusKunjungan.MENUNGGU: "dirawat",
+    StatusKunjungan.DITANGANI: "sedang tindakan",
+    StatusKunjungan.SELESAI: "keluar ICU",
 }
 
 
@@ -102,10 +111,10 @@ class KunjunganService:
                 .execution_options(populate_existing=True)
             )
             if kunjungan is None:
-                raise TidakDitemukanError("Kunjungan tidak ditemukan.")
+                raise TidakDitemukanError("Pasien ICU tidak ditemukan.")
             if status not in TRANSISI_STATUS[kunjungan.status]:
                 raise KonflikError(
-                    f"Status kunjungan tidak bisa diubah dari {kunjungan.status.value} ke {status.value}."
+                    f"Status pasien tidak bisa diubah dari {LABEL_STATUS[kunjungan.status]} ke {LABEL_STATUS[status]}."
                 )
             if status == StatusKunjungan.DITANGANI:
                 kunjungan.waktu_ditangani = sekarang()
@@ -118,7 +127,7 @@ class KunjunganService:
         return kunjungan
 
     def daftar(self, data: RegistrasiRequest, perawat: Pengguna) -> HasilRegistrasi:
-        """Membuat kunjungan berstatus menunggu. Pasien, kunjungan, dan log audit masuk satu transaksi."""
+        """Mencatat pasien masuk ICU (status dirawat). Pasien, masa rawat, dan log audit masuk satu transaksi."""
         try:
             pasien, pasien_baru = self._pasien_untuk(data, perawat)
             aktif = db.session.scalar(
@@ -128,10 +137,16 @@ class KunjunganService:
             )
             if aktif is not None:
                 raise KonflikError(
-                    "Pasien ini masih punya kunjungan yang menunggu atau sedang ditangani.",
+                    "Pasien ini masih tercatat dirawat di ICU.",
                     ekstra={"id_kunjungan_aktif": str(aktif)},
                 )
-            kunjungan = Kunjungan(id_pasien=pasien.id_pasien)
+            self._periksa_bed(data.nomor_bed)
+            kunjungan = Kunjungan(
+                id_pasien=pasien.id_pasien,
+                nomor_bed=data.nomor_bed,
+                asal_ruangan=data.asal_ruangan,
+                diagnosis_masuk=data.diagnosis_masuk,
+            )
             db.session.add(kunjungan)
             db.session.flush()
             AuditLogger().catat(
@@ -147,16 +162,32 @@ class KunjunganService:
         except IntegrityError as galat:
             db.session.rollback()
             # Dua registrasi bersamaan dengan NIK baru yang sama: yang kalah mendapat 409, bukan 500.
-            if getattr(getattr(galat.orig, "diag", None), "constraint_name", None) == "uq_pasien_nik":
+            constraint = getattr(getattr(galat.orig, "diag", None), "constraint_name", None)
+            if constraint == "uq_pasien_nik":
                 raise KonflikError(
                     "NIK ini baru saja didaftarkan. Cari pasien dengan NIK tersebut lalu pilih dari hasil pencarian."
                 ) from galat
+            if constraint == "uq_kunjungan_bed_aktif":
+                raise self._bed_terisi(data.nomor_bed) from galat
             raise
         except Exception:
             db.session.rollback()
             raise
         db.session.refresh(kunjungan)
         return HasilRegistrasi(kunjungan=kunjungan, pasien_baru=pasien_baru)
+
+    @staticmethod
+    def _bed_terisi(nomor_bed: str) -> ValidasiGagalError:
+        return ValidasiGagalError(
+            [{"field": "nomor_bed", "pesan": f"Bed {nomor_bed} masih ditempati pasien lain yang belum keluar ICU."}]
+        )
+
+    def _periksa_bed(self, nomor_bed: str) -> None:
+        terisi = db.session.scalar(
+            select(Kunjungan.id_kunjungan).where(Kunjungan.nomor_bed == nomor_bed, Kunjungan.status.in_(STATUS_AKTIF))
+        )
+        if terisi is not None:
+            raise self._bed_terisi(nomor_bed)
 
     def _pasien_untuk(self, data: RegistrasiRequest, perawat: Pengguna) -> tuple[Pasien, bool]:
         if data.id_pasien is not None:

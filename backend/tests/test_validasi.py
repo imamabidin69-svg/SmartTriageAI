@@ -1,4 +1,4 @@
-"""POST /triase/{id}/validasi dan log auditnya (FR-06, NFR-06, Desain Gambar 2.16-2.18, keputusan K2a)."""
+"""Persetujuan dokter POST /triase/{id}/validasi dan log auditnya (FR-06, NFR-06, Desain Gambar 2.16-2.18)."""
 
 import uuid
 from datetime import timedelta
@@ -45,8 +45,8 @@ def triase_kritis(kunjungan, buat_triase):
 # ---------------------------------------------------------------- jalur berhasil
 
 
-def test_perawat_menyetujui_hasil_non_kritis(client, perawat, triase_sedang, sesi_db):
-    pengguna, header = perawat
+def test_dokter_menyetujui_penilaian(client, dokter, triase_sedang, sesi_db):
+    pengguna, header = dokter
     respons = client.post(_url(triase_sedang), json={"aksi": "setujui"}, headers=header)
 
     assert respons.status_code == 200
@@ -63,15 +63,15 @@ def test_perawat_menyetujui_hasil_non_kritis(client, perawat, triase_sedang, ses
     assert log.catatan is None
 
 
-def test_alasan_saat_menyetujui_boleh_diisi_dan_disimpan(client, perawat, triase_sedang, sesi_db):
-    _, header = perawat
+def test_alasan_saat_menyetujui_boleh_diisi_dan_disimpan(client, dokter, triase_sedang, sesi_db):
+    _, header = dokter
     respons = client.post(_url(triase_sedang), json={"aksi": "setujui", "alasan": "  Sesuai kondisi  "}, headers=header)
     assert respons.status_code == 200
     assert _log(sesi_db, triase_sedang)[0].catatan == "Sesuai kondisi"
 
 
-def test_alasan_kosong_saat_menyetujui_dianggap_tidak_diisi(client, perawat, triase_sedang, sesi_db):
-    _, header = perawat
+def test_alasan_kosong_saat_menyetujui_dianggap_tidak_diisi(client, dokter, triase_sedang, sesi_db):
+    _, header = dokter
     assert client.post(_url(triase_sedang), json={"aksi": "setujui", "alasan": "  "}, headers=header).status_code == 200
     assert _log(sesi_db, triase_sedang)[0].catatan is None
 
@@ -146,20 +146,20 @@ def test_validasi_boleh_saat_pasien_sedang_ditangani(client, dokter, buat_kunjun
         (
             Peran.PERAWAT,
             {"aksi": "setujui"},
-            RiskLevel.KRITIS,
-            "Hasil triase kritis harus divalidasi dokter. Ajukan review bila perlu.",
+            RiskLevel.RENDAH,
+            "Prioritas pasien ICU harus disetujui dokter. Ajukan review bila perlu segera dilihat.",
         ),
         (
             Peran.PERAWAT,
             {"aksi": "koreksi", "risk_level": "tinggi", "alasan": "Tampak sesak"},
             RiskLevel.SEDANG,
-            "Koreksi risk level hanya boleh dilakukan dokter. Ajukan review bila hasilnya meragukan.",
+            "Koreksi level hanya boleh dilakukan dokter. Ajukan review bila hasilnya meragukan.",
         ),
         (
             Peran.DOKTER,
             {"aksi": "ajukan_review", "alasan": "Perlu konsultasi"},
             RiskLevel.SEDANG,
-            "Dokter langsung menyetujui atau mengoreksi hasil triase, tanpa mengajukan review.",
+            "Dokter langsung menyetujui atau mengoreksi prioritas, tanpa mengajukan review.",
         ),
     ],
 )
@@ -191,7 +191,7 @@ def test_validasi_tanpa_login_ditolak(client, triase_sedang):
         (peran, aksi, level, boleh)
         for level in RiskLevel
         for peran, aksi, boleh in [
-            (Peran.PERAWAT, "setujui", level != RiskLevel.KRITIS),
+            (Peran.PERAWAT, "setujui", False),
             (Peran.PERAWAT, "koreksi", False),
             (Peran.PERAWAT, "ajukan_review", True),
             (Peran.DOKTER, "setujui", True),
@@ -208,7 +208,9 @@ def test_tabel_kebijakan_validasi(peran, aksi, level, boleh):
 
 
 def test_pesan_penolakan_bawaan():
-    assert KebijakanValidasi.pesan_ditolak(Peran.ADMIN, "setujui") == "Peran Anda tidak boleh memvalidasi hasil triase."
+    assert KebijakanValidasi.pesan_ditolak(Peran.ADMIN, "setujui") == (
+        "Peran Anda tidak boleh memvalidasi prioritas pasien."
+    )
 
 
 # ---------------------------------------------------------------- status sudah berubah (409)
@@ -226,17 +228,27 @@ def test_triase_final_tidak_bisa_divalidasi_lagi(client, dokter, kunjungan, buat
 
     assert respons.status_code == 409
     assert respons.get_json()["type"] == Tipe.KONFLIK
-    assert respons.get_json()["detail"] == f"Triase ini sudah divalidasi ({status.value})."
+    assert respons.get_json()["detail"] == f"Penilaian ini sudah divalidasi ({status.value})."
     assert _log(sesi_db, triase) == []
 
 
-@pytest.mark.parametrize("isian", [{"aksi": "setujui"}, {"aksi": "ajukan_review", "alasan": "Mohon dicek ulang"}])
-def test_ajuan_review_hanya_diputuskan_dokter(client, perawat, kunjungan, buat_triase, isian):
+def test_observasi_tercatat_tidak_perlu_persetujuan(client, dokter, kunjungan, buat_triase, sesi_db):
+    triase = buat_triase(kunjungan, RiskLevel.RENDAH, StatusValidasi.TERCATAT)
+    _, header = dokter
+    respons = client.post(_url(triase), json={"aksi": "setujui"}, headers=header)
+    assert respons.status_code == 409
+    assert respons.get_json()["detail"] == (
+        "Observasi ini tidak menaikkan level, jadi tidak memerlukan persetujuan dokter."
+    )
+    assert _log(sesi_db, triase) == []
+
+
+def test_ajuan_review_tidak_diajukan_dua_kali(client, perawat, kunjungan, buat_triase):
     triase = buat_triase(kunjungan, RiskLevel.SEDANG, StatusValidasi.MENUNGGU_REVIEW_DOKTER)
     _, header = perawat
-    respons = client.post(_url(triase), json=isian, headers=header)
+    respons = client.post(_url(triase), json={"aksi": "ajukan_review", "alasan": "Mohon dicek ulang"}, headers=header)
     assert respons.status_code == 409
-    assert respons.get_json()["detail"] == "Triase ini sedang menunggu review dokter."
+    assert respons.get_json()["detail"] == "Penilaian ini sedang menunggu review dokter."
 
 
 def test_triase_lama_tidak_bisa_divalidasi(client, dokter, kunjungan, buat_triase):
@@ -246,7 +258,7 @@ def test_triase_lama_tidak_bisa_divalidasi(client, dokter, kunjungan, buat_trias
     _, header = dokter
     respons = client.post(_url(lama), json={"aksi": "setujui"}, headers=header)
     assert respons.status_code == 409
-    assert respons.get_json()["detail"] == "Triase ini sudah digantikan triase ulang yang lebih baru."
+    assert respons.get_json()["detail"] == "Penilaian ini sudah digantikan observasi yang lebih baru."
 
 
 def test_kunjungan_selesai_tidak_bisa_divalidasi(client, dokter, buat_kunjungan, buat_triase):
@@ -254,14 +266,16 @@ def test_kunjungan_selesai_tidak_bisa_divalidasi(client, dokter, buat_kunjungan,
     _, header = dokter
     respons = client.post(_url(triase), json={"aksi": "setujui"}, headers=header)
     assert respons.status_code == 409
-    assert respons.get_json()["detail"] == "Kunjungan ini sudah selesai, jadi triasenya tidak bisa divalidasi lagi."
+    assert respons.get_json()["detail"] == (
+        "Pasien ini sudah keluar dari ICU, jadi penilaiannya tidak bisa divalidasi lagi."
+    )
 
 
 def test_triase_tidak_ada(client, dokter):
     _, header = dokter
     respons = client.post(f"/api/v1/triase/{uuid.uuid4()}/validasi", json={"aksi": "setujui"}, headers=header)
     assert respons.status_code == 404
-    assert respons.get_json()["detail"] == "Triase tidak ditemukan."
+    assert respons.get_json()["detail"] == "Observasi tidak ditemukan."
 
 
 # ---------------------------------------------------------------- isian tidak valid (422)

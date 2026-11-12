@@ -1,4 +1,4 @@
-"""Migrasi awal: naik-turun-naik, kesesuaian dengan model, nilai ENUM, dan hak akses role aplikasi."""
+"""Migrasi 0001 dan 0002: naik-turun-naik, kesesuaian dengan model, nilai ENUM, dan hak akses role aplikasi."""
 
 from decimal import Decimal
 
@@ -14,7 +14,7 @@ from sqlalchemy.exc import ProgrammingError
 from app import create_app
 from app.extensions import db
 from app.models import KONFIGURASI_BAWAAN, Konfigurasi, LogAudit
-from app.models.enums import SEMUA_TIPE_ENUM, AksiAudit, KategoriKeluhan, Peran
+from app.models.enums import SEMUA_TIPE_ENUM, AksiAudit, Peran, StatusValidasi
 
 TABEL_PDM = {"pengguna", "pasien", "kunjungan", "triase", "pemindaian_alat", "sesi_eir", "log_audit", "konfigurasi"}
 
@@ -48,6 +48,19 @@ def test_migrasi_naik_turun_naik(konfigurasi_app, url_db_sementara):
         assert tabel == TABEL_PDM | {"alembic_version"}
         assert tipe == nama_enum
 
+        # 0002 turun ke skema IGD: tipe kategori_keluhan kembali dan status tercatat hilang.
+        downgrade(revision="0001")
+        tabel, tipe = _isi_skema(url_db_sementara)
+        assert tipe == nama_enum | {"kategori_keluhan"}
+        mesin = sa.create_engine(url_db_sementara)
+        with mesin.connect() as koneksi:
+            status = koneksi.scalars(sa.text("SELECT unnest(enum_range(NULL::status_validasi))::text")).all()
+            ambang = koneksi.execute(sa.text("SELECT ambang_kritis, batas_tunggu_tinggi FROM konfigurasi")).one()
+        mesin.dispose()
+        assert "tercatat" not in status
+        assert tuple(ambang) == (6, 10)
+        upgrade()
+
         downgrade(revision="base")
         tabel, tipe = _isi_skema(url_db_sementara)
         assert tabel == {"alembic_version"}
@@ -76,10 +89,9 @@ def test_label_enum_di_basis_data_sama_dengan_python(sesi_db, tipe):
     assert label == [anggota.value for anggota in tipe.enum_class]
 
 
-def test_kategori_keluhan_sama_dengan_kategori_latih_model():
-    assert len(KategoriKeluhan) == 18
-    assert KategoriKeluhan.MUAL_MUNTAH_ATAU_DIARE == "Mual, muntah, atau diare"
-    assert KategoriKeluhan.LAINNYA == "Lainnya"
+def test_status_validasi_tercatat_ada_di_basis_data(sesi_db):
+    label = sesi_db.scalars(sa.text("SELECT unnest(enum_range(NULL::status_validasi))::text")).all()
+    assert StatusValidasi.TERCATAT.value in label
 
 
 def test_baris_konfigurasi_bawaan(sesi_db):

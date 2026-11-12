@@ -5,7 +5,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
 import 'jenis_triase.dart';
-import 'kategori_keluhan.dart';
 import 'kunjungan_riwayat.dart';
 import 'pengguna_ringkas.dart';
 import 'risk_level.dart';
@@ -21,8 +20,8 @@ class ItemRiwayat {
     required this.idTriase,
     required this.jenis,
     required this.waktuTriase,
-    required this.keluhanUtama,
-    required this.kategoriKeluhan,
+    required this.skorNews2,
+    required this.peluangPerburukan,
     required this.riskLevel,
     required this.sumberRekomendasi,
     required this.statusValidasi,
@@ -39,10 +38,10 @@ class ItemRiwayat {
   final JenisTriase jenis;
   @JsonKey(name: 'waktu_triase')
   final DateTime waktuTriase;
-  @JsonKey(name: 'keluhan_utama')
-  final String keluhanUtama;
-  @JsonKey(name: 'kategori_keluhan')
-  final KategoriKeluhan? kategoriKeluhan;
+  @JsonKey(name: 'skor_news2')
+  final int skorNews2;
+  @JsonKey(name: 'peluang_perburukan')
+  final num? peluangPerburukan;
   @JsonKey(name: 'risk_level')
   final RiskLevel riskLevel;
   @JsonKey(name: 'sumber_rekomendasi')

@@ -6,10 +6,10 @@ import 'package:json_annotation/json_annotation.dart';
 
 @JsonEnum()
 enum ItemDaftarTungguStatusTanda {
-  @JsonValue('belum_ditriase')
-  belumDitriase('belum_ditriase'),
-  @JsonValue('perlu_triase_ulang')
-  perluTriaseUlang('perlu_triase_ulang'),
+  @JsonValue('belum_dinilai')
+  belumDinilai('belum_dinilai'),
+  @JsonValue('observasi_terlambat')
+  observasiTerlambat('observasi_terlambat'),
   @JsonValue('normal')
   normal('normal'),
   /// Default value for all unparsed values, allows backward compatibility when adding new values on the backend.

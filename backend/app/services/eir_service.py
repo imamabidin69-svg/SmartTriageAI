@@ -1,8 +1,8 @@
-"""Alur Eir untuk pasien zona hijau dan keluarganya (FR-08, Desain 2.8 dan Gambar 2.22-2.24).
+"""Alur Eir untuk keluarga pasien ICU (FR-08, Desain 2.8 dan Gambar 2.22-2.24).
 
-Perawat membuat tautan untuk kunjungan yang risk level terakhirnya rendah. Pasien atau keluarga membuka
-tautan, memberi persetujuan, lalu menjawab pertanyaan. Rekaman suara dan teks hanya diproses di memori;
-yang disimpan hanya transkrip di sesi_eir.
+Perawat membuat tautan untuk pasien yang masih dirawat di ICU lalu memberikannya ke keluarga sebagai kode QR.
+Keluarga membuka tautan, memberi persetujuan, lalu menjawab pertanyaan tentang riwayat pasien. Rekaman suara
+dan teks hanya diproses di memori; yang disimpan hanya transkrip dan ringkasan di sesi_eir.
 """
 
 import math
@@ -17,14 +17,14 @@ from sqlalchemy import select
 from werkzeug.datastructures import FileStorage
 
 from app.ai.eir.agen import Balasan, EirAgent
+from app.ai.eir.informasi_penting import DetektorInformasiPenting
 from app.ai.eir.llm import LlmTidakTersediaError
 from app.ai.eir.prompt import PembersihIdentitas
-from app.ai.eir.tanda_bahaya import RedFlagDetector
 from app.ai.eir.tautan import TautanEir, TokenSesiEir
 from app.ai.registry import ModelRegistry
 from app.extensions import db, limiter
-from app.models import Kunjungan, SesiEir, Triase
-from app.models.enums import PengisiEir, RiskLevel, StatusKunjungan
+from app.models import Kunjungan, SesiEir
+from app.models.enums import PengisiEir, StatusKunjungan
 from app.utils.errors import (
     KonflikError,
     LayananTidakTersediaError,
@@ -34,7 +34,7 @@ from app.utils.errors import (
 )
 from app.utils.waktu import sekarang
 
-PESAN_TIDAK_TERSEDIA = "Eir sedang tidak dapat menjawab. Silakan sampaikan keluhan langsung ke perawat."
+PESAN_TIDAK_TERSEDIA = "Eir sedang tidak dapat menjawab. Silakan sampaikan keterangan langsung ke perawat ICU."
 
 
 @dataclass(frozen=True)
@@ -77,7 +77,7 @@ class EirService:
         self.tautan = TautanEir(config["SECRET_KEY"], self.umur)
         self.token_sesi = TokenSesiEir(config["SECRET_KEY"], self.umur)
         self.agen = EirAgent(
-            RedFlagDetector(),
+            DetektorInformasiPenting(),
             registry.retriever,
             registry.llm,
             int(config["EIR_MIN_JAWABAN"]),
@@ -94,7 +94,7 @@ class EirService:
     @staticmethod
     def sesi_terakhir(id_kunjungan: uuid.UUID) -> SesiEir:
         if db.session.get(Kunjungan, id_kunjungan) is None:
-            raise TidakDitemukanError("Kunjungan tidak ditemukan.")
+            raise TidakDitemukanError("Pasien ICU tidak ditemukan.")
         sesi = db.session.scalar(
             select(SesiEir)
             .where(SesiEir.id_kunjungan == id_kunjungan)
@@ -102,7 +102,7 @@ class EirService:
             .limit(1)
         )
         if sesi is None:
-            raise TidakDitemukanError("Kunjungan ini belum punya sesi Eir.")
+            raise TidakDitemukanError("Pasien ini belum punya sesi Eir.")
         return sesi
 
     # ------------------------------------------------------------ untuk pasien atau keluarga
@@ -225,25 +225,15 @@ class EirService:
 
     @staticmethod
     def _kunjungan_layak(id_kunjungan: uuid.UUID, kunci: bool = False) -> Kunjungan:
-        """Eir khusus kunjungan yang masih menunggu dan risk level terakhirnya rendah (Desain 2.8)."""
+        """Eir untuk keluarga pasien yang masih di ICU, apa pun levelnya, karena yang mengobrol adalah keluarga."""
         kueri = select(Kunjungan).where(Kunjungan.id_kunjungan == id_kunjungan)
         if kunci:
             kueri = kueri.with_for_update(read=True)
         kunjungan = db.session.scalar(kueri)
         if kunjungan is None:
-            raise TidakDitemukanError("Kunjungan tidak ditemukan.")
-        if kunjungan.status != StatusKunjungan.MENUNGGU:
-            raise KonflikError("Eir hanya untuk pasien yang masih menunggu.")
-        level = db.session.scalar(
-            select(Triase.risk_level)
-            .where(Triase.id_kunjungan == id_kunjungan)
-            .order_by(Triase.waktu_triase.desc(), Triase.id_triase.desc())
-            .limit(1)
-        )
-        if level is None:
-            raise KonflikError("Pasien belum ditriase.")
-        if level != RiskLevel.RENDAH:
-            raise KonflikError("Eir hanya untuk pasien dengan risk level terakhir rendah (zona hijau).")
+            raise TidakDitemukanError("Pasien ICU tidak ditemukan.")
+        if kunjungan.status == StatusKunjungan.SELESAI:
+            raise KonflikError("Pasien ini sudah keluar dari ICU, jadi tautan Eir tidak bisa dibuat.")
         return kunjungan
 
     @staticmethod

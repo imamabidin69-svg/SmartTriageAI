@@ -17,7 +17,8 @@ class TriaseTerakhir {
     required this.jenis,
     required this.riskLevel,
     required this.statusValidasi,
-    required this.keluhanUtama,
+    required this.skorNews2,
+    required this.peluangPerburukan,
     required this.waktuTriase,
   });
   
@@ -30,8 +31,10 @@ class TriaseTerakhir {
   final RiskLevel riskLevel;
   @JsonKey(name: 'status_validasi')
   final StatusValidasi statusValidasi;
-  @JsonKey(name: 'keluhan_utama')
-  final String keluhanUtama;
+  @JsonKey(name: 'skor_news2')
+  final int skorNews2;
+  @JsonKey(name: 'peluang_perburukan')
+  final num? peluangPerburukan;
   @JsonKey(name: 'waktu_triase')
   final DateTime waktuTriase;
 

@@ -44,7 +44,7 @@ function Gelembung({ pesan }: { pesan: PesanEir }) {
   );
 }
 
-/** Halaman Percakapan Eir (SKPL Tabel 7.3 no. 2): pertanyaan lanjutan, kotak jawaban, dan arahan tanda bahaya. */
+/** Halaman Percakapan Eir (SKPL Tabel 7.3 no. 2): pertanyaan lanjutan tentang riwayat pasien dan kotak jawaban. */
 export function Percakapan({ sesi, onUbah }: PercakapanProps) {
   const [draf, setDraf] = useState("");
   const [mengirim, setMengirim] = useState(false);

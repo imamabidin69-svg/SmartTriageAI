@@ -52,7 +52,7 @@ export function LayoutAdmin({ pengguna }: { pengguna: Pengguna }) {
             <LogoAplikasi />
             SmartTriage AI
             <span className="ml-1 hidden border-l border-navy-garis pl-3 font-normal text-navy-teks sm:inline">
-              Admin IGD
+              Admin ICU
             </span>
           </div>
           <nav aria-label="Menu utama" className="hidden flex-1 md:block">
@@ -68,7 +68,7 @@ export function LayoutAdmin({ pengguna }: { pengguna: Pengguna }) {
           </nav>
           <div className="ml-auto hidden items-center gap-4 text-[15px] md:flex">
             <NavLink to="/akun/password" className="font-bold text-white hover:underline" title="Ganti password">
-              {pengguna.nama} · Admin IGD
+              {pengguna.nama} · Admin ICU
             </NavLink>
             <button
               type="button"

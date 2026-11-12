@@ -24,10 +24,10 @@ class FaktorResponse {
   final String label;
   final dynamic nilai;
 
-  /// Nilai SHAP untuk hasil model, atau poin aturan untuk aturan cadangan.
+  /// Nilai SHAP untuk faktor model, atau poin untuk komponen NEWS2.
   final num kontribusi;
 
-  /// Untuk sumber model: naik berarti faktor ini mendukung level yang direkomendasikan, turun berarti melawannya. Untuk sumber aturan: naik berarti menambah poin risiko; netral bila tidak ada aturan yang terpicu.
+  /// Faktor model: naik berarti menaikkan peluang perburukan. Komponen NEWS2 selalu naik.
   final FaktorResponseArah arah;
 
   Map<String, Object?> toJson() => _$FaktorResponseToJson(this);
