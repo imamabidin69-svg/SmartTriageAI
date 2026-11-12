@@ -4,7 +4,10 @@ Setiap digit 0 sampai 9 pada foto layar alat dianotasi sebagai kelas tersendiri 
 kelas di model harus 0-9, karena backend membaca indeks kelas langsung sebagai nilai digit.
 """
 
+import argparse
+import ast
 import os
+import shutil
 from pathlib import Path
 
 NAMA_KELAS = [str(i) for i in range(10)]
@@ -62,6 +65,79 @@ def tulis_ulang_label(folder: Path, peta: dict[int, int]) -> int:
     return jumlah
 
 
+def baca_nama_kelas(data_yaml: Path) -> list[str]:
+    """Membaca daftar kelas dari data.yaml ekspor Roboflow tanpa PyYAML.
+
+    Roboflow menulis kelas sebagai list satu baris (names: ['0', '1']) atau sebagai blok per baris
+    ("- 0" atau "0: digit"). Keduanya didukung.
+    """
+    baris = Path(data_yaml).read_text(encoding="utf-8").splitlines()
+    for i, isi in enumerate(baris):
+        if not isi.startswith("names:"):
+            continue
+        sisa = isi.removeprefix("names:").strip()
+        if sisa:
+            return [str(n) for n in ast.literal_eval(sisa)]
+        nama = []
+        for lanjut in baris[i + 1 :]:
+            if not lanjut.startswith((" ", "\t", "-")) or not lanjut.strip():
+                break
+            item = lanjut.strip().removeprefix("-").strip()
+            if ":" in item and not item.startswith(("'", '"')):
+                item = item.split(":", 1)[1].strip()
+            nama.append(item.strip("'\""))
+        return nama
+    raise DatasetTidakSesuaiError(f"Daftar kelas (names) tidak ditemukan di {data_yaml}.")
+
+
+def _baris_kotak(baris: str, peta: dict[int, int]) -> str | None:
+    """Satu baris label YOLO menjadi kotak digit. Label poligon (segmentasi atau OBB) diubah ke kotak pembatasnya."""
+    bagian = baris.split()
+    if not bagian or int(bagian[0]) not in peta:
+        return None
+    angka = [float(x) for x in bagian[1:]]
+    if len(angka) == 4:
+        xc, yc, w, h = angka
+    else:
+        xs, ys = angka[0::2], angka[1::2]
+        xc, yc, w, h = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2, max(xs) - min(xs), max(ys) - min(ys)
+    if w <= 0 or h <= 0:
+        return None
+    return f"{peta[int(bagian[0])]} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}"
+
+
+def gabung_dataset(sumber: list[Path], tujuan: Path) -> dict[str, dict[str, int]]:
+    """Menggabungkan beberapa ekspor YOLOv8 Roboflow menjadi satu dataset digit 0-9.
+
+    Kelas setiap dataset dipetakan ke 0-9 dengan peta_kelas_digit, kelas lain (titik, minus, "bp-monitor")
+    dibuang, dan nama berkas diberi awalan d0_, d1_, dan seterusnya supaya tidak bertabrakan. Bagian yang
+    tidak ada (misalnya dataset tanpa test) dilewati. Mengembalikan jumlah foto dan kotak per dataset.
+    """
+    tujuan = Path(tujuan)
+    if tujuan.exists():
+        shutil.rmtree(tujuan)
+    for bagian in ("train", "valid", "test"):
+        (tujuan / bagian / "images").mkdir(parents=True)
+        (tujuan / bagian / "labels").mkdir(parents=True)
+    statistik: dict[str, dict[str, int]] = {}
+    for i, folder in enumerate(Path(s) for s in sumber):
+        peta = peta_kelas_digit(baca_nama_kelas(folder / "data.yaml"))
+        hitung = statistik.setdefault(folder.name, {"foto": 0, "kotak": 0})
+        for bagian in ("train", "valid", "test"):
+            for gambar in sorted((folder / bagian / "images").glob("*")):
+                label = folder / bagian / "labels" / f"{gambar.stem}.txt"
+                isi = label.read_text(encoding="utf-8").splitlines() if label.exists() else []
+                kotak = [k for k in (_baris_kotak(b, peta) for b in isi) if k]
+                nama = f"d{i}_{gambar.stem}"
+                shutil.copy2(gambar, tujuan / bagian / "images" / f"{nama}{gambar.suffix.lower()}")
+                teks = "\n".join(kotak) + ("\n" if kotak else "")
+                (tujuan / bagian / "labels" / f"{nama}.txt").write_text(teks, encoding="utf-8")
+                hitung["foto"] += 1
+                hitung["kotak"] += len(kotak)
+    tulis_data_yaml(tujuan)
+    return statistik
+
+
 def periksa_kelas(nama_kelas: list[str]) -> None:
     if list(nama_kelas) != NAMA_KELAS:
         raise DatasetTidakSesuaiError(
@@ -107,3 +183,13 @@ def unduh_dari_roboflow(workspace: str, proyek: str, versi: int, folder: Path) -
         # Dataset dari Roboflow Universe sering memakai nama lain ("seven", "digit_7") atau punya kelas tambahan.
         print(f"{tulis_ulang_label(hasil, peta_kelas_digit(list(nama)))} kotak digit dipakai.")
     return tulis_data_yaml(hasil)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    parser = argparse.ArgumentParser(description="Gabungkan ekspor YOLOv8 Roboflow menjadi dataset digit 0-9.")
+    parser.add_argument("--sumber", type=Path, nargs="+", required=True, help="Folder hasil ekstrak zip Roboflow.")
+    parser.add_argument("--tujuan", type=Path, required=True)
+    a = parser.parse_args()
+    for nama, jumlah in gabung_dataset(a.sumber, a.tujuan).items():
+        print(f"{nama}: {jumlah['foto']} foto, {jumlah['kotak']} kotak digit")
+    print(f"data.yaml: {a.tujuan / 'data.yaml'}")

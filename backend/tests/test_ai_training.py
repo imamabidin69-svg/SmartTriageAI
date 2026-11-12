@@ -348,3 +348,85 @@ def test_peta_kelas_menolak_dataset_tanpa_semua_digit():
 
     with pytest.raises(DatasetTidakSesuaiError, match=r"\[8, 9\]"):
         peta_kelas_digit([str(i) for i in range(8)] + ["HR"])
+
+
+# ---------------------------------------------------------------- menggabungkan beberapa dataset Roboflow
+
+
+@pytest.mark.parametrize(
+    ("isi", "nama"),
+    [
+        ("nc: 3\nnames: ['-', '.', '0']\n", ["-", ".", "0"]),
+        ("names:\n  0: Health_Monitor\n  1: 'digit'\nroboflow:\n  versi: 1\n", ["Health_Monitor", "digit"]),
+        ("names:\n- '0'\n- \"1\"\n\nnc: 2\n", ["0", "1"]),
+    ],
+)
+def test_baca_nama_kelas(tmp_path, isi, nama):
+    from ai_training.dataset import baca_nama_kelas
+
+    (tmp_path / "data.yaml").write_text(isi, encoding="utf-8")
+    assert baca_nama_kelas(tmp_path / "data.yaml") == nama
+
+
+def test_baca_nama_kelas_tanpa_names(tmp_path):
+    from ai_training.dataset import baca_nama_kelas
+
+    (tmp_path / "data.yaml").write_text("nc: 2\n", encoding="utf-8")
+    with pytest.raises(DatasetTidakSesuaiError, match="names"):
+        baca_nama_kelas(tmp_path / "data.yaml")
+
+
+def _dataset_roboflow(folder: Path, kelas: list[str], label: dict[str, dict[str, str]]) -> Path:
+    (folder).mkdir(parents=True)
+    (folder / "data.yaml").write_text(f"nc: {len(kelas)}\nnames: {kelas!r}\n", encoding="utf-8")
+    for bagian, berkas in label.items():
+        (folder / bagian / "images").mkdir(parents=True)
+        (folder / bagian / "labels").mkdir(parents=True)
+        for nama, isi in berkas.items():
+            Image.new("RGB", (8, 8)).save(folder / bagian / "images" / f"{nama}.JPG")
+            if isi is not None:
+                (folder / bagian / "labels" / f"{nama}.txt").write_text(isi, encoding="utf-8")
+    return folder
+
+
+def test_gabung_dataset(tmp_path):
+    from ai_training.dataset import gabung_dataset
+
+    # Dataset pertama memakai urutan kelas Roboflow ('-', '.', '0'-'9') dan satu label poligon.
+    a = _dataset_roboflow(
+        tmp_path / "a",
+        ["-", ".", *[str(i) for i in range(10)]],
+        {
+            "train": {"x": "2 0.5 0.5 0.2 0.4\n0 0.1 0.1 0.1 0.1\n11 0.1 0.2 0.3 0.2 0.3 0.4 0.1 0.4\n"},
+            "valid": {"y": "1 0.5 0.5 0.1 0.1\n"},
+        },
+    )
+    # Dataset kedua memakai nama kelas "10" yang bukan digit, foto tanpa berkas label, dan kotak berukuran nol.
+    b = _dataset_roboflow(
+        tmp_path / "b",
+        ["0", "1", "10", *[str(i) for i in range(2, 10)]],
+        {"train": {"x": "3 0.5 0.5 0.2 0.2\n2 0.5 0.5 0.9 0.9\n4 0.5 0.5 0 0.2\n"}, "test": {"z": None}},
+    )
+    tujuan = tmp_path / "gabungan"
+    (tujuan / "lama").mkdir(parents=True)
+
+    statistik = gabung_dataset([a, b], tujuan)
+
+    assert statistik == {"a": {"foto": 2, "kotak": 2}, "b": {"foto": 2, "kotak": 1}}
+    assert not (tujuan / "lama").exists()
+    assert sorted(p.name for p in (tujuan / "train" / "images").iterdir()) == ["d0_x.jpg", "d1_x.jpg"]
+    assert (tujuan / "train" / "labels" / "d0_x.txt").read_text() == (
+        "0 0.500000 0.500000 0.200000 0.400000\n9 0.200000 0.300000 0.200000 0.200000\n"
+    )
+    assert (tujuan / "train" / "labels" / "d1_x.txt").read_text() == "2 0.500000 0.500000 0.200000 0.200000\n"
+    assert (tujuan / "valid" / "labels" / "d0_y.txt").read_text() == ""
+    assert (tujuan / "test" / "labels" / "d1_z.txt").read_text() == ""
+    assert "names: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']" in (tujuan / "data.yaml").read_text()
+
+
+def test_gabung_dataset_menolak_dataset_tanpa_digit(tmp_path):
+    from ai_training.dataset import gabung_dataset
+
+    a = _dataset_roboflow(tmp_path / "a", ["Health_Monitor"], {"train": {"x": "0 0.5 0.5 0.2 0.2\n"}})
+    with pytest.raises(DatasetTidakSesuaiError):
+        gabung_dataset([a], tmp_path / "gabungan")

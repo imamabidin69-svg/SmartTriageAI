@@ -107,8 +107,11 @@ SKPL supaya dokumen desain dan kode masih bisa dicocokkan.
   peringatan.
 - Jumlah bed (8) adalah angka simulasi karena belum ada angka dari dosen.
 - Angka dari foto bedside monitor belum dipetakan otomatis ke kolom karena tata letak monitor berbeda antar
-  merek; perawat mengisinya manual. Model YOLO pembaca digit dilatih di Colab memakai akun Roboflow sendiri
-  (`backend/ai_training/colab_yolo_pembaca_layar.ipynb`).
+  merek; perawat mengisinya manual. Model YOLO pembaca digit (`yolo_digit.onnx`) dilatih dari enam dataset
+  Roboflow Universe berlisensi CC BY 4.0. Pada 19 foto tensimeter uji dengan ambang keyakinan 0,6, 48 dari 57
+  kolom terisi dan semuanya benar (rincian di `backend/ai_training/laporan_model_yolo.json`). Dataset
+  Cloudphysician (2.000 foto monitor ICU) dan alx-xlaxal sudah tersedia untuk tahap berikutnya, yaitu memotong
+  layar monitor dan menandai area tanda vital sebelum digit dibaca.
 - Pola informasi penting Eir dan panduan pertanyaan masih draf dan perlu ditinjau tenaga medis.
 - Semua data pasien di sistem adalah data simulasi.
 

@@ -1,0 +1,53 @@
+{
+  "versi": "yolo11n-digit-v1",
+  "berkas": "app/ai/artefak/yolo_digit.onnx",
+  "arsitektur": "YOLO11n (Ultralytics 8.4.178), ekspor ONNX opset 12, masukan 640x640, keluaran (1, 14, 8400)",
+  "kelas": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "dataset": [
+    {"nama": "Seven segments display digits v3", "url": "https://universe.roboflow.com/mba/seven-segments-display-digits/dataset/3", "lisensi": "CC BY 4.0", "foto_latih": 744, "kelas_dibuang": ["-", "."]},
+    {"nama": "Automated BP Device Digit Recognition v5", "url": "https://universe.roboflow.com/adindra-vickar-ega-odhei/automated-bp-device-digit-recognition/dataset/5", "lisensi": "CC BY 4.0", "foto_latih": 494, "kelas_dibuang": []},
+    {"nama": "7-segment-display v2", "url": "https://universe.roboflow.com/hard-hat-ihqrk/7-segment-display-jxph1/dataset/2", "lisensi": "CC BY 4.0", "foto_latih": 249, "kelas_dibuang": []},
+    {"nama": "BP Digits 1.6 v15", "url": "https://universe.roboflow.com/keane-teo/bp-digits-1.6/dataset/15", "lisensi": "CC BY 4.0", "foto_latih": 189, "kelas_dibuang": ["10"]},
+    {"nama": "Scale 7 segment digit v1", "url": "https://universe.roboflow.com/numbers-dzwss/scale-7-segment-digit-ey4gr/dataset/1", "lisensi": "CC BY 4.0", "foto_latih": 158, "kelas_dibuang": ["."]},
+    {"nama": "projectW7digits v15", "url": "https://universe.roboflow.com/phy/projectw7digits/dataset/15", "lisensi": "CC BY 4.0", "foto_latih": 1680, "kelas_dibuang": [], "catatan": "gambar sintetis"}
+  ],
+  "jumlah_foto": {"latih": 3514, "validasi": 458, "uji": 80},
+  "pelatihan": {
+    "perangkat": "CPU 4 inti, tanpa GPU",
+    "tahap_1": "dari yolo11n.pt, lima dataset pertama, 4 epoch (dihentikan saat dataset keenam datang), bobot terbaik epoch 3",
+    "tahap_2": "lanjutan dari bobot terbaik tahap 1, enam dataset, 20 epoch",
+    "parameter": {"imgsz": 640, "batch": 16, "fliplr": 0.0, "degrees": 8.0}
+  },
+  "validasi": {
+    "foto": 458, "kotak": 2917,
+    "presisi": 0.991, "recall": 0.981, "map50": 0.993, "map50_95": 0.901,
+    "map50_95_per_digit": {"0": 0.879, "1": 0.793, "2": 0.915, "3": 0.912, "4": 0.931, "5": 0.896, "6": 0.937, "7": 0.894, "8": 0.928, "9": 0.923}
+  },
+  "uji_jalur_backend": {
+    "keterangan": "80 foto uji asli (tanpa gambar sintetis) lewat PembacaLayarOnnx dan PenyusunAngka, ambang deteksi 0,25",
+    "presisi_digit": 0.938,
+    "recall_digit": 0.990,
+    "angka_terbaca_tepat": "128/142 (90,1%)",
+    "per_sumber_angka_tepat": {
+      "Automated BP Device": "53/54",
+      "BP Digits 1.6": "49/52",
+      "Scale 7 segment": "12/16",
+      "7-segment-display": "11/17",
+      "Seven segments display": "3/3"
+    }
+  },
+  "uji_kolom_tensimeter": {
+    "keterangan": "19 foto tensimeter uji yang labelnya berisi tepat tiga angka, lewat PemetaKolom dan aturan PemindaianService",
+    "ambang_keyakinan": {
+      "0.85": {"kolom": 57, "terisi": 23, "benar": 23},
+      "0.70": {"kolom": 57, "terisi": 47, "benar": 47},
+      "0.60": {"kolom": 57, "terisi": 48, "benar": 48}
+    },
+    "rekomendasi": "ambang_keyakinan 0,6 lewat halaman Pengaturan web admin"
+  },
+  "batasan": [
+    "Foto dari jauh (seluruh alat dan latar ikut terfoto) sering gagal: digit LCD terlalu kecil dan motif kain bisa terbaca sebagai digit. Layar sebaiknya memenuhi bingkai foto.",
+    "Dataset BP Monitor Reading tidak dipakai karena sebagian besar labelnya bergeser dari posisi digit.",
+    "Dataset Cloudphysician, alx-xlaxal, dan detect_7segment menandai area layar atau area tanda vital, bukan digit, sehingga tidak dipakai untuk model ini."
+  ]
+}

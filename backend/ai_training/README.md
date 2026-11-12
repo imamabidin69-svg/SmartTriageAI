@@ -4,7 +4,7 @@ Folder ini berisi tiga hal:
 
 1. Model peluang perburukan pasien ICU (Random Forest + SHAP) dari data PhysioNet 2019. Bagian A.
 2. Evaluasi Eir untuk keluarga pasien ICU. Bagian B.
-3. Pembaca layar alat (YOLO digit 0-9) yang dilatih di Google Colab. Bagian C.
+3. Pembaca layar alat (YOLO digit 0-9) dari enam dataset Roboflow Universe. Bagian C.
 
 ## A. Model peluang perburukan (`perburukan.py`)
 
@@ -55,8 +55,42 @@ Hasil saat ini: Recall@3 panduan 0,97 (target 0,86), informasi penting recall 1,
 ## C. Pembaca layar alat (YOLO)
 
 Skrip di bawah menyiapkan model YOLO yang dipakai `POST /api/v1/pemindaian` untuk membaca angka di
-layar alat. Pelatihan dijalankan di Google Colab dengan GPU memakai akun Roboflow Anda sendiri, lalu
-hasilnya diekspor ke ONNX supaya backend cukup memakai onnxruntime tanpa PyTorch.
+layar alat. Hasilnya diekspor ke ONNX supaya backend cukup memakai onnxruntime tanpa PyTorch.
+
+### C0. Model yang sudah terpasang
+
+`app/ai/artefak/yolo_digit.onnx` (versi `yolo11n-digit-v1`) dilatih dari enam dataset Roboflow Universe
+berlisensi CC BY 4.0: 3.514 foto latih, 458 validasi, dan 80 uji. Rinciannya ada di `laporan_model_yolo.json`.
+
+| Ukuran | Hasil |
+|---|---|
+| Validasi mAP50 / mAP50-95 | 0,993 / 0,901 |
+| Uji lewat jalur backend: digit (presisi / recall) | 0,938 / 0,990 |
+| Uji lewat jalur backend: angka terbaca tepat | 128 dari 142 (90,1%) |
+| Kolom tensimeter terisi dan benar, ambang 0,85 | 23 dari 57 kolom terisi, semuanya benar |
+| Kolom tensimeter terisi dan benar, ambang 0,6 | 48 dari 57 kolom terisi, semuanya benar |
+
+Model ini jarang memberi keyakinan di atas 0,85 untuk angka tiga digit, jadi dengan ambang bawaan banyak
+kolom sistolik dikosongkan. Turunkan `ambang_keyakinan` menjadi 0,6 lewat halaman Pengaturan di web admin.
+Perawat tetap memeriksa angka sebelum menyimpan.
+
+Foto sebaiknya diambil dari dekat sampai layar alat memenuhi bingkai. Pada foto dari jauh, digit LCD terlalu
+kecil dan motif kain di latar bisa terbaca sebagai digit.
+
+### C0b. Melatih ulang di laptop dari zip Roboflow
+
+Unduh setiap dataset dari Roboflow Universe dalam format YOLOv8 ("Download zip to computer"), ekstrak
+masing-masing ke foldernya sendiri, lalu gabungkan. Nama kelas dipetakan otomatis ke 0-9, kelas lain
+(titik, minus, kotak satu angka utuh) dibuang, dan label poligon diubah menjadi kotak.
+
+```bash
+python -m ai_training.dataset --sumber data/seven-segments data/bp-device data/bp-digits --tujuan data/gabungan
+python -m ai_training.latih --data data/gabungan/data.yaml --epoch 40
+python -m ai_training.ekspor --bobot runs/detect/digit_layar/weights/best.pt
+```
+
+Tanpa GPU, satu epoch untuk sekitar 3.500 foto memakan waktu kurang lebih 12 menit di CPU empat inti.
+Pelatihan juga bisa dijalankan di Google Colab dengan GPU memakai akun Roboflow Anda sendiri.
 
 Cara tercepat: buka `colab_yolo_pembaca_layar.ipynb` di Google Colab (File > Upload notebook), simpan
 API key Roboflow di Colab Secrets dengan nama `ROBOFLOW_API_KEY`, isi workspace dan nama proyek, lalu jalankan
